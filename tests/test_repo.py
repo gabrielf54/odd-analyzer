@@ -1,5 +1,10 @@
 import pytest
-from odd_analyzer.store.repo import InMemoryRepo, clv
+from odd_analyzer.store.repo import Repo, InMemoryRepo, SupabaseRepo, clv
+
+def test_repo_interface():
+    # as duas implementacoes honram o mesmo contrato
+    assert issubclass(InMemoryRepo, Repo)
+    assert issubclass(SupabaseRepo, Repo)
 
 def test_clv_positivo_quando_flag_melhor_que_fechamento():
     # peguei 2.10, fechou 1.90 -> CLV positivo (preço melhor)
@@ -24,3 +29,8 @@ def test_repo_salva_ledger_e_atualiza_fechamento():
     assert row["odd_fechamento"] == 1.90
     assert row["resultado"] == 1
     assert row["clv"] == pytest.approx(2.10 / 1.90 - 1.0)
+
+def test_update_fechamento_linha_inexistente_e_noop():
+    r = InMemoryRepo()
+    r.update_fechamento("ghost", "Ninguem", 0.5, odd_fechamento=1.80, resultado=0)
+    assert r.ledger == []  # nao cria nem quebra

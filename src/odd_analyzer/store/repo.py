@@ -33,6 +33,7 @@ class InMemoryRepo(Repo):
                 row["odd_fechamento"] = odd_fechamento
                 row["resultado"] = resultado
                 row["clv"] = clv(row["odd_flag"], odd_fechamento)
+                break  # 1 registro por tripla (garantido pela constraint unique no schema)
 
 class SupabaseRepo(Repo):
     """Persiste no Supabase. Tabelas em store/schema.sql (rodar uma vez no SQL editor)."""
@@ -42,21 +43,23 @@ class SupabaseRepo(Repo):
             from odd_analyzer.config import get_required
             client = create_client(get_required("SUPABASE_URL"),
                                    get_required("SUPABASE_SERVICE_KEY"))
-        self.c = client
+        self._client = client
     def save_analise(self, event_id, payload):
-        self.c.table("analises").upsert({"event_id": event_id, **payload}).execute()
+        self._client.table("analises").upsert({"event_id": event_id, **payload}).execute()
     def get_analise(self, event_id):
-        r = self.c.table("analises").select("*").eq("event_id", event_id).execute()
+        r = self._client.table("analises").select("*").eq("event_id", event_id).execute()
         return r.data[0] if r.data else None
     def save_ledger(self, rows):
         if rows:
-            self.c.table("paper_ledger").insert(rows).execute()
+            self._client.table("paper_ledger").insert(rows).execute()
     def update_fechamento(self, event_id, jogador, linha, odd_fechamento, resultado):
-        sel = (self.c.table("paper_ledger").select("odd_flag")
+        sel = (self._client.table("paper_ledger").select("odd_flag")
                .eq("event_id", event_id).eq("jogador", jogador).eq("linha", linha).execute())
         if not sel.data:
             return
+        if len(sel.data) > 1:
+            raise RuntimeError(f"paper_ledger com linhas duplicadas para ({event_id}, {jogador}, {linha})")
         c = clv(sel.data[0]["odd_flag"], odd_fechamento)
-        (self.c.table("paper_ledger")
+        (self._client.table("paper_ledger")
          .update({"odd_fechamento": odd_fechamento, "resultado": resultado, "clv": c})
          .eq("event_id", event_id).eq("jogador", jogador).eq("linha", linha).execute())

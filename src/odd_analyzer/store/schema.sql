@@ -22,11 +22,12 @@ create table if not exists paper_ledger (
   prob_devig_fechamento numeric,
   resultado int,
   clv numeric,
-  criado_em timestamptz default now()
+  criado_em timestamptz default now(),
+  unique (event_id, jogador, linha)  -- 1 registro por jogo/jogador/linha (update_fechamento casa nessa tripla)
 );
 
 create table if not exists jogadores_crosswalk (
-  id_canonico bigint primary key,
+  id_canonico bigint primary key,  -- id canonico do jogador, fornecido pelo caller (ex.: ID API-Football)
   nome_normalizado text,
   fontes_ids jsonb,
   confianca numeric,
