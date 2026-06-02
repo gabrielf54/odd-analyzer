@@ -30,3 +30,19 @@ def test_rejeita_falta_de_chave():
 
 def test_rejeita_nao_dict():
     assert validate_ia_output(["x"], CANDS) is False
+
+def test_rejeita_confianca_invalida():
+    bad = _ok()
+    bad["melhor_aposta"]["confianca"] = "altissima"  # fora de {alta,media,baixa}
+    assert validate_ia_output(bad, CANDS) is False
+
+def test_rejeita_jogador_inventado_em_outras():
+    bad = _ok()
+    bad["outras"] = [{"jogador": "Neymar", "linha": 0.5, "veredito": "APOSTAR",
+                      "confianca": "alta", "motivo": "x"}]  # jogador fora dos candidatos
+    assert validate_ia_output(bad, CANDS) is False
+
+def test_rejeita_outra_nao_dict():
+    bad = _ok()
+    bad["outras"] = [42]  # item não-dict em outras
+    assert validate_ia_output(bad, CANDS) is False
