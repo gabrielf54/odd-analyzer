@@ -1,0 +1,11 @@
+{
+  "response": [
+    {
+      "league": {"id": 1, "name": "World Cup"},
+      "seasons": [
+        {"year": 2022, "coverage": {"fixtures": {"lineups": true}}},
+        {"year": 2026, "coverage": {"fixtures": {"lineups": true}}}
+      ]
+    }
+  ]
+}
