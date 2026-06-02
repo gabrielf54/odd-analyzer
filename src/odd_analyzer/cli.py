@@ -38,7 +38,9 @@ def probe_all() -> None:
         detalhes["stats"] = f"erro (provável 403/Cloudflare): {e} — testar Sofascore/Understat"
 
     report = build_viability_report(odds_ok, stats_ok, lineups_ok, detalhes)
-    out = Path("docs/superpowers/reports/fase0-viabilidade.md")
+    # Ancorado no root do projeto (cli.py vive em src/odd_analyzer/), nao no CWD.
+    project_root = Path(__file__).resolve().parents[2]
+    out = project_root / "docs" / "superpowers" / "reports" / "fase0-viabilidade.md"
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(report, encoding="utf-8")
     print(report)
