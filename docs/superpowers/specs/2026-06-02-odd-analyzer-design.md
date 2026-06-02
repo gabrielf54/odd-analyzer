@@ -5,6 +5,25 @@
 
 ---
 
+## 0. Atualização pós-spike (2026-06-02) — supersede §4 (fontes) e §10 (fases)
+
+O spike da Fase 0 (testes ao vivo das APIs) mudou as fontes de dados. **Arquitetura vigente:**
+
+- **Odds:** ~~SportsGameOdds~~ → **The Odds API** (free 500 créditos/mês) para validação. Confirmado: `soccer_fifa_world_cup` ativa, 72 jogos, `h2h` de 41 casas; market `player_shots_on_target` é válido mas vem **vazio a 9 dias do jogo** (casas só postam props perto do kickoff) → **reverificar ~9-10/jun**. SGO/bet365 fica só para a **Fase 2** (aposta real), se a tese provar. *(SGO free não serve: sem player props e Copa bloqueada por tier.)*
+- **Stats (SoT base-rate):** ~~FBref/soccerdata~~ → **API-Football** (`/players` → `statistics[].shots.{total,on}` + `games.{minutes,appearences}`). Confirmado ao vivo (ex.: Haaland 2023 EPL 98/59). Free tier: **seasons 2022-2024**. Motivo do pivot: FBref perdeu o feed Opta (jan/2026), tem 403 anti-bot, e a máquina só tem **Python 3.14** (sem wheel p/ soccerdata/pandas-pinado). API-Football é API limpa, roda no 3.14, e usa o **mesmo ID space das escalações** (elimina o matching stats↔escalação; resta só odds↔API-Football por nome).
+- **Escalação:** **API-Football** (mesma fonte). WC2026 `lineups=False` agora; deve ativar no início do torneio — reverificar.
+- **Banco:** Supabase (mantido), mas **adiado para quando rodar contínuo** (Fase 1b/2). Na Fase 1a o cache de respostas da API fica em arquivos locais (gitignored).
+
+**Fases revisadas (supersede §10):**
+- **Fase 1a (AGORA, grátis):** ingestão de stats (API-Football) → modelo NegBin → **backtest de CALIBRAÇÃO** em jogos de clube 2022-2024 (o modelo é bem calibrado? prob 60% → acontece ~60%?). Prova o modelo **sem odds**. Plano: `docs/superpowers/plans/2026-06-02-fase1a-modelo-calibracao.md`.
+- **Fase 1b (quando odds entrarem ~10/jun):** de-vig + edge/EV + CLV por cima, em paper.
+- **Fase 2:** SGO Pro + bet365, aposta real (só se 1a/1b provarem).
+- **Fase 3:** escala pras ligas.
+
+> O restante deste documento (§1-§13) segue válido como racional de design; onde §4/§10 citam SGO/FBref como fonte primária, vale esta §0.
+
+---
+
 ## 1. Objetivo e princípio
 
 Achar odds em que a casa **errou o preço** de uma linha de SOT de jogador — e só sinalizar quando há **valor real**, não quando a probabilidade é alta.
