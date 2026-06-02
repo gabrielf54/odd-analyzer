@@ -17,3 +17,9 @@ def test_override_manual_tem_prioridade():
     m = match_player("Raphinha", ELENCO, overrides={"raphinha": 2})
     assert m["id"] == 2
     assert m["confianca"] == 1.0
+
+def test_override_aceita_chave_nao_normalizada():
+    # chave com acento/caixa é normalizada internamente (evita override ignorado em silêncio)
+    m = match_player("Raphinha", ELENCO, overrides={"Raphinha": 2})
+    assert m["id"] == 2
+    assert m["confianca"] == 1.0

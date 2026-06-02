@@ -15,6 +15,8 @@ def _sim(a: str, b: str) -> float:
 def match_player(odd_name: str, elenco: list[dict],
                  overrides: dict | None = None, threshold: float = 0.90) -> dict | None:
     n = normalize(odd_name)
+    if overrides:
+        overrides = {normalize(k): v for k, v in overrides.items()}  # tolera chave não-normalizada
     if overrides and n in overrides:
         oid = overrides[n]
         nome = next((p["name"] for p in elenco if p["id"] == oid), odd_name)
