@@ -18,7 +18,9 @@ from odd_analyzer.stats.apifootball import BASE
 from odd_analyzer.model.sot_model import expected_lambda, prob_over_line
 from odd_analyzer.model.shrinkage import shrink_rate
 from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multiplier
-from odd_analyzer.backtest.calibration import brier_score, reliability_bins
+from odd_analyzer.backtest.calibration import (
+    brier_score, reliability_bins, log_loss, expected_calibration_error, brier_skill_score,
+)
 import requests
 
 from odd_analyzer.model.params import (
@@ -101,6 +103,35 @@ def collect_data(league_id, season, n_fixtures):
         home_factor = away_factor = 1.0
     return meta, records, conceded_pg, league_avg, home_factor, away_factor
 
+def score_records(meta, records, conceded_pg, league_avg, home_factor, away_factor,
+                  lines=LINHAS, prior_rate=PRIOR_RATE, prior_strength=PRIOR_STRENGTH,
+                  nb_dispersion=NB_DISPERSION, min_other_minutes=MIN_OTHER_MINUTES):
+    """PURA (sem rede): dos dados coletados -> ({linha: [preds]}, {linha: [actuals]}).
+    Leave-one-out por jogador + shrinkage + ajustes; prevê P(SOT >= linha) via NegBin.
+    Determinística — base do replay offline em CI."""
+    tot_min, tot_sot, apps = {}, {}, {}
+    for _, pid, _, m, s in records:
+        tot_min[pid] = tot_min.get(pid, 0) + m
+        tot_sot[pid] = tot_sot.get(pid, 0) + s
+        apps[pid] = apps.get(pid, 0) + 1
+    preds = {l: [] for l in lines}
+    actuals = {l: [] for l in lines}
+    for fid, pid, tid, m, s in records:
+        other_min = tot_min[pid] - m            # taxa SEM o jogo previsto (leave-one-out)
+        other_sot = tot_sot[pid] - s
+        if other_min < min_other_minutes:
+            continue
+        rate = shrink_rate(other_sot / other_min * 90.0, apps[pid] - 1, prior_rate, prior_strength)
+        mu = expected_lambda(rate, m)           # minutos REAIS (isola o modelo de taxa)
+        home_id, away_id = meta[fid]
+        opp = away_id if tid == home_id else home_id
+        mu *= opponent_multiplier(conceded_pg.get(opp, league_avg), league_avg)
+        mu *= home_away_multiplier(tid == home_id, home_factor, away_factor)
+        for l in lines:
+            preds[l].append(prob_over_line(mu, l, r=nb_dispersion))
+            actuals[l].append(1 if s > l else 0)
+    return preds, actuals
+
 def run(league_id, season, n_fixtures):
     preds = {l: [] for l in LINHAS}
     actuals = {l: [] for l in LINHAS}
@@ -108,28 +139,12 @@ def run(league_id, season, n_fixtures):
         meta, records, conceded_pg, league_avg, home_factor, away_factor = collect_data(league_id, season, n_fixtures)
         print(f"jogos: {len(meta)} | registros jogador-jogo: {len(records)} | "
               f"SoT concedido/jogo médio: {league_avg:.2f} | mando casa/fora: {home_factor:.2f}/{away_factor:.2f}")
-        tot_min, tot_sot, apps = {}, {}, {}
-        for _, pid, _, m, s in records:
-            tot_min[pid] = tot_min.get(pid, 0) + m
-            tot_sot[pid] = tot_sot.get(pid, 0) + s
-            apps[pid] = apps.get(pid, 0) + 1
-        usados = 0
-        for fid, pid, tid, m, s in records:
-            other_min = tot_min[pid] - m            # taxa SEM o jogo previsto (leave-one-out)
-            other_sot = tot_sot[pid] - s
-            if other_min < MIN_OTHER_MINUTES:
-                continue
-            rate = shrink_rate(other_sot / other_min * 90.0, apps[pid] - 1, PRIOR_RATE, PRIOR_STRENGTH)
-            mu = expected_lambda(rate, m)           # minutos REAIS (isola o modelo de taxa)
-            home_id, away_id = meta[fid]
-            opp = away_id if tid == home_id else home_id
-            mu *= opponent_multiplier(conceded_pg.get(opp, league_avg), league_avg)
-            mu *= home_away_multiplier(tid == home_id, home_factor, away_factor)
-            usados += 1
-            for l in LINHAS:
-                preds[l].append(prob_over_line(mu, l, r=NB_DISPERSION))
-                actuals[l].append(1 if s > l else 0)
-        print(f"registros usados (>= {MIN_OTHER_MINUTES}min fora): {usados}")
+        preds_a, actuals_a = score_records(
+            meta, records, conceded_pg, league_avg, home_factor, away_factor)
+        for l in LINHAS:
+            preds[l] = preds_a[l]
+            actuals[l] = actuals_a[l]
+        print(f"registros usados (>= {MIN_OTHER_MINUTES}min fora): {len(preds[LINHAS[0]])}")
     except LimiteAtingido as e:
         print(f"\n[LIMITE] {e}\nReportando resultados PARCIAIS coletados até aqui (cache preserva o progresso; rode de novo depois).")
     for l in LINHAS:
@@ -138,6 +153,9 @@ def run(league_id, season, n_fixtures):
         base = sum(actuals[l]) / len(actuals[l])
         print(f"\n=== linha over {l} SOT | n={len(preds[l])} | freq real média={base:.3f} ===")
         print(f"Brier: {brier_score(preds[l], actuals[l]):.4f}  (menor = melhor; chute 'sempre a base' = base*(1-base))")
+        print(f"LogLoss: {log_loss(preds[l], actuals[l]):.4f}  | "
+              f"ECE: {expected_calibration_error(preds[l], actuals[l]):.4f}  | "
+              f"BrierSkill: {brier_skill_score(preds[l], actuals[l]):.3f}  (>0 bate o chute-base)")
         print("reliability (bin: prev_média -> real_média, n):")
         for b in reliability_bins(preds[l], actuals[l]):
             print(f"  {b['bin']/10:.1f}-{(b['bin']+1)/10:.1f}: {b['mean_pred']:.3f} -> {b['mean_actual']:.3f}  (n={b['count']})")
