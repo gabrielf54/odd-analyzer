@@ -34,6 +34,22 @@ def test_fail_closed_se_jogador_inventado():
     out = analisar(CANDS, {"jogo": "x"}, _chat=lambda m, **kw: saida)
     assert out["melhor_aposta"] is None
 
+def test_fail_closed_em_erro_de_transporte():
+    def fake_chat(msgs, **kw): raise OSError("timeout")  # erro de rede/HTTP
+    out = analisar(CANDS, {"jogo": "x"}, _chat=fake_chat)
+    assert out["melhor_aposta"] is None
+    assert out["alertas"]
+
+def test_retry_em_erro_de_transporte_depois_ok():
+    chamadas = [OSError("timeout"), _saida_ok()]
+    def fake_chat(msgs, **kw):
+        x = chamadas.pop(0)
+        if isinstance(x, Exception):
+            raise x
+        return x
+    out = analisar(CANDS, {"jogo": "x"}, _chat=fake_chat)
+    assert out["melhor_aposta"]["jogador"] == "Vinicius Jr"
+
 def test_passa_candidatos_no_prompt():
     capt = {}
     def fake_chat(msgs, **kw):

@@ -1,6 +1,6 @@
 """IA analista: lê o dossiê pronto e recomenda a melhor aposta. NUNCA calcula
-número nem inventa fato. Saída validada por schema; inválida -> 1 retry ->
-fail-closed (sem recomendação)."""
+número nem inventa fato. Saída validada por schema; inválida OU erro de transporte
+(rede/HTTP/resposta malformada) -> 1 retry -> fail-closed (sem recomendação)."""
 import json
 from odd_analyzer.ai.openrouter import chat as _default_chat
 from odd_analyzer.ai.schema import validate_ia_output
@@ -29,7 +29,11 @@ def analisar(candidatos: list[dict], contexto: dict, _chat=_default_chat) -> dic
     messages = [{"role": "system", "content": PROMPT_SISTEMA},
                 {"role": "user", "content": user}]
     for _ in range(2):  # 1 tentativa + 1 retry
-        obj = _parse(_chat(messages, temperature=0.0))
+        try:
+            raw = _chat(messages, temperature=0.0)
+        except Exception:
+            continue  # erro de transporte (rede/HTTP/resposta malformada) -> tenta de novo / fail-closed
+        obj = _parse(raw)
         if obj is not None and validate_ia_output(obj, candidatos):
             return obj
     return {"melhor_aposta": None, "outras": [],
