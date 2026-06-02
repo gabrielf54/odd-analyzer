@@ -26,3 +26,10 @@ def test_negbin_aproxima_poisson_quando_r_grande():
 def test_negbin_mais_disperso_engrossa_cauda():
     # com overdispersion (r pequeno), P de valores altos sobe vs Poisson
     assert prob_at_least(2.0, 5, r=2) > prob_at_least(2.0, 5)
+
+def test_media_zero_nao_quebra_e_da_zero():
+    # mu=0 (ex.: jogador com 0 minutos): X sempre 0; nao pode quebrar a NB com log(0)
+    assert prob_at_least(0.0, 1) == 0.0
+    assert prob_at_least(0.0, 1, r=4.0) == 0.0
+    assert prob_over_line(0.0, 0.5, r=4.0) == 0.0
+    assert prob_at_least(0.0, 0) == 1.0

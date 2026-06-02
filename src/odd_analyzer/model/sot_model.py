@@ -18,6 +18,9 @@ def prob_at_least(mu: float, k: int, r: float | None = None) -> float:
     """P(X >= k). r=None -> Poisson; r>0 -> Binomial Negativa (overdispersion)."""
     if k <= 0:
         return 1.0
+    if mu <= 0:
+        # media 0 => X e sempre 0 (evita log(0) na NB e e correto p/ Poisson)
+        return 0.0
     pmf = (lambda i: _poisson_pmf(i, mu)) if r is None else (lambda i: _nbinom_pmf(i, r, mu))
     cum = sum(pmf(i) for i in range(0, k))  # P(X <= k-1)
     return max(0.0, 1.0 - cum)
