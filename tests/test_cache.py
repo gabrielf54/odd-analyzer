@@ -18,3 +18,14 @@ def test_chaves_diferentes_buscam_separado(tmp_path):
     cached_get("a", fetch, cache_dir=tmp_path)
     cached_get("b", fetch, cache_dir=tmp_path)
     assert chamadas["n"] == 2
+
+def test_should_cache_falso_nao_grava(tmp_path):
+    # resposta de erro/limite nao deve poluir o cache -> refaz na proxima
+    chamadas = {"n": 0}
+    def fetch():
+        chamadas["n"] += 1
+        return {"errors": {"requests": "limit"}}
+    a = cached_get("k", fetch, cache_dir=tmp_path, should_cache=lambda d: not d.get("errors"))
+    b = cached_get("k", fetch, cache_dir=tmp_path, should_cache=lambda d: not d.get("errors"))
+    assert a == b == {"errors": {"requests": "limit"}}
+    assert chamadas["n"] == 2  # nao cacheou; buscou de novo

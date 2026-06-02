@@ -10,6 +10,7 @@ Linhas testadas: over 0.5 e over 1.5 SOT (as mais comuns em props).
 Uso: PYTHONPATH=src python -m odd_analyzer.backtest.run_backtest <league_id> <season> <n_fixtures>
 """
 import sys
+import time
 from odd_analyzer.config import get_required
 from odd_analyzer.cache import cached_get
 from odd_analyzer.stats.apifootball import BASE, parse_player_sot
@@ -22,16 +23,34 @@ LINHAS = [0.5, 1.5]
 PRIOR_RATE = 1.0      # SoT/90 médio de prior (ajustável)
 PRIOR_STRENGTH = 6    # peso do prior (em "jogos equivalentes")
 NB_DISPERSION = 4.0   # r da Binomial Negativa (overdispersion moderada)
+_MIN_INTERVAL = 6.5   # segundos entre chamadas ao vivo (free tier = 10 req/min)
+_last_call = [0.0]
+
+class LimiteAtingido(RuntimeError):
+    """A API retornou erro de limite/cota — parar com elegância (cache preserva o progresso)."""
+
+def _throttle():
+    dt = time.time() - _last_call[0]
+    if dt < _MIN_INTERVAL:
+        time.sleep(_MIN_INTERVAL - dt)
+    _last_call[0] = time.time()
 
 def _get(path, params):
     key = get_required("APIFOOTBALL_KEY")
     keystr = f"{path}?{sorted(params.items())}"
     def fetch():
+        _throttle()  # só em cache MISS (chamada real); respeita 10/min
         r = requests.get(f"{BASE}/{path}", params=params,
                          headers={"x-apisports-key": key}, timeout=30)
+        if r.status_code == 429:
+            raise LimiteAtingido("HTTP 429 (limite por minuto/dia). Rode de novo mais tarde; o cache guarda o progresso.")
         r.raise_for_status()
         return r.json()
-    return cached_get(keystr, fetch)
+    # não cacheia resposta de erro (ex.: cota diária esgotada vem como 200 + errors)
+    data = cached_get(keystr, fetch, should_cache=lambda d: not d.get("errors"))
+    if data.get("errors"):
+        raise LimiteAtingido(f"API retornou erro/limite: {data['errors']}")
+    return data
 
 def base_rates(league_id, season):
     """Mapa player_id -> sot_per90 (com shrinkage), varrendo todas as páginas em cache."""
@@ -50,27 +69,30 @@ def base_rates(league_id, season):
     return rates
 
 def run(league_id, season, n_fixtures):
-    rates = base_rates(league_id, season)
-    print(f"taxas-base carregadas: {len(rates)} jogadores")
-    fj = _get("fixtures", {"league": league_id, "season": season})
-    fixtures = [f["fixture"]["id"] for f in fj.get("response", [])][:n_fixtures]
-    print(f"jogos no backtest: {len(fixtures)}")
     preds = {l: [] for l in LINHAS}
     actuals = {l: [] for l in LINHAS}
-    for fid in fixtures:
-        pj = _get("fixtures/players", {"fixture": fid})
-        for team in pj.get("response", []):
-            for pl in team.get("players", []):
-                pid = pl["player"]["id"]
-                st = (pl.get("statistics") or [{}])[0]
-                minutes = (st.get("games") or {}).get("minutes")
-                sot = (st.get("shots") or {}).get("on")
-                if pid not in rates or not minutes or sot is None:
-                    continue
-                mu = expected_lambda(rates[pid], minutes)
-                for l in LINHAS:
-                    preds[l].append(prob_over_line(mu, l, r=NB_DISPERSION))
-                    actuals[l].append(1 if sot > l else 0)
+    try:
+        rates = base_rates(league_id, season)
+        print(f"taxas-base carregadas: {len(rates)} jogadores")
+        fj = _get("fixtures", {"league": league_id, "season": season})
+        fixtures = [f["fixture"]["id"] for f in fj.get("response", [])][:n_fixtures]
+        print(f"jogos no backtest: {len(fixtures)}")
+        for fid in fixtures:
+            pj = _get("fixtures/players", {"fixture": fid})
+            for team in pj.get("response", []):
+                for pl in team.get("players", []):
+                    pid = pl["player"]["id"]
+                    st = (pl.get("statistics") or [{}])[0]
+                    minutes = (st.get("games") or {}).get("minutes")
+                    sot = (st.get("shots") or {}).get("on")
+                    if pid not in rates or not minutes or sot is None:
+                        continue
+                    mu = expected_lambda(rates[pid], minutes)
+                    for l in LINHAS:
+                        preds[l].append(prob_over_line(mu, l, r=NB_DISPERSION))
+                        actuals[l].append(1 if sot > l else 0)
+    except LimiteAtingido as e:
+        print(f"\n[LIMITE] {e}\nReportando resultados PARCIAIS coletados até aqui (cache preserva o progresso; rode de novo depois).")
     for l in LINHAS:
         if not preds[l]:
             print(f"\nlinha over {l}: sem amostra"); continue
