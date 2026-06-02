@@ -5,3 +5,4 @@ __pycache__/
 .pytest_cache/
 docs/superpowers/reports/
 tests/fixtures/*_REAL.json
+.cache_api/
