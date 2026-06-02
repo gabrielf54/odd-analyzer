@@ -11,8 +11,8 @@ EVENT = {
 ELENCO = [{"id": 1, "name": "Vinicius Jr"}]
 
 def taxa_fn(player_id, linha):
-    # números do modelo já calculados em código (μ alto -> prob alta no over 0.5)
-    return {"prob_modelo": 0.75, "mu": 1.9, "minutos_esperados": 88,
+    # números do modelo: μ alto -> prob alta no over 0.5 (prob_modelo é recomputado no pipeline a partir de mu)
+    return {"mu": 1.9, "minutos_esperados": 88,
             "xi_confirmado": True, "amostra_jogos": 24,
             "sot_concedido_adversario": "alto", "incerteza": "media"}
 
@@ -36,3 +36,13 @@ def test_pipeline_descarta_jogador_sem_match():
     out = analisar_jogo(EVENT, [{"id": 9, "name": "Outro Nome Totalmente Diferente"}],
                         taxa_fn, repo, analista_fn=fake_analista)
     assert out["candidatos"] == []  # fail-closed do crosswalk
+
+def test_pipeline_nao_grava_ledger_quando_nao_apostar():
+    # veredito != APOSTAR -> nada no ledger, mas a analise ainda é persistida
+    def analista_nao(candidatos, contexto):
+        return {"melhor_aposta": None, "outras": [], "alertas": ["sem valor claro"]}
+    repo = InMemoryRepo()
+    out = analisar_jogo(EVENT, ELENCO, taxa_fn, repo, analista_fn=analista_nao)
+    assert repo.ledger == []
+    assert repo.get_analise("evt1") is not None
+    assert out["ia"]["melhor_aposta"] is None

@@ -12,6 +12,15 @@ NB_DISPERSION = 3.0  # mesmo r usado no backtest da Fase 1a
 
 def analisar_jogo(event: dict, elenco: list[dict], taxa_fn, repo,
                   overrides: dict | None = None, analista_fn=_default_analista) -> dict:
+    """Analisa 1 jogo e devolve {"candidatos": [...], "ia": {...}}.
+
+    taxa_fn(player_id, linha) -> dict com as chaves:
+        mu, minutos_esperados, xi_confirmado, amostra_jogos,
+        sot_concedido_adversario, incerteza.
+    `prob_modelo` NÃO vem do taxa_fn: é sempre recomputado aqui de `mu` via
+    prob_over_line (NB_DISPERSION) — a matemática mora no código.
+    analista_fn(candidatos, contexto) -> dict no formato de ai.analista.analisar.
+    """
     candidatos = []
     for prop in parse_sot_props(event):
         m = match_player(prop["player_name"], elenco, overrides=overrides)
