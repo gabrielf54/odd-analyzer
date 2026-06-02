@@ -25,6 +25,18 @@ Critério de impacto (1-10): quanto o dado destrava a meta — achar **valor (EV
 - **Timing de props:** casas postam SOT perto do kickoff → poll próximo ao jogo. *(SGO + The Odds API)*
 - **Armadilha `/odds`:** o `/odds` da API-Football é 1X2/totais, **não** player props. Não substitui SGO.
 
+## Exemplos de retorno (referência de dados — para a próxima sessão)
+
+Sondagem ao vivo (2026-06-02) com as chaves do `.env`: shape real dos retornos + dicionário de tipos + anomalias. Use para saber **quais tipos de dado cada API entrega** sem gastar quota redescobrindo.
+
+| API | Referência de dados | Achado-chave da sonda |
+|-----|---------------------|-----------------------|
+| The Odds API | [the-odds-api.examples.md](the-odds-api.examples.md) | Player props (`player_shots_on_target`/`player_shots`) retornam `bookmakers: []` em **TODA** liga hoje (não só Copa) — só `h2h`/`totals` populados. Jogador só por **nome** (sem `player_id`). Chamada vazia custa **0 crédito**. |
+| API-Football | [api-football.examples.md](api-football.examples.md) | Tem o que o modelo precisa: `/fixtures/players` → `shots.{total,on}`, `games.minutes`, **`tackles.{total,blocks,interceptions}`**; `/fixtures/statistics` → `Corner Kicks`/`Total Shots`/`Shots on Goal` por time. `last` bloqueado no Free (usar `from`/`to`). |
+| SGO | [sportsgameodds.examples.md](sportsgameodds.examples.md) | Free só dá mercados de **time** (sem player props); `INTERNATIONAL_SOCCER` (Copa) = **HTTP 400** bloqueado. `oddID = statID-entity-period-betType-side`; entrega `fairOdds` (de-vig) + `bookOdds`, ambos **americano string**. |
+
+> **Implicação reforçada:** confirma o blocker — não há odd de SOT por jogador disponível hoje. The Odds API entrega só odds de partida; stats de jogador (SOT/desarmes/minutos) e de time (escanteios) vêm da API-Football.
+
 ## Adicionar uma API nova
 1. Criar `docs/apis/<nome>.md` a partir do mesmo esqueleto das fichas (headline · papel · tiers · free dá/nega · menor tier · impacto+justificativa · riscos · fontes).
 2. Adicionar 1 linha no Scorecard acima e, se mudar prioridade, reordenar a lista de investimento.
