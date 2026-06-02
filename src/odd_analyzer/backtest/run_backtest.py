@@ -67,9 +67,10 @@ def collect_fixture_records(league_id, season, n_fixtures):
                 pid = pl["player"]["id"]
                 st = (pl.get("statistics") or [{}])[0]
                 minutes = (st.get("games") or {}).get("minutes")
+                if not minutes:
+                    continue  # nao entrou em campo -> fora da amostra
                 sot = (st.get("shots") or {}).get("on")
-                if not minutes or sot is None:
-                    continue
+                sot = sot if sot is not None else 0  # jogou sem SOT: API retorna null = 0 (NAO descartar)
                 records.append((fid, pid, minutes, sot))
     return fixtures, records
 
