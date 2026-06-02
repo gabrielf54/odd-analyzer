@@ -4,3 +4,4 @@ __pycache__/
 .env
 .pytest_cache/
 docs/superpowers/reports/
+tests/fixtures/*_REAL.json
