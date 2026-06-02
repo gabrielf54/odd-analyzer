@@ -10,6 +10,12 @@ from odd_analyzer.pipeline import analisar_jogo
 SPORT = "soccer_fifa_world_cup"
 
 
+@st.cache_resource
+def _repo():
+    # cacheia o cliente Supabase entre reruns (evita reabrir conexão a cada clique)
+    return SupabaseRepo()
+
+
 def _taxa_fn(player_id, linha):
     # PLACEHOLDER de wiring: substituir pela leitura real do modelo (Fase 1a)
     # quando houver stats da temporada (API-Football Pro). Por ora sinaliza
@@ -21,7 +27,7 @@ def _taxa_fn(player_id, linha):
 
 def render():
     st.title("odd-analyzer — Copa 2026")
-    repo = SupabaseRepo()
+    repo = _repo()
     if st.button("↻ atualizar jogos"):
         st.session_state["eventos"] = fetch_events(SPORT)
     eventos = st.session_state.get("eventos", [])
