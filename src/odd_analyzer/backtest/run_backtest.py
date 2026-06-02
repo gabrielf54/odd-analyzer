@@ -21,12 +21,9 @@ from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multip
 from odd_analyzer.backtest.calibration import brier_score, reliability_bins
 import requests
 
-LINHAS = [0.5, 1.5]
-# Parâmetros calibrados no backtest EPL 2023 (over-prediction corrigida):
-PRIOR_RATE = 0.4         # SoT/90 do prior (baixo: maioria dos jogadores chuta pouco)
-PRIOR_STRENGTH = 12      # peso do prior (em "jogos equivalentes") — encolhe amostras pequenas
-NB_DISPERSION = 3.0      # r da Binomial Negativa (overdispersion)
-MIN_OTHER_MINUTES = 60   # mínimo de minutos "fora" do jogo p/ estimar a taxa (leave-one-out)
+from odd_analyzer.model.params import (
+    LINHAS, PRIOR_RATE, PRIOR_STRENGTH, NB_DISPERSION, MIN_OTHER_MINUTES,
+)
 _MIN_INTERVAL = 6.5      # segundos entre chamadas ao vivo (free tier = 10 req/min)
 _last_call = [0.0]
 

@@ -8,7 +8,7 @@ from odd_analyzer.candidates.filtro import filter_candidates
 from odd_analyzer.model.sot_model import prob_over_line
 from odd_analyzer.ai.analista import analisar as _default_analista
 
-NB_DISPERSION = 3.0  # mesmo r usado no backtest da Fase 1a
+from odd_analyzer.model.params import NB_DISPERSION  # fonte única (mesmo r do backtest)
 
 def analisar_jogo(event: dict, elenco: list[dict], taxa_fn, repo,
                   overrides: dict | None = None, analista_fn=_default_analista) -> dict:
