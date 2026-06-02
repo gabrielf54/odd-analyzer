@@ -1,0 +1,14 @@
+{"response":[
+  {"player":{"id":1100,"name":"E. Haaland"},
+   "statistics":[
+     {"team":{"name":"Manchester City"},"league":{"id":39,"name":"Premier League"},
+      "games":{"appearences":32,"minutes":2556},"shots":{"total":98,"on":59},"goals":{"total":27}},
+     {"team":{"name":"Norway"},"league":{"id":5,"name":"UEFA Nations League"},
+      "games":{"appearences":6,"minutes":536},"shots":{"total":28,"on":14},"goals":{"total":5}}
+   ]},
+  {"player":{"id":999,"name":"J. Reserva"},
+   "statistics":[
+     {"team":{"name":"Wolves"},"league":{"id":39,"name":"Premier League"},
+      "games":{"appearences":0,"minutes":0},"shots":{"total":null,"on":null},"goals":{"total":null}}
+   ]}
+]}
