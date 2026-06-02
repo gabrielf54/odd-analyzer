@@ -67,7 +67,7 @@ Módulos existentes reaproveitados: `model/sot_model.py` (μ, NegBin, `prob_over
 - `devig_two_way(odd_over: float, odd_under: float) -> tuple[float, float]` — recebe odds **decimais** dos dois lados (over/under) e devolve as probabilidades **justas** (sem margem) de cada lado.
   - **Multiplicativo** (base): `p_i = (1/odd_i) / Σ(1/odd)`.
   - **Power method** (checagem): achar `k` tal que `(1/odd_over)^k + (1/odd_under)^k = 1` (busca numérica em stdlib `math`/bisseção); devolve as probs resultantes.
-  - Política: a função expõe ambos; o pipeline usa o **pior caso** para o lado apostado (menor prob justa do lado over) → EV conservador.
+  - Política: a função expõe ambos; para o lado apostado (over) o pipeline usa a **maior** prob justa entre os dois métodos → `edge` conservador (não superestima a vantagem). Para 2-way perto de even os métodos quase coincidem; a diferença é marginal. (O de-vig afeta o `edge`; o `EV` usa a odd bruta + prob do modelo.)
 - Guardas: odds ≤ 1.0 → erro de valor; soma de implícitas ≤ 1 (sem vig) → multiplicativo degenera para normalização.
 
 ### `ev.py`
