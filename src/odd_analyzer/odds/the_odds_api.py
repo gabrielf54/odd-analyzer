@@ -7,7 +7,7 @@ from odd_analyzer.cache import cached_get
 BASE = "https://api.the-odds-api.com/v4"
 SOT_MARKET = "player_shots_on_target"
 
-def _get(path: str, params: dict) -> object:
+def _get(path: str, params: dict, should_cache=lambda d: bool(d)) -> object:
     key = get_required("THE_ODDS_API_KEY")
     p = dict(params, apiKey=key)
     keystr = f"{path}?{sorted((k, v) for k, v in p.items() if k != 'apiKey')}"
@@ -15,7 +15,13 @@ def _get(path: str, params: dict) -> object:
         r = requests.get(f"{BASE}/{path}", params=p, timeout=30)
         r.raise_for_status()
         return r.json()
-    return cached_get(keystr, fetch, should_cache=lambda d: bool(d))
+    return cached_get(keystr, fetch, should_cache=should_cache)
+
+def _tem_props(odds: dict) -> bool:
+    """Só vale cachear odds que já tenham casas/props. O cache local não tem TTL,
+    então cravar uma resposta VAZIA (props ainda não postadas pré-kickoff) esconderia
+    as props quando surgissem. Sem casas -> não cacheia, reconsulta na próxima."""
+    return bool(odds.get("bookmakers"))
 
 def fetch_events(sport_key: str) -> list[dict]:
     """Eventos do esporte (0 créditos). Ex.: sport_key='soccer_fifa_world_cup'."""
@@ -24,7 +30,8 @@ def fetch_events(sport_key: str) -> list[dict]:
 def fetch_event_odds(sport_key: str, event_id: str,
                      markets: str = SOT_MARKET, regions: str = "us") -> dict:
     return _get(f"sports/{sport_key}/events/{event_id}/odds",
-                {"markets": markets, "regions": regions, "oddsFormat": "decimal"})
+                {"markets": markets, "regions": regions, "oddsFormat": "decimal"},
+                should_cache=_tem_props)
 
 def parse_sot_props(event: dict) -> list[dict]:
     """Agrupa outcomes Over/Under em props {player_name, line, book, odd_over, odd_under}.

@@ -1,4 +1,4 @@
-from odd_analyzer.odds.the_odds_api import parse_sot_props
+from odd_analyzer.odds.the_odds_api import parse_sot_props, _tem_props
 
 # formato real do The Odds API: event -> bookmakers[] -> markets[] (key) -> outcomes[]
 EVENT = {
@@ -32,3 +32,9 @@ def test_parse_ignora_prop_sem_os_dois_lados():
 
 def test_parse_vazio_quando_sem_mercado():
     assert parse_sot_props({"id": "e", "bookmakers": []}) == []
+
+def test_nao_cacheia_odds_sem_casas():
+    # resposta sem bookmakers (props ainda não postadas) NÃO deve ser cacheada (cache sem TTL)
+    assert _tem_props({"id": "e", "bookmakers": []}) is False
+    assert _tem_props({}) is False
+    assert _tem_props({"bookmakers": [{"key": "dk"}]}) is True
