@@ -15,7 +15,7 @@ def devig_multiplicative(odd_over: float, odd_under: float) -> tuple[float, floa
     return io / s, iu / s
 
 def devig_power(odd_over: float, odd_under: float) -> tuple[float, float]:
-    """Acha k tal que io**k + iu**k = 1 (bisseção); p_i = i_i**k."""
+    """Acha k tal que io**k + iu**k = 1 (bisseção); p_i = implícita_i**k."""
     io, iu = implied_prob(odd_over), implied_prob(odd_under)
     lo, hi = 0.1, 20.0
     for _ in range(100):  # bisseção; 100 iterações = precisão folgada

@@ -29,6 +29,22 @@ def test_fair_prob_over_e_conservador():
     po_p, _ = devig_power(1.8, 2.1)
     assert fair_prob_over(1.8, 2.1) == pytest.approx(max(po_m, po_p))
 
+def test_power_assimetrico_favorece_o_favorito():
+    # mercado assimétrico: power method desloca prob para o favorito vs multiplicativo
+    po_p, pu_p = devig_power(1.40, 3.20)
+    po_m, _ = devig_multiplicative(1.40, 3.20)
+    assert po_p + pu_p == pytest.approx(1.0)
+    assert po_p > pu_p          # over é o favorito
+    assert po_p > po_m          # power dá mais prob ao favorito que o multiplicativo
+
+def test_fair_prob_over_usa_multiplicativo_quando_over_e_zebra():
+    # over como zebra (2.1) vs under favorito (1.8): multiplicativo > power no over,
+    # então o conservador (max) tem que escolher o multiplicativo (exercita o outro ramo)
+    po_m, _ = devig_multiplicative(2.1, 1.8)
+    po_p, _ = devig_power(2.1, 1.8)
+    assert po_m > po_p
+    assert fair_prob_over(2.1, 1.8) == pytest.approx(po_m)
+
 def test_odd_invalida():
     with pytest.raises(ValueError):
         implied_prob(1.0)
