@@ -147,6 +147,7 @@ def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list
     elenco = stats_provider.elenco(event)
     home_id = str(event.get("home_team", {}).get("id", ""))
     away_id = str(event.get("away_team", {}).get("id", ""))
+    xi_team_ids = stats_provider.xi_ids(event) if hasattr(stats_provider, "xi_ids") else set()
     candidatos = []
     for entidade in elenco:
         is_home = entidade.get("team_id") == home_id
@@ -156,6 +157,7 @@ def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list
             "is_home": is_home,
             "opp_team_id": away_id if is_home else home_id,
             "league_avg_conceded": market.concede_baseline,
+            "xi_team_ids": xi_team_ids,
         }
         taxa = stats_provider.entity_taxa(entidade["id"], market, contexto)
         if taxa is None:

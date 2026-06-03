@@ -135,7 +135,7 @@ class BSDStatsProvider:
         minutos_esperados = 90.0
         mu = assemble_mu(rate_per90=shrunk, minutos_esperados=minutos_esperados,
                          opp_mult=opp_mult, ha_mult=ha_mult)
-        xi_confirmado = (entity_team_id in xi_team_ids) if xi_team_ids else True
+        xi_confirmado = (str(entity_id) in xi_team_ids) if xi_team_ids else True
         n = len(games)
         incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
         concedido = f"{opp_conceded:.1f}" if opp_conceded is not None else "n/d (neutro)"
@@ -152,6 +152,24 @@ class BSDStatsProvider:
         "shots_on_target": "shots_on_target",
         "total_shots": "total_shots",
     }
+
+    def xi_ids(self, event: dict) -> set:
+        """Set de player_ids titulares se o lineup estiver confirmado; senão set vazio
+        (gate inerte = não barra, comportamento atual em jogo finalizado)."""
+        try:
+            data = self._client.lineups(event["id"])
+        except Exception:
+            return set()
+        lineups = data.get("lineups", {})
+        status = data.get("lineup_status")
+        confirmed_flag = any(v.get("confirmed") for v in lineups.values() if isinstance(v, dict))
+        if status != "confirmed" and not confirmed_flag:
+            return set()  # sem confirmação → não barrar
+        ids = set()
+        for side in ("home", "away"):
+            for p in lineups.get(side, {}).get("players", []):
+                ids.add(str(p["id"]))
+        return ids
 
     def team_taxa(self, team_id, market: MarketSpec, contexto: dict, janela: int = 10) -> dict | None:
         """Taxa por-TIME (#25): agrega o stat de time (ex.: corner_kicks) nos últimos
