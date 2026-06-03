@@ -20,6 +20,9 @@ class MarketSpec:
     # rough prior pendente de league-sweep na calibração/Fase 4). É o denominador do
     # opponent_multiplier — NÃO confundir com prior_rate (que é nível-jogador).
     concede_baseline: float = 0.0
+    # Baseline de SELEÇÃO (Copa) do mesmo eixo. Preenchido pelo league-sweep de seleção
+    # (scripts/measure_concede_baseline.py pool). Default = igual ao de clube até medir.
+    concede_baseline_nacional: float = 0.0
 
 
 MARKETS: dict[str, MarketSpec] = {
@@ -35,6 +38,7 @@ MARKETS: dict[str, MarketSpec] = {
         eixo_concessao="chutes_a_gol_concedidos_por_jogo",
         label="Chutes a Gol (SOT)",
         concede_baseline=4.55,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
+        concede_baseline_nacional=4.55,
     ),
     "finalizacoes": MarketSpec(
         key="finalizacoes",
@@ -48,6 +52,7 @@ MARKETS: dict[str, MarketSpec] = {
         eixo_concessao="finalizacoes_concedidas_por_jogo",
         label="Finalizações Totais",
         concede_baseline=13.46,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
+        concede_baseline_nacional=13.46,
     ),
     "desarmes": MarketSpec(
         key="desarmes",
@@ -61,6 +66,7 @@ MARKETS: dict[str, MarketSpec] = {
         eixo_concessao="desarmes_concedidos_por_jogo",
         label="Desarmes",
         concede_baseline=14.64,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
+        concede_baseline_nacional=14.64,
     ),
     "escanteios": MarketSpec(
         key="escanteios",
@@ -102,3 +108,18 @@ MARKETS: dict[str, MarketSpec] = {
         concede_baseline=1.3,
     ),
 }
+
+# Ligas de seleção (Copa e correlatas) → usam o baseline nacional. WC2026 = 27.
+_NATIONAL_LEAGUE_IDS = {58, 59, 60, 61, 62, 64, 65, 66, 67, 31, 27}
+
+
+def baseline_for(market: MarketSpec, league_id) -> float:
+    """Escolhe o concede_baseline certo pela liga do jogo: liga de seleção → nacional;
+    senão (clube ou desconhecida) → o de clube (default seguro)."""
+    try:
+        lid = int(league_id)
+    except (TypeError, ValueError):
+        return market.concede_baseline
+    if lid in _NATIONAL_LEAGUE_IDS:
+        return market.concede_baseline_nacional or market.concede_baseline
+    return market.concede_baseline

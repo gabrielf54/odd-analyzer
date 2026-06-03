@@ -19,6 +19,7 @@ def test_market_spec_fields_present():
         "key", "nivel", "kind", "stat_field",
         "prior_rate", "prior_strength", "nb_dispersion",
         "lines", "eixo_concessao", "label", "concede_baseline",
+        "concede_baseline_nacional",
     }
 
 def test_sot_spec_values():
@@ -97,3 +98,19 @@ def test_lines_are_sorted_and_nonempty():
     for spec in MARKETS.values():
         assert len(spec.lines) >= 1
         assert spec.lines == sorted(spec.lines)
+
+
+from odd_analyzer.model.markets import MARKETS, baseline_for
+from odd_analyzer.backtest.collect_national import NATIONAL_LEAGUES
+
+
+def test_baseline_for_escolhe_por_populacao():
+    m = MARKETS["sot"]
+    # liga de clube (9) → baseline de clube
+    assert baseline_for(m, 9) == m.concede_baseline
+    # liga de seleção (64) → baseline nacional
+    assert baseline_for(m, 64) == m.concede_baseline_nacional
+    # liga 27 (WC) tratada como seleção
+    assert baseline_for(m, 27) == m.concede_baseline_nacional
+    # liga desconhecida/None → clube (default seguro)
+    assert baseline_for(m, None) == m.concede_baseline
