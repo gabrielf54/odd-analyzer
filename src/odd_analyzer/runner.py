@@ -18,6 +18,7 @@ def normalize_event(raw: dict) -> dict:
     return {
         "id": str(raw["id"]),
         "jogo": f"{home} x {away}",
+        "league_id": raw.get("league_id"),
         "home_team": {"id": str(raw.get("home_team_id", "")), "name": home},
         "away_team": {"id": str(raw.get("away_team_id", "")), "name": away},
     }
@@ -86,7 +87,8 @@ def format_resultado(out: dict, market_label: str) -> str:
 
 def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
                 linha: float, odd_over: float, odd_under: float,
-                usar_ia: bool = False, repo=None) -> dict:
+                usar_ia: bool = False, repo=None,
+                escopo_historico: str = "todos", league_id=None) -> dict:
     """Orquestra um run real com odd manual. nivel=jogador exige `player_ref`
     (restringe o elenco); nivel=partida usa as duas equipes via team_taxa."""
     from odd_analyzer.providers.stats import BSDStatsProvider
@@ -97,6 +99,8 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
 
     raw_event = client.get_event(event_id)
     event = normalize_event(raw_event)
+    if league_id is None:
+        league_id = event.get("league_id")
 
     if market.nivel == "partida":
         stats = BSDStatsProvider(client)
@@ -123,4 +127,5 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
     return analisar_jogo(
         event=event, market=market, stats_provider=stats, odds_provider=odds,
         repo=repo if repo is not None else InMemoryRepo(), analista_fn=analista_fn,
+        escopo_historico=escopo_historico, league_id=league_id,
     )

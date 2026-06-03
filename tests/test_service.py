@@ -137,3 +137,25 @@ def test_listar_ligas_mapeia_e_ordena_por_nome():
     ligas = listar_ligas(_C())
     assert [l["id"] for l in ligas] == [9, 34, 27]  # ordenado por nome
     assert ligas[0]["nome"] == "Brasileirão Serie A" and ligas[0]["pais"] == "Brazil"
+
+
+def test_analisar_repassa_escopo_historico(monkeypatch):
+    import odd_analyzer.service as svc
+    capturado = {}
+
+    def fake_run_analise(client, event_id, market_key, player_ref, linha, odd_over,
+                         odd_under, usar_ia=False, repo=None, escopo_historico="todos",
+                         league_id=None):
+        capturado["escopo"] = escopo_historico
+        capturado["league_id"] = league_id
+        return {"candidatos": [], "ia": {}}
+
+    class _C:
+        def get_event(self, eid): return {"home_team": "A", "away_team": "B"}
+
+    monkeypatch.setattr(svc, "run_analise", fake_run_analise)
+    out = svc.analisar(_C(), "900", "desarmes", 1.5, 1.8, 2.0,
+                       escopo_historico="selecao", league_id=64)
+    assert capturado["escopo"] == "selecao"
+    assert capturado["league_id"] == 64
+    assert out["em_validacao"] is False

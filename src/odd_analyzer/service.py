@@ -40,7 +40,8 @@ def listar_jogos(client, league_id, status, limit: int = 50) -> list[dict]:
 
 
 def analisar(client, event_id, market_key, linha, odd_over, odd_under,
-             usar_ia: bool = False, repo=None) -> dict:
+             usar_ia: bool = False, repo=None,
+             escopo_historico: str = "todos", league_id=None) -> dict:
     """Roda a varredura do elenco (player_ref=None) p/ 1 jogo+mercado. Devolve
     {jogo, candidatos, ia, em_validacao}. em_validacao=True p/ mercados de partida
     (gols/escanteios) que ainda não calibram → a UI sela ('não apostar')."""
@@ -55,7 +56,8 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
     jogo = f"{home} x {away}"
 
     out = run_analise(client, event_id, market_key, None,
-                      linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo)
+                      linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo,
+                      escopo_historico=escopo_historico, league_id=league_id)
     return {
         "jogo": jogo,
         "candidatos": out.get("candidatos", []),

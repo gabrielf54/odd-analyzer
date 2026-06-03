@@ -17,6 +17,8 @@ def analisar_jogo(
     repo,
     overrides: dict | None = None,
     analista_fn=_default_analista,
+    escopo_historico: str = "todos",
+    league_id=None,
 ) -> dict:
     """Analisa 1 jogo para 1 mercado. Retorna {"candidatos": [...], "ia": {...}}.
 
@@ -25,7 +27,8 @@ def analisar_jogo(
       "partida_totais"/ "partida_1x2" → match_model (Fase 3, ainda não implementado)
     """
     if market.kind == "contagem":
-        candidatos = _run_contagem(event, market, stats_provider, odds_provider)
+        candidatos = _run_contagem(event, market, stats_provider, odds_provider,
+                                   escopo_historico, league_id)
     elif market.kind in ("partida_totais", "partida_1x2"):
         candidatos = _run_partida(event, market, stats_provider, odds_provider)
     else:
@@ -67,7 +70,8 @@ def analisar_jogo(
 _INCERTEZA_ORDEM = {"baixa": 0, "media": 1, "alta": 2}
 
 
-def _run_contagem(event, market: MarketSpec, stats_provider, odds_provider) -> list[dict]:
+def _run_contagem(event, market: MarketSpec, stats_provider, odds_provider,
+                  escopo_historico="todos", league_id=None) -> list[dict]:
     """Constrói candidatos para mercados de contagem. Dispatch por market.nivel:
     'partida' → total da partida (soma dos dois times via team_taxa);
     'jogador' → um candidato por jogador do elenco (entity_taxa)."""
@@ -76,7 +80,8 @@ def _run_contagem(event, market: MarketSpec, stats_provider, odds_provider) -> l
         return []
     if market.nivel == "partida":
         return _contagem_partida(event, market, stats_provider, linhas)
-    return _contagem_jogador(event, market, stats_provider, linhas)
+    return _contagem_jogador(event, market, stats_provider, linhas,
+                             escopo_historico, league_id)
 
 
 def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
@@ -143,11 +148,14 @@ def _run_partida(event, market: MarketSpec, stats_provider, odds_provider) -> li
     return candidatos
 
 
-def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
+def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas,
+                      escopo_historico="todos", league_id=None) -> list[dict]:
+    from odd_analyzer.model.markets import baseline_for
     elenco = stats_provider.elenco(event)
     home_id = str(event.get("home_team", {}).get("id", ""))
     away_id = str(event.get("away_team", {}).get("id", ""))
     xi_team_ids = stats_provider.xi_ids(event) if hasattr(stats_provider, "xi_ids") else set()
+    base = baseline_for(market, league_id)
     candidatos = []
     for entidade in elenco:
         is_home = entidade.get("team_id") == home_id
@@ -156,8 +164,9 @@ def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list
             "entity_team_id": entidade.get("team_id", entidade["id"]),
             "is_home": is_home,
             "opp_team_id": away_id if is_home else home_id,
-            "league_avg_conceded": market.concede_baseline,
+            "league_avg_conceded": base,
             "xi_team_ids": xi_team_ids,
+            "escopo_historico": escopo_historico,
         }
         taxa = stats_provider.entity_taxa(entidade["id"], market, contexto)
         if taxa is None:
@@ -165,18 +174,11 @@ def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list
         for linha_info in linhas:
             prob_modelo = prob_over_line(taxa["mu"], linha_info["linha"], r=market.nb_dispersion)
             candidatos.append(build_candidate(
-                jogador=entidade["name"],
-                linha=linha_info["linha"],
-                odd_over=linha_info["odd_over"],
-                odd_under=linha_info["odd_under"],
-                prob_modelo=prob_modelo,
-                mu=taxa["mu"],
-                minutos_esperados=taxa["minutos_esperados"],
-                xi_confirmado=taxa["xi_confirmado"],
-                amostra_jogos=taxa["amostra_jogos"],
-                concedido_adversario=taxa["concedido_adversario"],
-                incerteza=taxa["incerteza"],
-                market_type=market.key,
-                player_id=entidade["id"],
+                jogador=entidade["name"], linha=linha_info["linha"],
+                odd_over=linha_info["odd_over"], odd_under=linha_info["odd_under"],
+                prob_modelo=prob_modelo, mu=taxa["mu"],
+                minutos_esperados=taxa["minutos_esperados"], xi_confirmado=taxa["xi_confirmado"],
+                amostra_jogos=taxa["amostra_jogos"], concedido_adversario=taxa["concedido_adversario"],
+                incerteza=taxa["incerteza"], market_type=market.key, player_id=entidade["id"],
             ))
     return candidatos
