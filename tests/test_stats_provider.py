@@ -61,3 +61,5 @@ def test_team_rates_retorna_lambda_for():
     assert r is not None and r["lambda_for"] > 0
     # time 10 marcou 2 (em casa) e 3 (fora) em 2 jogos → média 2.5
     assert abs(r["lambda_for"] - 2.5) < 1e-9
+    # time 10 sofreu 1 (em casa) e 0 (fora) em 2 jogos → média 0.5
+    assert abs(r["lambda_against"] - 0.5) < 1e-9

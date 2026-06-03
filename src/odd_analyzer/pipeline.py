@@ -120,7 +120,10 @@ def _run_partida(event, market: MarketSpec, stats_provider, odds_provider) -> li
     ra = stats_provider.team_rates(away.get("id"), {"event": event, "is_home": False})
     if rh is None or ra is None:
         return []
-    matrix = score_matrix(rh["lambda_for"], ra["lambda_for"])
+    liga = market.concede_baseline or 1.3
+    lambda_home = rh["lambda_for"] * (ra.get("lambda_against", liga) / liga)
+    lambda_away = ra["lambda_for"] * (rh.get("lambda_against", liga) / liga)
+    matrix = score_matrix(lambda_home, lambda_away)
     label = event.get("jogo") or f'{home.get("name","")} x {away.get("name","")}'.strip()
     candidatos = []
     for linha_info in linhas:
@@ -133,7 +136,7 @@ def _run_partida(event, market: MarketSpec, stats_provider, odds_provider) -> li
         candidatos.append(build_candidate(
             jogador=jogador, linha=linha_info["linha"],
             odd_over=linha_info["odd_over"], odd_under=linha_info["odd_under"],
-            prob_modelo=prob, mu=rh["lambda_for"] + ra["lambda_for"],
+            prob_modelo=prob, mu=lambda_home + lambda_away,
             minutos_esperados=90.0, xi_confirmado=True, amostra_jogos=10,
             concedido_adversario="n/d", incerteza="media", market_type=market.key,
         ))

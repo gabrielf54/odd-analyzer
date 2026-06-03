@@ -1,6 +1,6 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 (Task 5b) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 315 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 (Task 10b) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 321 testes verdes · **Custo até aqui:** $0.
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
@@ -22,16 +22,19 @@ Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
 | escanteios | over 8.5 | 112 | 0.652 | 0.2498 | 0.1513 | -0.101 |
 | escanteios | over 9.5 | 112 | 0.545 | 0.2597 | 0.1082 | -0.047 |
 | escanteios | over 10.5 | 112 | 0.375 | 0.2344 | 0.0026 | -0.000 |
-| gols | over 1.5 | 120 | 0.742 | 0.1878 | 0.0848 | 0.020 |
-| gols | over 2.5 | 120 | 0.500 | 0.2571 | 0.0874 | -0.028 |
-| gols | over 3.5 | 120 | 0.275 | 0.2151 | 0.0968 | -0.079 |
+| gols (ataque-only) | over 1.5 | 120 | 0.742 | 0.1878 | 0.0848 | +0.020 |
+| gols (ataque-only) | over 2.5 | 120 | 0.500 | 0.2571 | 0.0874 | -0.028 |
+| gols (ataque-only) | over 3.5 | 120 | 0.275 | 0.2151 | 0.0968 | -0.079 |
+| gols (c/ defesa, Task 10b) | over 1.5 | 120 | 0.742 | 0.1878 | 0.1058 | +0.020 |
+| gols (c/ defesa, Task 10b) | over 2.5 | 120 | 0.500 | 0.2637 | 0.1178 | -0.055 |
+| gols (c/ defesa, Task 10b) | over 3.5 | 120 | 0.275 | 0.2265 | 0.1934 | -0.136 |
 
 **Vereditos honestos por mercado:**
 
 - **desarmes**: `presta (over 1.5)` — após tune de `prior_rate 2.0→1.3` (sweep ECE em liga 9, Task 5b): over 1.5 agora ECE 0.0474 e BrierSkill 0.165 (melhor linha); over 2.5 ECE 0.0149 (excelente). Over 0.5 ficou em ECE 0.0645 (borderline, mas 30% abaixo do baseline 0.0869 pré-tune). Causa do over-confidence anterior confirmada: `prior_rate=2.0` encolhia jogadores para taxa muito alta. **Caveats: (1) prior fit em liga 9 — re-validar em outras ligas na Fase 4; (2) eixo de concessão é proxy fraco** (ver follow-up `matchup-desarmes-proxy`). **Usar over 1.5 e over 2.5; over 0.5 monitorar.**
 - **sot**: `presta` nas linhas úteis — over 0.5 (ECE 0.0388, BrierSkill 0.112) e over 1.5 (ECE 0.0089, BrierSkill 0.092) passam o crivo. Over 2.5 é tecnicamente calibrado (ECE 0.0010) mas freq_real=0.010 → aposta raramente acionada (evento raro). **Melhor mercado no momento; over 0.5 e 1.5 prontos para uso cauteloso.**
 - **finalizacoes**: `presta` nas linhas altas — over 1.5 (ECE 0.0465, BrierSkill 0.161) e over 2.5 (ECE 0.0188, BrierSkill 0.132) são os melhores resultados absolutos do backtest. Over 0.5 é borderline (ECE 0.0815, sub-estima freq real nos bins do meio). **Usar over 1.5 e over 2.5; over 0.5 aguardar ajuste de prior.**
-- **gols (match_model — ataque-only, leave-one-out)**: `não presta em produção ainda`. Modelo atual usa `lambda = média de gols-marcados do time` (ataque puro, leave-one-out, sem ajuste de defesa do adversário, sem split casa/fora, rho=-0.05 fixo). Resultados: over 1.5 BrierSkill=0.020 (marginal, ECE=0.085); over 2.5 BrierSkill=-0.028 (abaixo da climatologia); over 3.5 BrierSkill=-0.079 (claramente pior que climatologia). Diagnóstico: o modelo de ataque puro não captura a variação real de probabilidade entre partidas — ele sobre-confia em confrontos onde a *defesa* regula os gols, e as ECEs altas (0.08–0.10) confirmam calibração ruim nas três linhas. **Próximo passo natural (deferred):** adicionar `lambda_efetivo = taxa_ataque × fator_defesa_adversário` (análogo ao `opponent_multiplier` dos mercados de jogador) e split casa/fora nas taxas. Sem isso, over 2.5/3.5 mal bate a climatologia — o sinal de gols não deve ser usado para filtragem de apostas ainda.
+- **gols (match_model — Task 10b, com termo de defesa)**: `não presta em produção ainda`. Task 10b adicionou `lambda_efetivo = att_proprio × (def_adversario / liga)` (análogo ao `opponent_multiplier` dos mercados de jogador) com leave-one-out de ataque E defesa. **Resultado: piorou.** Comparação honesta (ataque-only → c/ defesa): over 1.5 BrierSkill +0.020 → +0.020 (neutro, ECE 0.085→0.106); over 2.5 BrierSkill -0.028 → **-0.055** (−0.027); over 3.5 BrierSkill -0.079 → **-0.136** (−0.057). Liga média=1.283 gols/time/jogo. Diagnóstico: o termo de defesa com leave-one-out em amostras pequenas (1 jogo de janela pra times com poucos jogos) **amplifica ruído** — se um time concedeu muitos/poucos gols em sua única partida na janela, o multiplicador explode. O denominador `liga` (~1.28) é correto; o numerador `def_a` varia de 0 a 4+ com alta variância em n=1. O modelo de ataque-only era estável por simetria (att_h e att_a têm múltiplos jogos). **Ação:** manter `lambda_for` como base de produção em produção (sem termo de defesa por enquanto); a estabilidade da defesa requer smoothing (shrinkage para a média da liga) antes de entrar no multiplicador — próximo passo se e quando gols virar prioridade. Liga 9 tem viés de fit (veredito se mantém: gols não deve ser usado para filtragem de apostas sem calibração adequada).
 - **escanteios**: `baseline inconcluso` — este backtest usa **mu único da liga** (sem matchup por jogo): toda partida recebe a mesma predição. Por construção, BrierSkill ≈ 0 (predição constante vs climatologia) e ECE mede apenas o erro de localização do mu na NB. Interpretação: over 10.5 (ECE 0.0026, BrierSkill ≈ 0) confirma que `mu=9.73` com `NB(r=3.0)` captura a distribuição marginal na vizinhança da mediana — a NB está corretamente parametrizada para a liga. O BrierSkill negativo em over 8.5/9.5 reflete que a predição constante cai abaixo da freq_real nessas linhas (NB subestima levemente a aba direita). **Isso NÃO é falha do engine** — é esperado num baseline-vs-baseline. O skill real de escanteios emerge apenas com o `team_taxa` matchup por jogo (produção × concessão já implementado no pipeline principal), que este backtest simplificado não exercita. **Não usar este backtest para decisão de aposta; é uma verificação de consistência da distribuição marginal.**
 
 **Nota sobre CLV:** este backtest mede apenas calibração de probabilidade (confiabilidade + skill vs base). **CLV (Closing Line Value) NÃO é medido aqui** — props de jogador não têm mercado com linha de fechamento disponível (<$99/mês). O CLV entrará quando houver feed de odds de prop (ver decisões travadas na seção abaixo). Esta etapa (calibração offline) é a porta de entrada da sequência de validação: calibração → CLV → dinheiro real.

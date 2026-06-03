@@ -62,29 +62,37 @@ def run_gols(league_id=9, n_events=120):
     from odd_analyzer.model.match_model import score_matrix, prob_total_over
     c = BSDClient(get_required("BZZOIRO_API_KEY"))
     evs = c.events(league_id=league_id, status="finished", limit=n_events).get("results", [])[:n_events]
-    # média de gols-for por time (todos os jogos coletados)
-    gf, gp = {}, {}
+    gf, ga, gp = {}, {}, {}     # goals-for, goals-against, games por time
     jogos = []
+    tot_goals = 0; tot_team_games = 0
     for ev in evs:
         h, a = ev.get("home_team_id"), ev.get("away_team_id")
         hs, as_ = ev.get("home_score"), ev.get("away_score")
         if None in (h, a, hs, as_):
             continue
         jogos.append((h, a, hs, as_))
-        gf[h] = gf.get(h, 0) + hs; gp[h] = gp.get(h, 0) + 1
-        gf[a] = gf.get(a, 0) + as_; gp[a] = gp.get(a, 0) + 1
+        gf[h] = gf.get(h, 0) + hs; ga[h] = ga.get(h, 0) + as_; gp[h] = gp.get(h, 0) + 1
+        gf[a] = gf.get(a, 0) + as_; ga[a] = ga.get(a, 0) + hs; gp[a] = gp.get(a, 0) + 1
+        tot_goals += hs + as_; tot_team_games += 2
+    liga = (tot_goals / tot_team_games) if tot_team_games else 1.3   # média gols/time/jogo
     lines = MARKETS["gols"].lines
     for l in lines:
         preds, actuals = [], []
         for h, a, hs, as_ in jogos:
-            lh = (gf[h] - hs) / (gp[h] - 1) if gp[h] > 1 else gf[h] / gp[h]
-            la = (gf[a] - as_) / (gp[a] - 1) if gp[a] > 1 else gf[a] / gp[a]
+            # leave-one-out ataque e defesa de cada time
+            att_h = (gf[h] - hs) / (gp[h] - 1) if gp[h] > 1 else gf[h] / gp[h]
+            def_h = (ga[h] - as_) / (gp[h] - 1) if gp[h] > 1 else ga[h] / gp[h]
+            att_a = (gf[a] - as_) / (gp[a] - 1) if gp[a] > 1 else gf[a] / gp[a]
+            def_a = (ga[a] - hs) / (gp[a] - 1) if gp[a] > 1 else ga[a] / gp[a]
+            lh = att_h * (def_a / liga) if liga else att_h
+            la = att_a * (def_h / liga) if liga else att_a
             preds.append(prob_total_over(score_matrix(lh, la), l))
             actuals.append(1 if (hs + as_) > l else 0)
         base = sum(actuals) / len(actuals)
-        print(f"\n=== gols over {l} | n={len(preds)} | freq real={base:.3f} ===")
-        print(f"Brier {brier_score(preds, actuals):.4f} | ECE {expected_calibration_error(preds, actuals):.4f} | "
-              f"BrierSkill {brier_skill_score(preds, actuals):.3f}")
+        print(f"\n=== gols over {l} | n={len(preds)} | freq real={base:.3f} | "
+              f"Brier {brier_score(preds, actuals):.4f} | ECE {expected_calibration_error(preds, actuals):.4f} | "
+              f"BrierSkill {brier_skill_score(preds, actuals):.3f} ===")
+    print(f"\n(liga média gols/time/jogo = {liga:.3f})")
 
 
 def main():

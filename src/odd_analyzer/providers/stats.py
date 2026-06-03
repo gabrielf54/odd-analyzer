@@ -203,26 +203,31 @@ class BSDStatsProvider:
         }
 
     def team_rates(self, team_id, contexto: dict, janela: int = 10) -> dict | None:
-        """Gols-for esperados do time = média de gols marcados no histórico finalizado.
-        (Ataque puro; o ajuste pela defesa do adversário entra no match_model via o
-        lambda do outro time.) None se sem dado."""
+        """Gols-for (ataque) e gols-against (defesa) médios do histórico finalizado.
+        match_model combina: lambda_side = ataque_proprio × defesa_adversario / media_liga.
+        None se sem dado."""
         team_id = str(team_id)
         try:
             evs = self._client.events(team_id=team_id, status="finished", limit=janela)
         except Exception:
             return None
         results = evs.get("results", []) if isinstance(evs, dict) else []
-        gols = []
+        gols_for, gols_against = [], []
         for ev in results[:janela]:
             if str(ev.get("home_team_id")) == team_id:
-                g = ev.get("home_score")
+                g, c = ev.get("home_score"), ev.get("away_score")
             else:
-                g = ev.get("away_score")
+                g, c = ev.get("away_score"), ev.get("home_score")
             if g is not None:
-                gols.append(float(g))
-        if not gols:
+                gols_for.append(float(g))
+            if c is not None:
+                gols_against.append(float(c))
+        if not gols_for:
             return None
-        return {"lambda_for": sum(gols) / len(gols)}
+        return {
+            "lambda_for": sum(gols_for) / len(gols_for),
+            "lambda_against": (sum(gols_against) / len(gols_against)) if gols_against else sum(gols_for) / len(gols_for),
+        }
 
 
 class ApiFootballStatsProvider:
