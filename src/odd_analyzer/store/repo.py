@@ -17,11 +17,18 @@ class Repo(ABC):
     def update_fechamento(self, event_id: str, jogador: str, linha: float,
                           market_type: str | None,
                           odd_fechamento: float, resultado: int) -> None: ...
+    @abstractmethod
+    def save_crosswalk(self, id_canonico: int, nome_normalizado: str,
+                       fontes_ids: dict, confianca: float,
+                       verificado_manual: bool = False) -> None: ...
+    @abstractmethod
+    def get_crosswalk(self, id_canonico: int) -> dict | None: ...
 
 class InMemoryRepo(Repo):
     def __init__(self):
         self.analises: dict[str, dict] = {}
         self.ledger: list[dict] = []
+        self.crosswalk: dict[int, dict] = {}
 
     def save_analise(self, event_id, payload):
         self.analises[event_id] = payload
@@ -44,6 +51,17 @@ class InMemoryRepo(Repo):
             row["resultado"] = resultado
             row["clv"] = clv(row["odd_flag"], odd_fechamento)
             break
+
+    def save_crosswalk(self, id_canonico, nome_normalizado, fontes_ids, confianca,
+                       verificado_manual=False):
+        self.crosswalk[id_canonico] = {
+            "id_canonico": id_canonico, "nome_normalizado": nome_normalizado,
+            "fontes_ids": fontes_ids, "confianca": confianca,
+            "verificado_manual": verificado_manual,
+        }
+
+    def get_crosswalk(self, id_canonico):
+        return self.crosswalk.get(id_canonico)
 
 class SupabaseRepo(Repo):
     """Persiste no Supabase. Tabelas em store/schema.sql (rodar uma vez no SQL editor)."""
@@ -86,3 +104,16 @@ class SupabaseRepo(Repo):
         if market_type is not None:
             upd = upd.eq("market_type", market_type)
         upd.execute()
+
+    def save_crosswalk(self, id_canonico, nome_normalizado, fontes_ids, confianca,
+                       verificado_manual=False):
+        self._client.table("jogadores_crosswalk").upsert({
+            "id_canonico": id_canonico, "nome_normalizado": nome_normalizado,
+            "fontes_ids": fontes_ids, "confianca": confianca,
+            "verificado_manual": verificado_manual,
+        }).execute()
+
+    def get_crosswalk(self, id_canonico):
+        r = (self._client.table("jogadores_crosswalk").select("*")
+             .eq("id_canonico", id_canonico).execute())
+        return r.data[0] if r.data else None

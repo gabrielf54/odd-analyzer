@@ -31,6 +31,7 @@ create table if not exists paper_ledger (
   unique (event_id, jogador, linha, market_type)
 );
 
+-- lido/escrito por SupabaseRepo.save_crosswalk/get_crosswalk
 create table if not exists jogadores_crosswalk (
   id_canonico bigint primary key,  -- id canonico do jogador, fornecido pelo caller (ex.: ID API-Football)
   nome_normalizado text,

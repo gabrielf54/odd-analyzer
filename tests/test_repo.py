@@ -86,3 +86,16 @@ def test_update_fechamento_market_type_inexistente_e_noop():
     r = InMemoryRepo()
     r.update_fechamento("ghost", "Ninguem", 0.5, "sot", odd_fechamento=1.80, resultado=0)
     assert r.ledger == []
+
+def test_crosswalk_save_get_roundtrip():
+    repo = InMemoryRepo()
+    repo.save_crosswalk(id_canonico=1994, nome_normalizado="adrien rabiot",
+                        fontes_ids={"bsd": "1994", "odds": "rabiot"}, confianca=0.97)
+    row = repo.get_crosswalk(1994)
+    assert row["nome_normalizado"] == "adrien rabiot"
+    assert row["fontes_ids"]["bsd"] == "1994"
+    assert abs(row["confianca"] - 0.97) < 1e-9
+
+def test_crosswalk_get_inexistente_retorna_none():
+    repo = InMemoryRepo()
+    assert repo.get_crosswalk(999) is None
