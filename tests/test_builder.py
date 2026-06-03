@@ -47,3 +47,22 @@ def test_build_candidate_escanteios():
     assert c["market_type"] == "escanteios"
     assert c["jogador"] == "Brasil"
     assert c["linha"] == 9.5
+
+
+def test_build_candidate_carrega_player_id():
+    c = build_candidate(
+        jogador="Kaiki", linha=1.5, odd_over=1.90, odd_under=1.90,
+        prob_modelo=0.73, mu=2.0, minutos_esperados=90.0, xi_confirmado=True,
+        amostra_jogos=50, concedido_adversario="14.6", incerteza="baixa",
+        market_type="desarmes", player_id="1867",
+    )
+    assert c["player_id"] == "1867"
+
+def test_build_candidate_player_id_default_none():
+    c = build_candidate(
+        jogador="Total", linha=8.5, odd_over=1.90, odd_under=1.90,
+        prob_modelo=0.5, mu=9.0, minutos_esperados=90.0, xi_confirmado=True,
+        amostra_jogos=10, concedido_adversario="n/d", incerteza="media",
+        market_type="escanteios",
+    )
+    assert c["player_id"] is None

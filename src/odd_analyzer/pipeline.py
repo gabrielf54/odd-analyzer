@@ -177,5 +177,6 @@ def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list
                 concedido_adversario=taxa["concedido_adversario"],
                 incerteza=taxa["incerteza"],
                 market_type=market.key,
+                player_id=entidade["id"],
             ))
     return candidatos

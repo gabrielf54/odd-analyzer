@@ -13,11 +13,13 @@ def build_candidate(
     jogador, linha, odd_over, odd_under, prob_modelo, mu,
     minutos_esperados, xi_confirmado, amostra_jogos,
     concedido_adversario, incerteza, market_type: str,
+    player_id=None,
 ) -> dict:
     prob_devig = fair_prob_over(odd_over, odd_under)
     m = edge_ev(prob_modelo, prob_devig, odd_over)
     return {
         "jogador": jogador,
+        "player_id": player_id,
         "linha": linha,
         "odd": odd_over,
         "prob_modelo": prob_modelo,
