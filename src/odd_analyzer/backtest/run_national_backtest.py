@@ -12,7 +12,7 @@ from odd_analyzer.config import get_required
 from odd_analyzer.model.markets import MARKETS
 from odd_analyzer.model.sot_model import prob_over_line
 from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multiplier
-from odd_analyzer.model.assemble import filter_games_by_scope, player_mu_from_games
+from odd_analyzer.model.assemble import filter_games_by_scope, player_mu_from_games, expected_minutes
 from odd_analyzer.backtest.collect_national import (
     pool_targets, games_before_target, NATIONAL_LEAGUES,
 )
@@ -56,9 +56,11 @@ def score_targets(client, targets, conceded_pg, league_avg, market, escopo):
             older = filter_games_by_scope(older, escopo, tid)        # escopo por team_id
             opp_mult = _clamp_opp(conceded_pg.get(opp_id), league_avg)
             ha_mult = home_away_multiplier(is_home, HOME_FACTOR, AWAY_FACTOR)
+            min_esp = expected_minutes(older) or 90.0
             calc = player_mu_from_games(
                 older, stat_field=market.stat_field, prior_rate=market.prior_rate,
-                prior_strength=market.prior_strength, opp_mult=opp_mult, ha_mult=ha_mult)
+                prior_strength=market.prior_strength, opp_mult=opp_mult, ha_mult=ha_mult,
+                minutos_esperados=min_esp)
             if calc is None:
                 continue
             for l in lines:

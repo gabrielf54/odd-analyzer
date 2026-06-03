@@ -101,3 +101,38 @@ def test_score_targets_gera_preds_e_actuals_sem_espiar_o_alvo():
     assert all(0.0 <= p <= 1.0 for p in preds[1.5])
     # a previsão usa só os 3 jogos ANTIGOS (801/802/803), nunca o alvo 900
     assert len(preds[1.5]) >= 1
+
+
+def test_score_targets_reflete_minutos_estimados():
+    # mesmo alvo/atual; histórico do jogador 10 com minutos diferentes (90 vs 45),
+    # mesma contagem por jogo → pred do over 1.5 deve ser MENOR com 45 min.
+    class _Cli:
+        def __init__(self, mins): self._m = mins
+        def events(self, league_id, status, limit):
+            return {"results": [{"id": 900, "home_team_id": 1, "away_team_id": 2,
+                                 "event_date": "2026-03-01"}]}
+        def event_player_stats(self, eid):
+            return {"player_stats": [
+                {"player_id": 10, "team_id": 1, "minutes_played": 90, "total_tackle": 2},
+                {"player_id": 20, "team_id": 2, "minutes_played": 90, "total_tackle": 1},
+            ]}
+        def player_stats(self, pid):
+            return {"results": [
+                {"event_id": 900, "team_id": 1, "total_tackle": 2, "minutes_played": 90},
+                {"event_id": 803, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
+                {"event_id": 802, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
+                {"event_id": 801, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
+            ]}
+        def event_stats(self, eid):
+            return {"stats": {}}
+
+    def pred_o15(mins):
+        cli = _Cli(mins)
+        targets, conceded, lavg = pool_targets(cli, leagues=(64,), n_per_league=10,
+                                               stat_field="total_tackle", include_friendlies=False)
+        preds, _ = score_targets(cli, targets, conceded, lavg, MARKETS["desarmes"], escopo="selecao")
+        return preds[1.5][0]
+
+    p90 = pred_o15(90)
+    p45 = pred_o15(45)
+    assert p45 < p90  # menos minutos esperados → mu menor → prob menor
