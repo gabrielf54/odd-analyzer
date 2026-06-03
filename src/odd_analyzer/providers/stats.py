@@ -110,11 +110,13 @@ class BSDStatsProvider:
         # Forma REAL de /players/{id}/stats/: {count,next,previous, results:[{...campos flat...}]}.
         # Cada row já tem o campo do mercado (total_tackle/shots_on_target/total_shots) — alimenta
         # windowed_rate direto. (Sem `mando` no payload → sem split casa/fora no v1; ver follow-up.)
-        games: list[dict] = raw.get("results", [])
-        if not games:
+        results: list[dict] = raw.get("results", [])
+        if not results:
             return None
+        # BSD entrega mais-recente-primeiro; windowed_rate espera crescente (recente no fim).
+        games = list(reversed(results))
 
-        rates = windowed_rate(games, market.stat_field)
+        rates = windowed_rate(games, market.stat_field, minutes_field="minutes_played")
         w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
         raw_rate = w5 if w5 is not None else (w3 if w3 is not None else w10)
         if raw_rate is None:
