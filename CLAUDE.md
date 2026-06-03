@@ -53,6 +53,22 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - **Brier / ECE / BrierSkill** = notas da prova de calibração. Quanto menor o Brier e o ECE, melhor (modelo mais certeiro/honesto). BrierSkill > 0 significa "melhor que chutar a média" — abaixo de 0 o modelo não presta naquele mercado.
 - **Shift de população** = calibrar num grupo (ex.: clubes do Brasileirão) e usar em outro (ex.: seleções da Copa). Os grupos jogam diferente, então a calibração de um pode não valer no outro — tem que re-medir no grupo certo.
 
+## Documentação viva — SEMPRE atualizar ROADMAP.md e PITCH.md
+
+[docs/ROADMAP.md](docs/ROADMAP.md) e [docs/PITCH.md](docs/PITCH.md) são a **fonte de verdade do estado e do escopo** do produto. **Toda mudança que altere estado, veredito ou escopo deve atualizá-los no MESMO trabalho** (idealmente no mesmo commit) — não deixe divergir do código/realidade.
+
+**Quando atualizar:**
+- Calibração rodada / veredito de mercado mudou (passou, falhou, virou money-ready, foi selado).
+- Mercado entrou/saiu do MVP; fase concluída; follow-up resolvido ou aberto.
+- Decisão de produto/arquitetura travada; número-chave medido (baseline, ECE, contagem de testes).
+
+**Como manter coerente (lições desta base):**
+1. **ROADMAP cresce empilhando — combata a defasagem.** Ao adicionar seção nova no topo, **verifique o fundo** (TL;DR, "Estado por fase", Fase 4, follow-ups) e corrija o que passou a contradizer. O leitor não pode tirar conclusão oposta dependendo de onde parar.
+2. **Veredito superado = marque como SUPERADO**, não apague o histórico. Se o doc tem narrativa cronológica (ex.: "ato 1 falha → ato 3 passa"), ponha um banner no topo da seção dizendo qual veredito vale. Nunca deixe um veredito antigo lido como o atual.
+3. **Mantenha um "ESTADO ATUAL / bottom-line" único** no cabeçalho do ROADMAP, sempre verdadeiro.
+4. **PITCH é pro dono leigo** (ver Glossário): escopo e status em linguagem simples, sem jargão; conte a história honesta (o que provou e onde). **ROADMAP e PITCH não podem se contradizer no escopo** (quais mercados entram/saem).
+5. Atualize a **contagem de testes** e a **data** no cabeçalho do ROADMAP quando mudarem.
+
 ## Supabase — contexto
 
 - **Project ref:** `pepizcpowzhtawzjnzui` · região `us-east-1`
