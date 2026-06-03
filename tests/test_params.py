@@ -10,6 +10,12 @@ def test_params_valores():
     assert params.LINHAS == [0.5, 1.5]
 
 def test_dispersion_e_a_mesma_fonte():
-    # pipeline e backtest devem ler o MESMO valor de params (sem literal solto)
-    assert pipeline.NB_DISPERSION == params.NB_DISPERSION
+    # backtest deve ler o mesmo valor de params (sem literal solto)
     assert run_backtest.NB_DISPERSION == params.NB_DISPERSION
+    # pipeline agora lê nb_dispersion por MarketSpec (sem atributo de módulo)
+    # verificamos que os mercados MVP usam o mesmo r do backtest (anti-drift)
+    from odd_analyzer.model.markets import MARKETS
+    for key, spec in MARKETS.items():
+        assert spec.nb_dispersion == params.NB_DISPERSION, (
+            f"MARKETS['{key}'].nb_dispersion={spec.nb_dispersion} != params.NB_DISPERSION={params.NB_DISPERSION}"
+        )
