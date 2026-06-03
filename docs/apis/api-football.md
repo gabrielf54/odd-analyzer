@@ -8,15 +8,42 @@
 
 ## Tiers
 
-| Tier | Preço | Destrava (relevante) | Limites |
-|------|-------|----------------------|---------|
-| Free | $0 | Todos os endpoints, mas **só seasons 2022-2024** | 100 req/dia, 10/min, `/players` capado na pág. 3 |
-| **Pro** | **$19/mês** | **Temporada atual + Copa (`season=2026`) + lineups ao vivo + `/players` completo** | 7.500 req/dia |
-| Ultra | $39/mês | + 75k req/dia + `/odds` (1X2/totais, **não** props) | 75k/dia |
-| Mega | $99/mês | + 150k req/dia + "player stats deep dive" | 900/min |
+> **Fato-chave (página de pricing, 2026-06-02):** *"All plans include all endpoints and all data
+> types with no paywalled features."* Nenhum endpoint é gated por plano. A diferença entre tiers é
+> **só (a) requests/dia + (b) profundidade de temporadas históricas**. Pagar NÃO destrava endpoint
+> novo — destrava **volume** e **acesso à temporada atual / `season=2026`** (Free fica preso em 2022-2024).
+
+| Tier | Preço/mês | Req/dia | O que muda de fato |
+|------|-----------|---------|--------------------|
+| Free | $0 | 100 | Só seasons **2022-2024**; `/players` capado na pág. 3; 10 req/min |
+| **Pro** | **$19** | **7.500** | **Temporada atual + `season=2026` + `/players` sem cap** |
+| Ultra | $29 | 75.000 | Só mais volume |
+| Mega | $39 | 150.000 | Só mais volume (≈900 req/min) |
 
 **Free dá:** pipeline modelo+backtest de calibração de graça em ligas de clube 2022-2024 (já rodado: EPL 2023, n~986, over 0.5 Brier 0.173 / over 1.5 Brier 0.066 — sinal real). Mesmo ID space de stats e lineups, sem scraping/403, roda em Python 3.14 só com `requests`.
-**Free nega:** temporada da Copa (`season=2026`) e atual; varredura de `/players` (cap pág. 3 → contornado com leave-one-out de `/fixtures/players`); volume (100/dia, 10/min).
+**Free nega:** temporada da Copa (`season=2026`) e atual (`2025`); varredura de `/players` (cap pág. 3 → contornado com leave-one-out de `/fixtures/players`); volume (100/dia, 10/min).
+
+## Cobertura — sonda ao vivo (2026-06-02, plano Free; metadata da liga não respeita o cap de season)
+
+`GET /leagues?id={id}` devolve as flags `coverage.*` por temporada, mesmo no Free. Verificado:
+
+| Liga (id) | Season | lineups | stats_fixtures | stats_players | players | odds |
+|-----------|--------|:-------:|:--------------:|:-------------:|:-------:|:----:|
+| World Cup (1) | 2018 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| World Cup (1) | 2022 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **World Cup (1)** | **2026** (current) | **❌** | **❌** | **❌** | **❌** | ❌ |
+| Premier League (39) | 2025 (current) | ✅ | ✅ | ✅ | ✅ | ❌ |
+| La Liga (140) | 2025 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Serie A (135) | 2025 | ✅ | ✅ | ✅ | ✅ | ❌ |
+| Bundesliga (78) | 2025 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Ligue 1 (61) | 2025 | ✅ | ✅ | ✅ | ✅ | ✅ |
+
+> **Leitura:** Copa 2026 está **tudo False AGORA** porque o torneio começa 11/jun — o gate é **tempo,
+> não plano**. 2018 e 2022 estão tudo True; o guia oficial da Copa confirma que `season=2026` terá
+> `events/lineups/statistics_fixtures/statistics_players` ligados (104 jogos, 11/jun→19/jul, 48 seleções),
+> com a ressalva *"availability may vary from match to match especially early in the tournament"*.
+> **A forma dos jogadores vem do clube** (`season=2025`, já 100% coberta), não da seleção — amostra de
+> seleção é pequena demais para o modelo de contagem.
 
 **Menor tier para o produto:** **Pro $19/mês** — destrava `season=2026` + lineups ao vivo + `/players` sem cap. Free serve só para validar/backtest em temporadas antigas.
 
