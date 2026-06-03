@@ -121,3 +121,19 @@ def test_apostar_paper_bloqueia_em_validacao():
     with pytest.raises(ValueError):
         apostar_paper(repo, event_id="7166", candidato=_CAND, em_validacao=True)
     assert repo.ledger == []
+
+
+from odd_analyzer.service import listar_ligas
+
+def test_listar_ligas_mapeia_e_ordena_por_nome():
+    class _C:
+        def leagues(self, **kw):
+            assert kw.get("limit") == 200
+            return {"count": 3, "results": [
+                {"id": 9, "name": "Brasileirão Serie A", "country": "Brazil"},
+                {"id": 27, "name": "World Cup 2026", "country": "International"},
+                {"id": 34, "name": "Brasileirão Serie B", "country": "Brazil"},
+            ]}
+    ligas = listar_ligas(_C())
+    assert [l["id"] for l in ligas] == [9, 34, 27]  # ordenado por nome
+    assert ligas[0]["nome"] == "Brasileirão Serie A" and ligas[0]["pais"] == "Brazil"

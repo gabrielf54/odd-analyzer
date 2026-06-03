@@ -34,7 +34,16 @@ def tela_lista():
     modo = st.radio("Modo", ["Pós-jogo (validar)", "Pré-jogo (operar)"], horizontal=True)
     status = "finished" if modo.startswith("Pós") else "notstarted"
     st.session_state["modo"] = "pos" if status == "finished" else "pre"
-    league = st.number_input("Liga (BSD league_id)", value=9, step=1)
+    try:
+        ligas = service.listar_ligas(_client())
+    except Exception:
+        ligas = [{"id": 9, "nome": "Brasileirão Serie A", "pais": "Brazil"}]  # fallback offline
+    ids = [lg["id"] for lg in ligas]
+    rotulos = [f'{lg["nome"]} ({lg["pais"]})' if lg.get("pais") else lg["nome"] for lg in ligas]
+    default_idx = ids.index(9) if 9 in ids else 0
+    escolha = st.selectbox("Liga", range(len(ligas)), index=default_idx,
+                           format_func=lambda i: rotulos[i])
+    league = ids[escolha]
     busca = st.text_input("Buscar time").strip().lower()
 
     try:

@@ -90,5 +90,5 @@ class BSDClient:
     def squad(self, team_id) -> dict:
         return self._call(f"/teams/{team_id}/squad/", ttl=_TTL_STATS)
 
-    def leagues(self) -> dict:
-        return self._call("/leagues/", ttl=_TTL_ETERNAL)
+    def leagues(self, **filtros) -> dict:
+        return self._call("/leagues/", filtros or None, ttl=_TTL_ETERNAL)

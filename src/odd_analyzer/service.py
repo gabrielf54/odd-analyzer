@@ -5,6 +5,20 @@ from odd_analyzer.model.markets import MARKETS
 from odd_analyzer.runner import run_analise
 
 
+def listar_ligas(client, limit: int = 200) -> list[dict]:
+    """Catálogo de ligas do BSD (id + nome + país), ordenado por nome — p/ a UI
+    mostrar nomes em vez de pedir o league_id na mão. limit=200 cobre as ~65 ligas
+    numa página só (sem paginação)."""
+    data = client.leagues(limit=limit)
+    results = data.get("results", []) if isinstance(data, dict) else []
+    ligas = [
+        {"id": lg.get("id"), "nome": lg.get("name"), "pais": lg.get("country")}
+        for lg in results if lg.get("id") is not None
+    ]
+    ligas.sort(key=lambda x: (x["nome"] or "").lower())
+    return ligas
+
+
 def listar_jogos(client, league_id, status, limit: int = 50) -> list[dict]:
     """Lista jogos de uma liga no BSD. status='finished' (pós-jogo) ou
     'notstarted' (pré-jogo). Retorna dados puros p/ a UI."""
