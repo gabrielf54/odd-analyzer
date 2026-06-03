@@ -58,12 +58,45 @@ def run(market_key, league_id=9, n_events=120):
             print(f"  {b['bin']/10:.1f}-{(b['bin']+1)/10:.1f}: "
                   f"{b['mean_pred']:.3f}->{b['mean_actual']:.3f} (n={b['count']})")
 
+def run_gols(league_id=9, n_events=120):
+    from odd_analyzer.model.match_model import score_matrix, prob_total_over
+    c = BSDClient(get_required("BZZOIRO_API_KEY"))
+    evs = c.events(league_id=league_id, status="finished", limit=n_events).get("results", [])[:n_events]
+    # média de gols-for por time (todos os jogos coletados)
+    gf, gp = {}, {}
+    jogos = []
+    for ev in evs:
+        h, a = ev.get("home_team_id"), ev.get("away_team_id")
+        hs, as_ = ev.get("home_score"), ev.get("away_score")
+        if None in (h, a, hs, as_):
+            continue
+        jogos.append((h, a, hs, as_))
+        gf[h] = gf.get(h, 0) + hs; gp[h] = gp.get(h, 0) + 1
+        gf[a] = gf.get(a, 0) + as_; gp[a] = gp.get(a, 0) + 1
+    lines = MARKETS["gols"].lines
+    for l in lines:
+        preds, actuals = [], []
+        for h, a, hs, as_ in jogos:
+            lh = (gf[h] - hs) / (gp[h] - 1) if gp[h] > 1 else gf[h] / gp[h]
+            la = (gf[a] - as_) / (gp[a] - 1) if gp[a] > 1 else gf[a] / gp[a]
+            preds.append(prob_total_over(score_matrix(lh, la), l))
+            actuals.append(1 if (hs + as_) > l else 0)
+        base = sum(actuals) / len(actuals)
+        print(f"\n=== gols over {l} | n={len(preds)} | freq real={base:.3f} ===")
+        print(f"Brier {brier_score(preds, actuals):.4f} | ECE {expected_calibration_error(preds, actuals):.4f} | "
+              f"BrierSkill {brier_skill_score(preds, actuals):.3f}")
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("uso: run_bsd_backtest <market_key> [league_id] [n_events]")
-    run(sys.argv[1],
-        int(sys.argv[2]) if len(sys.argv) > 2 else 9,
-        int(sys.argv[3]) if len(sys.argv) > 3 else 120)
+    mk = sys.argv[1]
+    league = int(sys.argv[2]) if len(sys.argv) > 2 else 9
+    n = int(sys.argv[3]) if len(sys.argv) > 3 else 120
+    if mk == "gols":
+        run_gols(league, n)
+        return
+    run(mk, league, n)
 
 if __name__ == "__main__":
     main()
