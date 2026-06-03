@@ -50,6 +50,24 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
     }
 
 
+def apostar_paper(repo, event_id, candidato: dict, em_validacao: bool = False) -> None:
+    """Modo pré-jogo: grava a aposta-papel no paper_ledger. Bloqueia mercados
+    em validação (gols/escanteios não calibram → não registrar como aposta real)."""
+    if em_validacao:
+        raise ValueError("mercado em validação — não registrar aposta-papel")
+    repo.save_ledger([{
+        "event_id": str(event_id),
+        "jogador": candidato["jogador"],
+        "linha": candidato["linha"],
+        "market_type": candidato["market_type"],
+        "odd_flag": candidato["odd"],
+        "prob_modelo": candidato["prob_modelo"],
+        "prob_devig": candidato["prob_devig"],
+        "edge": candidato["edge"],
+        "ev": candidato["ev"],
+    }])
+
+
 def resultado_real_jogador(client, event_id, market_key, linha) -> dict:
     """Modo pós-jogo: lê os actuals de /events/{id}/player-stats/ e diz, por player_id,
     o valor real do stat do mercado e se superou a linha. Chave = str(player_id)."""

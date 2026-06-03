@@ -97,3 +97,27 @@ def test_resultado_real_jogador_calcula_bateu():
     assert res["1867"]["valor_real"] == 3
     assert res["1867"]["bateu"] is True
     assert res["1861"]["bateu"] is False
+
+
+import pytest
+from odd_analyzer.service import apostar_paper
+from odd_analyzer.store.repo import InMemoryRepo
+
+_CAND = {
+    "jogador": "Kaiki", "linha": 1.5, "odd": 1.90, "market_type": "desarmes",
+    "prob_modelo": 0.73, "prob_devig": 0.55, "edge": 0.18, "ev": 0.24,
+}
+
+def test_apostar_paper_grava_no_ledger():
+    repo = InMemoryRepo()
+    apostar_paper(repo, event_id="7166", candidato=_CAND, em_validacao=False)
+    assert len(repo.ledger) == 1
+    row = repo.ledger[0]
+    assert row["event_id"] == "7166" and row["jogador"] == "Kaiki"
+    assert row["market_type"] == "desarmes" and row["odd_flag"] == 1.90
+
+def test_apostar_paper_bloqueia_em_validacao():
+    repo = InMemoryRepo()
+    with pytest.raises(ValueError):
+        apostar_paper(repo, event_id="7166", candidato=_CAND, em_validacao=True)
+    assert repo.ledger == []
