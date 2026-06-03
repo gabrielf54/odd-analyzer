@@ -1,6 +1,33 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 · **Branch:** `feat/sub3-bsd-oficial-multimercado` · **Suíte:** 308 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 314 testes verdes · **Custo até aqui:** $0.
+
+## Calibração (Fase B — BSD liga 9, 2026-06-03)
+
+Backtest leave-one-out em **120 jogos finalizados da liga 9** (n=3304 registros jogador-jogo por mercado, após filtro de minutos).
+Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
+
+| mercado | linha | n | freq_real | Brier | ECE | BrierSkill |
+|---------|-------|---|-----------|-------|-----|------------|
+| desarmes | over 0.5 | 3304 | 0.522 | 0.2215 | 0.0869 | 0.112 |
+| desarmes | over 1.5 | 3304 | 0.258 | 0.1672 | 0.0777 | 0.126 |
+| desarmes | over 2.5 | 3304 | 0.109 | 0.0914 | 0.0601 | 0.059 |
+| sot | over 0.5 | 3304 | 0.227 | 0.1559 | 0.0388 | 0.112 |
+| sot | over 1.5 | 3304 | 0.058 | 0.0492 | 0.0089 | 0.092 |
+| sot | over 2.5 | 3304 | 0.010 | 0.0098 | 0.0010 | 0.034 |
+| finalizacoes | over 0.5 | 3304 | 0.494 | 0.2170 | 0.0815 | 0.132 |
+| finalizacoes | over 1.5 | 3304 | 0.220 | 0.1440 | 0.0465 | 0.161 |
+| finalizacoes | over 2.5 | 3304 | 0.094 | 0.0742 | 0.0188 | 0.132 |
+
+**Vereditos honestos por mercado:**
+
+- **desarmes**: `borderline` — BrierSkill positivo em todas as linhas (skill real existe), mas ECE acima de 0.08 nas linhas 0.5 e 1.5 (modelo sistematicamente otimista no bin 0.5-0.6, sub-estima freq real 0.373 vs pred 0.560). Causa provável: `prior_rate=2.0` muito alto (proxy de eixo fraco — ver follow-up `matchup-desarmes-proxy`) empurra predições para cima. **Não usar para apostas até ajustar prior e confirmar ECE < 0.08.**
+- **sot**: `presta` nas linhas úteis — over 0.5 (ECE 0.0388, BrierSkill 0.112) e over 1.5 (ECE 0.0089, BrierSkill 0.092) passam o crivo. Over 2.5 é tecnicamente calibrado (ECE 0.0010) mas freq_real=0.010 → aposta raramente acionada (evento raro). **Melhor mercado no momento; over 0.5 e 1.5 prontos para uso cauteloso.**
+- **finalizacoes**: `presta` nas linhas altas — over 1.5 (ECE 0.0465, BrierSkill 0.161) e over 2.5 (ECE 0.0188, BrierSkill 0.132) são os melhores resultados absolutos do backtest. Over 0.5 é borderline (ECE 0.0815, sub-estima freq real nos bins do meio). **Usar over 1.5 e over 2.5; over 0.5 aguardar ajuste de prior.**
+
+**Nota sobre CLV:** este backtest mede apenas calibração de probabilidade (confiabilidade + skill vs base). **CLV (Closing Line Value) NÃO é medido aqui** — props de jogador não têm mercado com linha de fechamento disponível (<$99/mês). O CLV entrará quando houver feed de odds de prop (ver decisões travadas na seção abaixo). Esta etapa (calibração offline) é a porta de entrada da sequência de validação: calibração → CLV → dinheiro real.
+
+---
 
 ## TL;DR — onde estamos
 
