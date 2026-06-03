@@ -99,3 +99,16 @@ def test_crosswalk_save_get_roundtrip():
 def test_crosswalk_get_inexistente_retorna_none():
     repo = InMemoryRepo()
     assert repo.get_crosswalk(999) is None
+
+def test_snapshot_fechamento_calcula_clv_sem_resultado():
+    repo = InMemoryRepo()
+    repo.save_ledger([{
+        "event_id": "1", "jogador": "Kaiki", "linha": 1.5, "market_type": "desarmes",
+        "odd_flag": 1.90, "prob_modelo": 0.73, "prob_devig": 0.55, "edge": 0.18, "ev": 0.24,
+    }])
+    repo.snapshot_fechamento("1", "Kaiki", 1.5, "desarmes", odd_fechamento=1.75)
+    row = repo.ledger[0]
+    assert abs(row["odd_fechamento"] - 1.75) < 1e-9
+    # CLV = 1.90/1.75 - 1 > 0 (peguei preço melhor que o fechamento)
+    assert row["clv"] > 0
+    assert row.get("resultado") is None

@@ -23,6 +23,9 @@ class Repo(ABC):
                        verificado_manual: bool = False) -> None: ...
     @abstractmethod
     def get_crosswalk(self, id_canonico: int) -> dict | None: ...
+    @abstractmethod
+    def snapshot_fechamento(self, event_id: str, jogador: str, linha: float,
+                            market_type: str | None, odd_fechamento: float) -> None: ...
 
 class InMemoryRepo(Repo):
     def __init__(self):
@@ -62,6 +65,16 @@ class InMemoryRepo(Repo):
 
     def get_crosswalk(self, id_canonico):
         return self.crosswalk.get(id_canonico)
+
+    def snapshot_fechamento(self, event_id, jogador, linha, market_type, odd_fechamento):
+        for row in self.ledger:
+            if (row["event_id"], row["jogador"], row["linha"]) != (event_id, jogador, linha):
+                continue
+            if market_type is not None and row.get("market_type") != market_type:
+                continue
+            row["odd_fechamento"] = odd_fechamento
+            row["clv"] = clv(row["odd_flag"], odd_fechamento)
+            break
 
 class SupabaseRepo(Repo):
     """Persiste no Supabase. Tabelas em store/schema.sql (rodar uma vez no SQL editor)."""
@@ -117,3 +130,19 @@ class SupabaseRepo(Repo):
         r = (self._client.table("jogadores_crosswalk").select("*")
              .eq("id_canonico", id_canonico).execute())
         return r.data[0] if r.data else None
+
+    def snapshot_fechamento(self, event_id, jogador, linha, market_type, odd_fechamento):
+        sel = (self._client.table("paper_ledger").select("odd_flag")
+               .eq("event_id", event_id).eq("jogador", jogador).eq("linha", linha))
+        if market_type is not None:
+            sel = sel.eq("market_type", market_type)
+        data = sel.execute().data
+        if not data:
+            return
+        c = clv(data[0]["odd_flag"], odd_fechamento)
+        upd = (self._client.table("paper_ledger")
+               .update({"odd_fechamento": odd_fechamento, "clv": c})
+               .eq("event_id", event_id).eq("jogador", jogador).eq("linha", linha))
+        if market_type is not None:
+            upd = upd.eq("market_type", market_type)
+        upd.execute()
