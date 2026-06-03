@@ -176,3 +176,112 @@ def test_listar_jogos_inclui_league_id():
     jogos = service.listar_jogos(_C(), league_id=64, status="finished")
     assert jogos[0]["league_id"] == 64
     assert jogos[1]["league_id"] == 64  # fallback pro argumento
+
+
+from odd_analyzer.service import escalacao_provavel
+
+
+def test_escalacao_provavel_usa_lineup_quando_existe():
+    class _C:
+        def get_event(self, eid):
+            return {"id": eid, "home_team": "Flamengo", "away_team": "Palmeiras",
+                    "home_team_id": 150, "away_team_id": 160}
+        def lineups(self, eid):
+            return {"lineup_status": "confirmed", "lineups": {
+                "home": {"team_id": 150, "players": [
+                    {"id": 11, "name": "Wesley", "position": "D"},
+                    {"id": 12, "name": "Gerson", "position": "M"}]},
+                "away": {"team_id": 160, "players": [
+                    {"id": 21, "name": "Piquerez", "position": "D"}]}}}
+    esc = escalacao_provavel(_C(), event_id=7000)
+    assert esc["origem"] == "confirmada"
+    assert esc["home"]["team_name"] == "Flamengo" and esc["home"]["team_id"] == "150"
+    nomes_home = [p["name"] for p in esc["home"]["jogadores"]]
+    assert nomes_home == ["Wesley", "Gerson"]
+    assert esc["home"]["jogadores"][0]["id"] == "11"  # id vira string
+    assert esc["home"]["jogadores"][0]["posicao"] == "D"
+    assert [p["name"] for p in esc["away"]["jogadores"]] == ["Piquerez"]
+
+
+def test_escalacao_provavel_marca_provavel_sem_confirmacao():
+    class _C:
+        def get_event(self, eid):
+            return {"id": eid, "home_team": "A", "away_team": "B",
+                    "home_team_id": 1, "away_team_id": 2}
+        def lineups(self, eid):
+            return {"lineups": {
+                "home": {"team_id": 1, "players": [{"id": 9, "name": "X", "position": "F"}]},
+                "away": {"team_id": 2, "players": []}}}
+    esc = escalacao_provavel(_C(), event_id=1)
+    assert esc["origem"] == "provavel"
+
+
+def test_escalacao_provavel_fallback_ultimos3():
+    class _C:
+        def get_event(self, eid):
+            return {"id": eid, "home_team": "A", "away_team": "B",
+                    "home_team_id": 1, "away_team_id": 2}
+        def lineups(self, eid):
+            return {"lineups": {"home": {"team_id": 1, "players": []},
+                                "away": {"team_id": 2, "players": []}}}
+        def events(self, **kw):
+            assert kw.get("status") == "finished"
+            return {"results": [{"id": 501}, {"id": 502}, {"id": 503}]}
+        def event_player_stats(self, eid):
+            return {"player_stats": [
+                {"player_id": 100, "name": "Joao", "position": "D", "minutes_played": 90},
+                {"player_id": 101, "name": "Pedro", "minutes_played": 0},   # não jogou
+                {"player_id": 100, "name": "Joao", "minutes_played": 45},   # dup → 1 vez
+            ]}
+    esc = escalacao_provavel(_C(), event_id=1)
+    assert esc["origem"] == "ultimos3"
+    ids = [p["id"] for p in esc["home"]["jogadores"]]
+    assert ids == ["100"]                      # Pedro (0 min) fora; Joao deduplicado
+    assert esc["home"]["jogadores"][0]["name"] == "Joao"
+
+
+from odd_analyzer.service import media_recente_jogador
+
+
+def test_media_recente_jogador_agrega_stat_do_mercado():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": [
+                {"total_tackle": 2}, {"total_tackle": 4}, {"total_tackle": 3}]}
+    mr = media_recente_jogador(_C(), event_id=1, market_key="desarmes", player_id=100)
+    assert mr["jogos"] == 3
+    assert mr["media"] == 3.0
+
+
+def test_media_recente_jogador_sem_dado_retorna_zero():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": []}
+    mr = media_recente_jogador(_C(), event_id=1, market_key="desarmes", player_id=100)
+    assert mr == {"media": 0.0, "jogos": 0}
+
+
+def test_media_recente_jogador_mercado_invalido():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": []}
+    with pytest.raises(ValueError):
+        media_recente_jogador(_C(), event_id=1, market_key="xxx", player_id=100)
+
+
+def test_analisar_repassa_player_ref(monkeypatch):
+    import odd_analyzer.service as svc
+    capturado = {}
+
+    def fake_run_analise(client, event_id, market_key, player_ref, linha, odd_over,
+                         odd_under, usar_ia=False, repo=None, escopo_historico="todos",
+                         league_id=None):
+        capturado["player_ref"] = player_ref
+        return {"candidatos": [], "ia": {}}
+
+    class _C:
+        def get_event(self, eid): return {"home_team": "A", "away_team": "B"}
+
+    monkeypatch.setattr(svc, "run_analise", fake_run_analise)
+    svc.analisar(_C(), "900", "desarmes", 1.5, 1.8, 2.0, player_ref="11")
+    assert capturado["player_ref"] == "11"
