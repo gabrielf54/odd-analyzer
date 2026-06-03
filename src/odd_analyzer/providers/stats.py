@@ -176,6 +176,8 @@ class BSDStatsProvider:
         if not games:
             return None
 
+        # BSD events vêm decrescente; windowed_rate espera crescente (recente no fim).
+        games = list(reversed(games))
         rates = windowed_rate(games, team_field)
         w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
         raw_rate = w5 if w5 is not None else (w3 if w3 is not None else w10)
