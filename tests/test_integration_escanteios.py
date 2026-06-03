@@ -23,17 +23,17 @@ EVENT = {
     "away_team": {"id": "cro", "name": "Croácia"},
 }
 
-# mu escolhido p/ edge positivo contra odd_over=1.87 / odd_under=1.93 com r=3.0 (escanteios).
+# Escanteios = TOTAL da partida: mu_total = corners-for(home) + corners-for(away).
+# Cada time contribui 6.5 → mu_total=13.0. edge positivo vs odd_over=1.87/odd_under=1.93 (r=3.0):
 # fair_prob_over(1.87, 1.93) ≈ 0.509; prob_over_line(13.0, 9.5, r=3.0) ≈ 0.603 → edge ≈ 0.094 ✓
 TEAM_MU = 13.0
+TEAM_MU_LADO = 6.5  # por time (home/away), somam o total
 
 
 class FakeStatsE2E:
-    def elenco(self, event):
-        return [{"id": "bra", "name": "Brasil", "team_id": "bra", "posicao": ""}]
-    def entity_taxa(self, entity_id, market, contexto):
-        return {"mu": TEAM_MU, "minutos_esperados": 90.0, "xi_confirmado": True,
-                "amostra_jogos": 15, "concedido_adversario": "alto", "incerteza": "baixa"}
+    def team_taxa(self, team_id, market, contexto):
+        return {"mu": TEAM_MU_LADO, "minutos_esperados": 90.0, "xi_confirmado": True,
+                "amostra_jogos": 15, "concedido_adversario": "n/d", "incerteza": "baixa"}
     def team_rates(self, team_id, contexto):
         return None
 
@@ -101,7 +101,7 @@ def test_pipeline_ia_recebe_candidatos_e_recomenda():
     aposta = result["ia"]["melhor_aposta"]
     assert aposta is not None
     assert aposta["veredito"] == "APOSTAR"
-    assert aposta["jogador"] == "Brasil"
+    assert aposta["jogador"] == EVENT["jogo"]  # entidade = a PARTIDA (total), não um time
     assert aposta["linha"] == 9.5
 
 
@@ -122,7 +122,7 @@ def test_pipeline_ledger_gravado_com_market_type():
     row = repo.ledger[0]
     assert row["market_type"] == "escanteios"
     assert row["event_id"] == EVENT["id"]
-    assert row["jogador"] == "Brasil"
+    assert row["jogador"] == EVENT["jogo"]
     assert row["linha"] == 9.5
 
 

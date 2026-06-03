@@ -8,11 +8,10 @@ MARKET_ESCANTEIOS = MARKETS["escanteios"]
 EVENT = {"id": "evt-corners-1", "jogo": "BRA x CRO"}
 
 class FakeStatsProvider:
-    def elenco(self, event):
-        return [{"id": "10", "name": "Brasil", "team_id": "10", "posicao": ""}]
-    def entity_taxa(self, entity_id, market, contexto):
-        return {"mu": 13.0, "minutos_esperados": 90.0, "xi_confirmado": True,
-                "amostra_jogos": 12, "concedido_adversario": "alto", "incerteza": "baixa"}
+    # escanteios = partida → pipeline usa team_taxa (soma dos dois times). 6.5+6.5 = 13.0.
+    def team_taxa(self, team_id, market, contexto):
+        return {"mu": 6.5, "minutos_esperados": 90.0, "xi_confirmado": True,
+                "amostra_jogos": 12, "concedido_adversario": "n/d", "incerteza": "baixa"}
     def team_rates(self, team_id, contexto):
         return None
 

@@ -72,6 +72,11 @@ class BSDClient:
     def team_stats(self, event_id) -> dict:
         return self._call(f"/events/{event_id}/team-stats/", ttl=_TTL_STATS)
 
+    def event_stats(self, event_id) -> dict:
+        # Stats de TIME por partida (/team-stats/ dá 404). Forma:
+        # {stats: {home: {corner_kicks, total_tackles, ...}, away: {...}}, ...}
+        return self._call(f"/events/{event_id}/stats/", ttl=_TTL_STATS)
+
     def event_odds(self, event_id) -> dict:
         return self._call(f"/events/{event_id}/odds/", ttl=_TTL_ODDS)
 

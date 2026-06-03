@@ -32,13 +32,15 @@ class BSDStatsProvider:
         self._client = client
 
     def elenco(self, event: dict) -> list[dict]:
+        # Forma REAL: {lineups: {home: {team_id, players:[...], substitutes:[...]}, away:{...}}}
+        # Titulares = `players` (suplentes ficam em `substitutes` e NÃO entram).
         data = self._client.lineups(event["id"])
+        lineups = data.get("lineups", {})
         players: list[dict] = []
-        home_team_id = str(event.get("home_team", {}).get("id", data.get("home", {}).get("team_id", "")))
-        away_team_id = str(event.get("away_team", {}).get("id", data.get("away", {}).get("team_id", "")))
-        for side, team_id in (("home", home_team_id), ("away", away_team_id)):
-            side_data = data.get(side, {})
-            for p in side_data.get("starting_xi", []):
+        for side in ("home", "away"):
+            side_data = lineups.get(side, {})
+            team_id = str(side_data.get("team_id", ""))
+            for p in side_data.get("players", []):
                 players.append({
                     "id": str(p["id"]),
                     "name": p["name"],
@@ -57,7 +59,10 @@ class BSDStatsProvider:
         entity_team_id = str(contexto.get("entity_team_id", entity_id))
 
         raw = self._client.player_stats(entity_id)
-        games: list[dict] = raw.get("games", [])
+        # Forma REAL de /players/{id}/stats/: {count,next,previous, results:[{...campos flat...}]}.
+        # Cada row já tem o campo do mercado (total_tackle/shots_on_target/total_shots) — alimenta
+        # windowed_rate direto. (Sem `mando` no payload → sem split casa/fora no v1; ver follow-up.)
+        games: list[dict] = raw.get("results", [])
         if not games:
             return None
 
@@ -69,6 +74,9 @@ class BSDStatsProvider:
 
         shrunk = shrink_rate(rate=raw_rate, apps=len(games),
                              prior_rate=market.prior_rate, prior_strength=market.prior_strength)
+        # Concessão do adversário: /events/{id}/team-stats/ dá 404 no BSD real → degrada p/
+        # league_avg (matchup NEUTRO no v1). Concessão por-mercado real (via /events/{id}/stats/
+        # ou agregação de event_player_stats) é follow-up da doutrina de confronto.
         try:
             team_stats = self._client.team_stats(event["id"])
             opp_side = "away" if is_home else "home"
@@ -88,6 +96,57 @@ class BSDStatsProvider:
             "mu": mu, "minutos_esperados": minutos_esperados,
             "xi_confirmado": xi_confirmado, "amostra_jogos": n,
             "concedido_adversario": str(opp_conceded), "incerteza": incerteza,
+        }
+
+    # market.stat_field (de jogador) → nome do campo no /events/{id}/stats/ (nível TIME).
+    _TEAM_STAT_FIELD = {
+        "corners": "corner_kicks",
+        "total_tackle": "total_tackles",
+        "shots_on_target": "shots_on_target",
+        "total_shots": "total_shots",
+    }
+
+    def team_taxa(self, team_id, market: MarketSpec, contexto: dict, janela: int = 10) -> dict | None:
+        """Taxa por-TIME (#25): agrega o stat de time (ex.: corner_kicks) nos últimos
+        jogos finalizados do time. Resolve nivel=partida (escanteios) sem player_stats."""
+        if market.kind != "contagem":
+            return None
+        team_id = str(team_id)
+        team_field = self._TEAM_STAT_FIELD.get(market.stat_field, market.stat_field)
+
+        events = self._client.events(team_id=team_id, status="finished", limit=janela)
+        results = events.get("results", []) if isinstance(events, dict) else []
+        games: list[dict] = []
+        for ev in results[:janela]:
+            side = "home" if str(ev.get("home_team_id")) == team_id else "away"
+            try:
+                stats = self._client.event_stats(ev["id"]).get("stats", {})
+                valor = stats.get(side, {}).get(team_field)
+            except Exception:
+                valor = None
+            if valor is not None:
+                games.append({team_field: valor})
+        if not games:
+            return None
+
+        rates = windowed_rate(games, team_field)
+        w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
+        raw_rate = w5 if w5 is not None else (w3 if w3 is not None else w10)
+        if raw_rate is None:
+            return None
+
+        shrunk = shrink_rate(rate=raw_rate, apps=len(games),
+                             prior_rate=market.prior_rate, prior_strength=market.prior_strength)
+        is_home: bool = contexto.get("is_home", False)
+        ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
+        # Concessão do adversário NEUTRA no v1 (mesmo follow-up do caminho de jogador).
+        mu = assemble_mu(rate_per90=shrunk, minutos_esperados=90.0, opp_mult=1.0, ha_mult=ha_mult)
+        n = len(games)
+        incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
+        return {
+            "mu": mu, "minutos_esperados": 90.0,
+            "xi_confirmado": True, "amostra_jogos": n,
+            "concedido_adversario": "n/d", "incerteza": incerteza,
         }
 
     def team_rates(self, team_id, contexto: dict) -> dict | None:

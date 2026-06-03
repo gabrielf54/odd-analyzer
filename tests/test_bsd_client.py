@@ -74,6 +74,19 @@ def test_team_stats_retorna_fixture(tmp_path):
     client = _make_client(PLAYER_STATS_FIXTURE, tmp_path)
     assert client.team_stats("evt_001") == PLAYER_STATS_FIXTURE
 
+def test_event_stats_retorna_fixture(tmp_path):
+    stats_fixture = {"event_id": "evt_001",
+                     "stats": {"home": {"corner_kicks": 7}, "away": {"corner_kicks": 3}}}
+    client = _make_client(stats_fixture, tmp_path)
+    assert client.event_stats("evt_001") == stats_fixture
+
+def test_event_stats_usa_endpoint_stats(tmp_path):
+    urls = []
+    client = BSDClient(api_key="k", cache_dir=tmp_path)
+    client._get = lambda url, params=None: (urls.append(url), {"stats": {}})[1]
+    client.event_stats("evt_001")
+    assert urls[0].endswith("/events/evt_001/stats/")
+
 def test_event_odds_retorna_fixture(tmp_path):
     client = _make_client(EVENT_ODDS_FIXTURE, tmp_path)
     assert client.event_odds("evt_001") == EVENT_ODDS_FIXTURE

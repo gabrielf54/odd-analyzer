@@ -61,12 +61,52 @@ def analisar_jogo(
     return {"candidatos": selecionados, "ia": ia}
 
 
+_INCERTEZA_ORDEM = {"baixa": 0, "media": 1, "alta": 2}
+
+
 def _run_contagem(event, market: MarketSpec, stats_provider, odds_provider) -> list[dict]:
-    """Constrói candidatos para mercados de contagem (time ou jogador)."""
-    elenco = stats_provider.elenco(event)
+    """Constrói candidatos para mercados de contagem. Dispatch por market.nivel:
+    'partida' → total da partida (soma dos dois times via team_taxa);
+    'jogador' → um candidato por jogador do elenco (entity_taxa)."""
     linhas = odds_provider.linhas(event, market)
     if not linhas:
         return []
+    if market.nivel == "partida":
+        return _contagem_partida(event, market, stats_provider, linhas)
+    return _contagem_jogador(event, market, stats_provider, linhas)
+
+
+def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
+    """Escanteios & cia: a linha é o TOTAL da partida → mu = corners-for(home) +
+    corners-for(away), cada um do histórico do próprio time (team_taxa, #25)."""
+    home = event.get("home_team", {})
+    away = event.get("away_team", {})
+    th = stats_provider.team_taxa(home.get("id"), market,
+                                  {"event": event, "is_home": True, "league_avg_conceded": market.prior_rate})
+    ta = stats_provider.team_taxa(away.get("id"), market,
+                                  {"event": event, "is_home": False, "league_avg_conceded": market.prior_rate})
+    if th is None or ta is None:
+        return []
+    mu_total = th["mu"] + ta["mu"]
+    amostra = min(th["amostra_jogos"], ta["amostra_jogos"])
+    incerteza = max((th["incerteza"], ta["incerteza"]), key=lambda x: _INCERTEZA_ORDEM.get(x, 2))
+    label = event.get("jogo") or f'{home.get("name", "")} x {away.get("name", "")}'.strip() or "partida"
+
+    candidatos = []
+    for linha_info in linhas:
+        prob_modelo = prob_over_line(mu_total, linha_info["linha"], r=market.nb_dispersion)
+        candidatos.append(build_candidate(
+            jogador=label, linha=linha_info["linha"],
+            odd_over=linha_info["odd_over"], odd_under=linha_info["odd_under"],
+            prob_modelo=prob_modelo, mu=mu_total, minutos_esperados=90.0,
+            xi_confirmado=True, amostra_jogos=amostra,
+            concedido_adversario="n/d", incerteza=incerteza, market_type=market.key,
+        ))
+    return candidatos
+
+
+def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
+    elenco = stats_provider.elenco(event)
     candidatos = []
     for entidade in elenco:
         contexto = {
