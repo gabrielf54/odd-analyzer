@@ -36,7 +36,9 @@ def tela_lista():
     st.session_state["modo"] = "pos" if status == "finished" else "pre"
     try:
         ligas = service.listar_ligas(_client())
-    except Exception:
+    except Exception as e:
+        st.warning(f"Não consegui listar as ligas ({type(e).__name__}); usando só o Brasileirão. "
+                   f"Confira BZZOIRO_API_KEY no .env.")
         ligas = [{"id": 9, "nome": "Brasileirão Serie A", "pais": "Brazil"}]  # fallback offline
     ids = [lg["id"] for lg in ligas]
     rotulos = [f'{lg["nome"]} ({lg["pais"]})' if lg.get("pais") else lg["nome"] for lg in ligas]
