@@ -107,6 +107,24 @@ Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo
 
 **Próximo passo (follow-up `minutos-esperados`, NÃO re-tunar priors):** modelar **minutos esperados** por jogador na produção (estimar via média recente de `minutes_played` + status do lineup) em vez de assumir 90 → `mu = taxa_por90 × min_esperados/90`. Re-validar o backtest com minutos ESTIMADOS (não reais — produção não os conhece pré-jogo) e medir o ECE resultante. Se a estimativa de minutos calibrar perto do teto (min reais), **os 3 mercados de jogador ficam money-ready pra Copa**. Até ligar isso, **player markets = paper/observação**.
 
+### Re-validação com minutos ESTIMADOS (2026-06-03) — ✅ os 3 mercados de jogador passam
+
+Follow-up `minutos-esperados` implementado (mergeado; `expected_minutes` = média recente de `minutes_played` na janela; `entity_taxa` e `score_targets` escalam o mu por isso em vez de 90). Re-rodado o backtest no modo **só-seleção + com-amistoso** (n≈1786 jogador-jogo) usando minutos **estimados** (o que a produção terá pré-jogo, NÃO os reais):
+
+| mercado | linha | ECE_90 (piso) | **ECE_estimado** | ECE_real (teto) | **BrierSkill_estimado** | veredito |
+|---------|-------|---------------|--------------|-----------------|---------------------|----------|
+| sot | o0.5 | 0.1043 | **0.0473** | 0.0549 | **+0.109** | ✅ |
+| sot | o1.5 | 0.0317 | **0.0118** | 0.0084 | **+0.095** | ✅ |
+| sot | o2.5 | 0.0120 | **0.0014** | 0.0023 | **+0.061** | ✅ |
+| finalizacoes | o0.5 | 0.1849 | **0.0763** | 0.0861 | **+0.101** | ✅ |
+| finalizacoes | o1.5 | 0.1343 | **0.0471** | 0.0528 | **+0.112** | ✅ |
+| finalizacoes | o2.5 | 0.0708 | **0.0162** | 0.0202 | **+0.137** | ✅ |
+| desarmes | o0.5 | 0.1628 | **0.0558** | 0.0579 | **+0.124** | ✅ |
+| desarmes | o1.5 | 0.1325 | **0.0299** | 0.0256 | **+0.098** | ✅ |
+| desarmes | o2.5 | 0.0924 | **0.0237** | 0.0224 | **+0.054** | ✅ |
+
+**Veredito: SOT, finalizações e desarmes PASSAM o crivo (ECE<0.08 + BrierSkill>0) em TODAS as linhas úteis com minutos estimados** — quase no teto dos minutos reais. A estimativa de minutos (média recente) é quase tão boa quanto saber o minuto real. **Os 3 mercados de jogador estão money-ready pra Copa** (`COPA_STATUS="ready"` no front). Confirma de novo: o gap NUNCA foi a taxa — era a projeção de 90 min. **Objetivo de 11/06 (motor de jogador validado na população certa) ATINGIDO.** Falta operacional: disciplina de risco + harness de validação forward ao vivo + (mercados de partida seguem fora).
+
 ---
 
 ## TL;DR — onde estamos

@@ -17,7 +17,7 @@ MERCADOS_PARTIDA = [("gols", "Gols"), ("escanteios", "Escanteios")]
 # Status de calibração na Copa por mercado de jogador (atualizado pela re-validação de minutos):
 # "ready" = passou o crivo (ECE<0.08 + BrierSkill>0) com minutos estimados → dinheiro liberado;
 # "paper" = ainda não passou → paper/observação.
-COPA_STATUS = {"sot": "paper", "finalizacoes": "paper", "desarmes": "paper"}
+COPA_STATUS = {"sot": "ready", "finalizacoes": "ready", "desarmes": "ready"}  # re-validado c/ minutos estimados (2026-06-03)
 
 
 @st.cache_resource
