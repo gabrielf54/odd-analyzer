@@ -96,3 +96,39 @@ def test_windowed_rate_sem_minutes_field_mantem_media_por_jogo():
     games = [{"corners": 4}, {"corners": 6}]
     r = windowed_rate(games, "corners", windows=(3,))
     assert abs(r["w3"] - 5.0) < 1e-9
+
+
+from odd_analyzer.model.assemble import filter_games_by_scope, player_mu_from_games
+
+
+def test_filter_games_by_scope_separa_por_team_id():
+    games = [
+        {"event_id": 1, "team_id": 100, "total_tackle": 2, "minutes_played": 90},  # seleção
+        {"event_id": 2, "team_id": 200, "total_tackle": 5, "minutes_played": 90},  # clube
+        {"event_id": 3, "team_id": 100, "total_tackle": 3, "minutes_played": 90},  # seleção
+    ]
+    assert len(filter_games_by_scope(games, "todos", 100)) == 3
+    selecao = filter_games_by_scope(games, "selecao", 100)
+    assert [g["event_id"] for g in selecao] == [1, 3]
+    clube = filter_games_by_scope(games, "clube", 100)
+    assert [g["event_id"] for g in clube] == [2]
+    # team_id como str ou int não importa
+    assert len(filter_games_by_scope(games, "selecao", "100")) == 2
+
+
+def test_player_mu_from_games_pura_e_deterministica():
+    games = [{"total_tackle": 2, "minutes_played": 90} for _ in range(10)]
+    out = player_mu_from_games(games, stat_field="total_tackle", prior_rate=1.3,
+                               prior_strength=12.0, opp_mult=1.0, ha_mult=1.0)
+    assert out is not None
+    assert out["n"] == 10
+    assert out["mu"] > 0
+    # multiplicadores compõem linearmente: dobrar opp_mult dobra o mu
+    out2 = player_mu_from_games(games, stat_field="total_tackle", prior_rate=1.3,
+                                prior_strength=12.0, opp_mult=2.0, ha_mult=1.0)
+    assert abs(out2["mu"] - 2 * out["mu"]) < 1e-9
+
+
+def test_player_mu_from_games_sem_amostra_retorna_none():
+    assert player_mu_from_games([], stat_field="total_tackle", prior_rate=1.3,
+                                prior_strength=12.0, opp_mult=1.0, ha_mult=1.0) is None
