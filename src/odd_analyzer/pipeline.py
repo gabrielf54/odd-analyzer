@@ -4,6 +4,7 @@ stats_provider e odds_provider são injetados — sem import direto de fonte."""
 from odd_analyzer.candidates.builder import build_candidate
 from odd_analyzer.candidates.filtro import filter_candidates
 from odd_analyzer.model.sot_model import prob_over_line
+from odd_analyzer.model.match_model import score_matrix, probs_1x2, prob_total_over
 from odd_analyzer.ai.analista import analisar as _default_analista
 from odd_analyzer.model.markets import MarketSpec
 
@@ -25,6 +26,8 @@ def analisar_jogo(
     """
     if market.kind == "contagem":
         candidatos = _run_contagem(event, market, stats_provider, odds_provider)
+    elif market.kind in ("partida_totais", "partida_1x2"):
+        candidatos = _run_partida(event, market, stats_provider, odds_provider)
     else:
         candidatos = []
 
@@ -103,6 +106,36 @@ def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list
             prob_modelo=prob_modelo, mu=mu_total, minutos_esperados=90.0,
             xi_confirmado=True, amostra_jogos=amostra,
             concedido_adversario="n/d", incerteza=incerteza, market_type=market.key,
+        ))
+    return candidatos
+
+
+def _run_partida(event, market: MarketSpec, stats_provider, odds_provider) -> list[dict]:
+    linhas = odds_provider.linhas(event, market)
+    if not linhas:
+        return []
+    home = event.get("home_team", {})
+    away = event.get("away_team", {})
+    rh = stats_provider.team_rates(home.get("id"), {"event": event, "is_home": True})
+    ra = stats_provider.team_rates(away.get("id"), {"event": event, "is_home": False})
+    if rh is None or ra is None:
+        return []
+    matrix = score_matrix(rh["lambda_for"], ra["lambda_for"])
+    label = event.get("jogo") or f'{home.get("name","")} x {away.get("name","")}'.strip()
+    candidatos = []
+    for linha_info in linhas:
+        if market.kind == "partida_totais":
+            prob = prob_total_over(matrix, linha_info["linha"])
+            jogador = label
+        else:  # partida_1x2: linha codifica o lado em odd_over (home) — convenção do MVP
+            prob = probs_1x2(matrix)["home"]
+            jogador = f"{label} (1)"
+        candidatos.append(build_candidate(
+            jogador=jogador, linha=linha_info["linha"],
+            odd_over=linha_info["odd_over"], odd_under=linha_info["odd_under"],
+            prob_modelo=prob, mu=rh["lambda_for"] + ra["lambda_for"],
+            minutos_esperados=90.0, xi_confirmado=True, amostra_jogos=10,
+            concedido_adversario="n/d", incerteza="media", market_type=market.key,
         ))
     return candidatos
 
