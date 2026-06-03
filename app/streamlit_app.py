@@ -1,59 +1,143 @@
-"""Front mínimo (página única): lista jogos da Copa, analisa um jogo, mostra
-candidatos de valor e a recomendação da IA, e o resumo do paper_ledger.
-A lógica toda vem do pipeline; este arquivo só renderiza. Sem capricho visual.
-Rodar: streamlit run app/streamlit_app.py"""
-import streamlit as st
-from odd_analyzer.odds.the_odds_api import fetch_events, fetch_event_odds
-from odd_analyzer.store.repo import SupabaseRepo
-from odd_analyzer.pipeline import analisar_jogo
+"""Front (Streamlit) — 2 telas, 2 modos. UI fina: chama só odd_analyzer.service,
+nunca o motor direto. Rodar: streamlit run app/streamlit_app.py
 
-SPORT = "soccer_fifa_world_cup"
+Modos: pós-jogo (jogos finalizados, mostra resultado real) e pré-jogo (jogos
+futuros, registra paper-bet). Mercados de jogador confiáveis; partida selado."""
+import streamlit as st
+
+from odd_analyzer.config import get_required
+from odd_analyzer.bsd.client import BSDClient
+from odd_analyzer.store.repo import InMemoryRepo
+from odd_analyzer import service
+
+MERCADOS_JOGADOR = [("sot", "SOT"), ("finalizacoes", "Finalizações"), ("desarmes", "Desarmes")]
+MERCADOS_PARTIDA = [("gols", "Gols"), ("escanteios", "Escanteios")]
+
+
+@st.cache_resource
+def _client():
+    return BSDClient(get_required("BZZOIRO_API_KEY"))
 
 
 @st.cache_resource
 def _repo():
-    # cacheia o cliente Supabase entre reruns (evita reabrir conexão a cada clique)
-    return SupabaseRepo()
+    try:
+        from odd_analyzer.store.repo import SupabaseRepo
+        return SupabaseRepo()
+    except Exception:
+        return InMemoryRepo()  # fallback offline
 
 
-def _taxa_fn(player_id, linha):
-    # PLACEHOLDER de wiring: substituir pela leitura real do modelo (Fase 1a)
-    # quando houver stats da temporada (API-Football Pro). Por ora sinaliza
-    # "sem projeção" devolvendo amostra 0 -> filtro descarta.
-    return {"prob_modelo": 0.0, "mu": 0.0, "minutos_esperados": 0,
-            "xi_confirmado": False, "amostra_jogos": 0,
-            "sot_concedido_adversario": "n/d", "incerteza": "alta"}
+def tela_lista():
+    st.title("odd-analyzer")
+    modo = st.radio("Modo", ["Pós-jogo (validar)", "Pré-jogo (operar)"], horizontal=True)
+    status = "finished" if modo.startswith("Pós") else "notstarted"
+    st.session_state["modo"] = "pos" if status == "finished" else "pre"
+    league = st.number_input("Liga (BSD league_id)", value=9, step=1)
+    busca = st.text_input("Buscar time").strip().lower()
+
+    try:
+        jogos = service.listar_jogos(_client(), int(league), status)
+    except Exception as e:
+        st.error(f"Fonte indisponível ({type(e).__name__}). Tente de novo. "
+                 f"Se persistir, confira BZZOIRO_API_KEY no .env.")
+        return
+    if busca:
+        jogos = [j for j in jogos if busca in (str(j["mandante"]) + str(j["visitante"])).lower()]
+    if not jogos:
+        st.info("Nenhum jogo nesse filtro.")
+        return
+    for j in jogos:
+        placar = f" {j['placar']} " if j["placar"] else " × "
+        col1, col2 = st.columns([4, 1])
+        col1.write(f"**{j['mandante']}**{placar}**{j['visitante']}** · {(j['data'] or '')[:10]} · {j['status']}")
+        if col2.button("Analisar →", key=f"go-{j['id']}"):
+            st.session_state["evento"] = j
+            st.rerun()
+
+
+def tela_analise():
+    j = st.session_state["evento"]
+    modo = st.session_state.get("modo", "pos")
+    if st.button("← voltar"):
+        del st.session_state["evento"]
+        st.rerun()
+    placar = f" {j['placar']} " if j["placar"] else " × "
+    st.subheader(f"{j['mandante']}{placar}{j['visitante']}")
+
+    aba_labels = [lbl for _, lbl in MERCADOS_JOGADOR] + [f"{lbl} 🏷" for _, lbl in MERCADOS_PARTIDA]
+    todos = MERCADOS_JOGADOR + MERCADOS_PARTIDA
+    abas = st.tabs(aba_labels)
+    for aba, (mkey, _) in zip(abas, todos):
+        with aba:
+            _render_mercado(j, mkey, modo)
+
+
+def _render_mercado(j, market_key, modo):
+    em_validacao = market_key in dict(MERCADOS_PARTIDA)
+    if em_validacao:
+        st.warning("EM VALIDAÇÃO — este mercado ainda não calibra; não apostar.")
+    c1, c2, c3, c4 = st.columns(4)
+    linha = c1.number_input("Linha", value=1.5, step=0.5, key=f"l-{market_key}")
+    over = c2.number_input("Over", value=1.90, step=0.01, key=f"o-{market_key}")
+    under = c3.number_input("Under", value=1.90, step=0.01, key=f"u-{market_key}")
+    usar_ia = c4.checkbox("IA", key=f"ia-{market_key}")
+    if not st.button("Varrer elenco", key=f"scan-{market_key}"):
+        return
+    try:
+        out = service.analisar(_client(), j["id"], market_key, linha, over, under, usar_ia=usar_ia, repo=_repo())
+    except Exception as e:
+        st.error(f"Falha na análise ({type(e).__name__}).")
+        return
+    cands = out["candidatos"]
+    if not cands:
+        st.info("Nenhum candidato com valor (edge/EV abaixo do corte). Poucas oportunidades fortes > muitas fracas.")
+        return
+
+    reais = {}
+    if modo == "pos":
+        try:
+            reais = service.resultado_real_jogador(_client(), j["id"], market_key, linha)
+        except Exception:
+            reais = {}
+
+    linhas_tab = []
+    for c in cands:
+        row = {
+            "Jogador": c["jogador"], "Linha": c["linha"], "p_mod": round(c["prob_modelo"], 3),
+            "p_devig": round(c["prob_devig"], 3), "Edge": round(c["edge"], 3), "EV": round(c["ev"], 3),
+            "n": c["amostra_jogos"], "adv_concede": c.get("concedido_adversario", "n/d"),
+        }
+        if modo == "pos":
+            r = reais.get(str(c.get("player_id")))
+            row["Resultado"] = (f"{r['valor_real']} {'✅' if r['bateu'] else '❌'}") if r else "n/d"
+        linhas_tab.append(row)
+    st.table(linhas_tab)
+
+    if modo == "pre":
+        for c in cands:
+            if st.button(f"Apostar (paper): {c['jogador']} {c['linha']}", key=f"bet-{market_key}-{c.get('player_id')}-{c['linha']}",
+                         disabled=em_validacao):
+                try:
+                    service.apostar_paper(_repo(), j["id"], c, em_validacao=em_validacao)
+                    st.success("Registrado no paper_ledger.")
+                except Exception as e:
+                    st.error(f"Não registrado: {e}")
+
+    ia = out.get("ia") or {}
+    ap = ia.get("melhor_aposta")
+    if ap:
+        st.success(f"🤖 {ap['jogador']} {ap['linha']} — {ap['veredito']} ({ap['confianca']}) · {ap['motivo']}")
+    for alerta in ia.get("alertas", []):
+        st.caption(f"[IA] {alerta}")
 
 
 def render():
-    st.title("odd-analyzer — Copa 2026")
-    repo = _repo()
-    if st.button("↻ atualizar jogos"):
-        st.session_state["eventos"] = fetch_events(SPORT)
-    eventos = st.session_state.get("eventos", [])
-    if not eventos:
-        st.info("Clique em '↻ atualizar jogos' para carregar a lista.")
-        return
-    rotulos = {f'{e.get("home_team")} x {e.get("away_team")}': e for e in eventos}
-    escolha = st.selectbox("Jogo", list(rotulos))
-    evt = rotulos[escolha]
-    if st.button("Analisar jogo"):
-        odds = fetch_event_odds(SPORT, evt["id"])
-        props = odds.get("bookmakers", [])
-        if not props:
-            st.warning("Odds de SOT ainda não postadas para este jogo (casas postam perto do kickoff).")
-            return
-        evt_full = dict(evt, jogo=escolha, bookmakers=props)
-        out = analisar_jogo(evt_full, elenco=[], taxa_fn=_taxa_fn, repo=repo)
-        if not out["candidatos"]:
-            st.warning("Nenhuma oportunidade clara (sem projeção do modelo ou abaixo dos cortes).")
-        else:
-            st.table(out["candidatos"])
-            ap = out["ia"].get("melhor_aposta")
-            if ap:
-                st.success(f'MELHOR: {ap["jogador"]} {ap["linha"]} — {ap["veredito"]} '
-                           f'({ap["confianca"]}) · {ap["motivo"]}')
+    if "evento" in st.session_state:
+        tela_analise()
+    else:
+        tela_lista()
 
 
-if __name__ == "__main__" or st.runtime.exists():
+if __name__ == "__main__" or (hasattr(st, "runtime") and st.runtime.exists()):
     render()
