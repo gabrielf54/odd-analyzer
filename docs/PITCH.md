@@ -76,6 +76,15 @@ Estatística velha não serve. A análise usa **dados recentes e atualizados dos
 **Jogador:** chutes a gol · finalizações totais · desarmes.
 **Partida:** gols · vitória (resultado) · escanteios.
 
+### Status de validação (2026-06-03)
+
+O motor não entra no ar por fé — cada mercado passou (ou não) por uma calibração honesta em dados reais. Estado atual:
+
+- ✅ **Validados e prontos pro front — mercados de JOGADOR:** **chutes a gol (SOT)**, **finalizações** e **desarmes**. O modelo acerta a probabilidade (calibração boa em ~3300 jogos reais). São o núcleo do MVP.
+- ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda (não vendemos o que não provamos).
+
+> Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
+
 ---
 
 ## Em resumo

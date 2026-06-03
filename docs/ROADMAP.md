@@ -1,6 +1,8 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 (meta A→D completa) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 325 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 (meta A→D completa, mergeada na `main`) · **Suíte:** 325 testes verdes · **Custo até aqui:** $0.
+>
+> **Validação pré-front (veredito):** mercados de **JOGADOR (SOT · finalizações · desarmes) PRESTAM** e liberam o front. Mercados de **PARTIDA (gols/1x2 · escanteios) NÃO calibram ainda** → ficam fora do MVP de produção (código existe, ver Fase 3). Detalhe na seção Calibração abaixo. Casado com o escopo do [PITCH.md](PITCH.md).
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
