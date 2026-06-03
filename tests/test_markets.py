@@ -114,3 +114,6 @@ def test_baseline_for_escolhe_por_populacao():
     assert baseline_for(m, 27) == m.concede_baseline_nacional
     # liga desconhecida/None → clube (default seguro)
     assert baseline_for(m, None) == m.concede_baseline
+    # invariante: toda liga de calibração de seleção mapeia pro baseline nacional
+    for lid in NATIONAL_LEAGUES:
+        assert baseline_for(m, lid) == m.concede_baseline_nacional
