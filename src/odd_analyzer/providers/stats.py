@@ -202,8 +202,27 @@ class BSDStatsProvider:
             "concedido_adversario": concedido, "incerteza": incerteza,
         }
 
-    def team_rates(self, team_id, contexto: dict) -> dict | None:
-        return None
+    def team_rates(self, team_id, contexto: dict, janela: int = 10) -> dict | None:
+        """Gols-for esperados do time = média de gols marcados no histórico finalizado.
+        (Ataque puro; o ajuste pela defesa do adversário entra no match_model via o
+        lambda do outro time.) None se sem dado."""
+        team_id = str(team_id)
+        try:
+            evs = self._client.events(team_id=team_id, status="finished", limit=janela)
+        except Exception:
+            return None
+        results = evs.get("results", []) if isinstance(evs, dict) else []
+        gols = []
+        for ev in results[:janela]:
+            if str(ev.get("home_team_id")) == team_id:
+                g = ev.get("home_score")
+            else:
+                g = ev.get("away_score")
+            if g is not None:
+                gols.append(float(g))
+        if not gols:
+            return None
+        return {"lambda_for": sum(gols) / len(gols)}
 
 
 class ApiFootballStatsProvider:

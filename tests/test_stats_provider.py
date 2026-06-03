@@ -47,3 +47,17 @@ def test_team_taxa_usa_jogos_recentes():
     assert taxa is not None
     # mu base ~ corners recentes (4) * multiplicadores; muito menor do que se usasse os antigos (10).
     assert taxa["mu"] < 7.0
+
+
+def test_team_rates_retorna_lambda_for():
+    class _C:
+        def events(self, **kw):
+            return {"results": [
+                {"id": 1, "home_team_id": 10, "away_team_id": 20, "home_score": 2, "away_score": 1},
+                {"id": 2, "home_team_id": 30, "away_team_id": 10, "home_score": 0, "away_score": 3},
+            ]}
+    prov = BSDStatsProvider(_C())
+    r = prov.team_rates(10, {"league_avg_goals": 1.3})
+    assert r is not None and r["lambda_for"] > 0
+    # time 10 marcou 2 (em casa) e 3 (fora) em 2 jogos → média 2.5
+    assert abs(r["lambda_for"] - 2.5) < 1e-9
