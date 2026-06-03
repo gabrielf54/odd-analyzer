@@ -267,3 +267,21 @@ def test_media_recente_jogador_mercado_invalido():
             return {"results": []}
     with pytest.raises(ValueError):
         media_recente_jogador(_C(), event_id=1, market_key="xxx", player_id=100)
+
+
+def test_analisar_repassa_player_ref(monkeypatch):
+    import odd_analyzer.service as svc
+    capturado = {}
+
+    def fake_run_analise(client, event_id, market_key, player_ref, linha, odd_over,
+                         odd_under, usar_ia=False, repo=None, escopo_historico="todos",
+                         league_id=None):
+        capturado["player_ref"] = player_ref
+        return {"candidatos": [], "ia": {}}
+
+    class _C:
+        def get_event(self, eid): return {"home_team": "A", "away_team": "B"}
+
+    monkeypatch.setattr(svc, "run_analise", fake_run_analise)
+    svc.analisar(_C(), "900", "desarmes", 1.5, 1.8, 2.0, player_ref="11")
+    assert capturado["player_ref"] == "11"

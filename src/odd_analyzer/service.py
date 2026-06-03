@@ -127,7 +127,8 @@ def media_recente_jogador(client, event_id, market_key, player_id) -> dict:
 
 def analisar(client, event_id, market_key, linha, odd_over, odd_under,
              usar_ia: bool = False, repo=None,
-             escopo_historico: str = "todos", league_id=None) -> dict:
+             escopo_historico: str = "todos", league_id=None,
+             player_ref=None) -> dict:
     """Roda a varredura do elenco (player_ref=None) p/ 1 jogo+mercado. Devolve
     {jogo, candidatos, ia, em_validacao}. em_validacao=True p/ mercados de partida
     (gols/escanteios) que ainda não calibram → a UI sela ('não apostar')."""
@@ -141,7 +142,7 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
     away = raw.get("away_team") or "?"
     jogo = f"{home} x {away}"
 
-    out = run_analise(client, event_id, market_key, None,
+    out = run_analise(client, event_id, market_key, player_ref,
                       linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo,
                       escopo_historico=escopo_historico, league_id=league_id)
     return {
