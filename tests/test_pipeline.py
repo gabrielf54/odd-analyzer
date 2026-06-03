@@ -78,3 +78,83 @@ def test_pipeline_market_type_propagado_para_candidato():
                            odds_provider=FakeOddsProviderWithOdds(), repo=repo, analista_fn=fake_analista_nao)
     for c in result["candidatos"]:
         assert c["market_type"] == "escanteios"
+
+
+# ---------------------------------------------------------------------------
+# Novos testes: _contagem_jogador encaminha escopo_historico + baseline_for
+# ---------------------------------------------------------------------------
+from odd_analyzer.model.markets import baseline_for
+
+_EVENT_SELECAO = {
+    "id": "900",
+    "jogo": "A x B",
+    "home_team": {"id": "H", "name": "A"},
+    "away_team": {"id": "V", "name": "B"},
+}
+
+
+class FakeStatsProviderCaptura:
+    """Fake que captura o contexto recebido em entity_taxa para inspeção posterior."""
+
+    def __init__(self):
+        self.contexto_capturado = None
+
+    def elenco(self, event):
+        return [{"id": "p1", "name": "Fulano", "team_id": "H"}]
+
+    def entity_taxa(self, entity_id, market, contexto):
+        self.contexto_capturado = dict(contexto)
+        return {
+            "mu": 1.0,
+            "minutos_esperados": 90.0,
+            "xi_confirmado": True,
+            "amostra_jogos": 12,
+            "concedido_adversario": "n/d",
+            "incerteza": "baixa",
+        }
+
+
+class FakeOddsDesarmes:
+    def linhas(self, event, market):
+        return [{"linha": 1.5, "odd_over": 1.8, "odd_under": 2.0}]
+
+
+def test_contagem_jogador_encaminha_escopo_historico_no_contexto():
+    """analisar_jogo deve repassar escopo_historico='selecao' ao entity_taxa."""
+    fake_stats = FakeStatsProviderCaptura()
+    fake_odds = FakeOddsDesarmes()
+
+    analisar_jogo(
+        event=_EVENT_SELECAO,
+        market=MARKETS["desarmes"],
+        stats_provider=fake_stats,
+        odds_provider=fake_odds,
+        repo=InMemoryRepo(),
+        analista_fn=lambda cands, ctx: {"melhor_aposta": None, "outras": [], "alertas": []},
+        escopo_historico="selecao",
+        league_id=64,
+    )
+
+    assert fake_stats.contexto_capturado is not None, "entity_taxa não foi chamado"
+    assert fake_stats.contexto_capturado["escopo_historico"] == "selecao"
+
+
+def test_contagem_jogador_usa_baseline_for_como_league_avg_conceded():
+    """league_avg_conceded no contexto deve ser o valor de baseline_for(market, league_id)."""
+    fake_stats = FakeStatsProviderCaptura()
+    fake_odds = FakeOddsDesarmes()
+
+    analisar_jogo(
+        event=_EVENT_SELECAO,
+        market=MARKETS["desarmes"],
+        stats_provider=fake_stats,
+        odds_provider=fake_odds,
+        repo=InMemoryRepo(),
+        analista_fn=lambda cands, ctx: {"melhor_aposta": None, "outras": [], "alertas": []},
+        escopo_historico="selecao",
+        league_id=64,
+    )
+
+    expected = baseline_for(MARKETS["desarmes"], 64)
+    assert fake_stats.contexto_capturado is not None, "entity_taxa não foi chamado"
+    assert fake_stats.contexto_capturado["league_avg_conceded"] == expected
