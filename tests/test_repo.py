@@ -24,7 +24,7 @@ def test_repo_salva_ledger_e_atualiza_fechamento():
     r.save_ledger([{"event_id": "evt1", "jogador": "Vinicius Jr", "linha": 0.5,
                     "odd_flag": 2.10, "prob_modelo": 0.6, "prob_devig": 0.5,
                     "edge": 0.1, "ev": 0.26}])
-    r.update_fechamento("evt1", "Vinicius Jr", 0.5, odd_fechamento=1.90, resultado=1)
+    r.update_fechamento("evt1", "Vinicius Jr", 0.5, None, odd_fechamento=1.90, resultado=1)
     row = r.ledger[0]
     assert row["odd_fechamento"] == 1.90
     assert row["resultado"] == 1
@@ -32,5 +32,57 @@ def test_repo_salva_ledger_e_atualiza_fechamento():
 
 def test_update_fechamento_linha_inexistente_e_noop():
     r = InMemoryRepo()
-    r.update_fechamento("ghost", "Ninguem", 0.5, odd_fechamento=1.80, resultado=0)
+    r.update_fechamento("ghost", "Ninguem", 0.5, None, odd_fechamento=1.80, resultado=0)
     assert r.ledger == []  # nao cria nem quebra
+
+
+def test_save_ledger_com_market_type():
+    r = InMemoryRepo()
+    r.save_ledger([{
+        "event_id": "evt1", "jogador": "Vinicius Jr", "linha": 0.5,
+        "market_type": "sot", "odd_flag": 1.85,
+        "prob_modelo": 0.6, "prob_devig": 0.5, "edge": 0.1, "ev": 0.11,
+    }])
+    assert r.ledger[0]["market_type"] == "sot"
+
+def test_update_fechamento_com_market_type():
+    r = InMemoryRepo()
+    r.save_ledger([{
+        "event_id": "evt1", "jogador": "Neymar", "linha": 1.5,
+        "market_type": "finalizacoes", "odd_flag": 2.00,
+        "prob_modelo": 0.55, "prob_devig": 0.50, "edge": 0.05, "ev": 0.10,
+    }])
+    r.update_fechamento("evt1", "Neymar", 1.5, "finalizacoes", odd_fechamento=1.90, resultado=1)
+    row = r.ledger[0]
+    assert row["odd_fechamento"] == 1.90
+    assert row["resultado"] == 1
+    assert row["clv"] == pytest.approx(2.00 / 1.90 - 1.0)
+
+def test_update_fechamento_sem_market_type_usa_legacy_match():
+    r = InMemoryRepo()
+    r.save_ledger([{
+        "event_id": "evt1", "jogador": "Vinicius Jr", "linha": 0.5,
+        "odd_flag": 2.10, "prob_modelo": 0.6, "prob_devig": 0.5, "edge": 0.1, "ev": 0.26,
+    }])
+    r.update_fechamento("evt1", "Vinicius Jr", 0.5, None, odd_fechamento=1.90, resultado=1)
+    assert r.ledger[0]["resultado"] == 1
+
+def test_market_type_isola_colisao_entre_mercados():
+    r = InMemoryRepo()
+    r.save_ledger([
+        {"event_id": "evt1", "jogador": "X", "linha": 1.5, "market_type": "sot", "odd_flag": 1.80,
+         "prob_modelo": 0.6, "prob_devig": 0.5, "edge": 0.1, "ev": 0.08},
+        {"event_id": "evt1", "jogador": "X", "linha": 1.5, "market_type": "finalizacoes", "odd_flag": 1.95,
+         "prob_modelo": 0.65, "prob_devig": 0.55, "edge": 0.1, "ev": 0.15},
+    ])
+    assert len(r.ledger) == 2
+    r.update_fechamento("evt1", "X", 1.5, "sot", odd_fechamento=1.75, resultado=1)
+    sot_row = next(row for row in r.ledger if row.get("market_type") == "sot")
+    fin_row = next(row for row in r.ledger if row.get("market_type") == "finalizacoes")
+    assert sot_row["odd_fechamento"] == 1.75
+    assert "odd_fechamento" not in fin_row
+
+def test_update_fechamento_market_type_inexistente_e_noop():
+    r = InMemoryRepo()
+    r.update_fechamento("ghost", "Ninguem", 0.5, "sot", odd_fechamento=1.80, resultado=0)
+    assert r.ledger == []

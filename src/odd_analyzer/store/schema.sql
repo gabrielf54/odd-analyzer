@@ -1,11 +1,15 @@
--- Rodar uma vez no SQL editor do Supabase. Tabelas da Fase 1b (design v1 §8).
+-- Fonte de verdade do schema. Aplicar via apply_migration no MCP Supabase.
+-- Última migração: add_market_type (2026-06-03)
+
 create table if not exists analises (
-  event_id text primary key,
+  event_id text not null,
+  market_type text not null default 'sot',
   jogo text,
   data timestamptz default now(),
   ttl int,
   candidatos jsonb,
-  llm_resultado jsonb
+  llm_resultado jsonb,
+  primary key (event_id, market_type)
 );
 
 create table if not exists paper_ledger (
@@ -13,6 +17,7 @@ create table if not exists paper_ledger (
   event_id text not null,
   jogador text not null,
   linha numeric not null,
+  market_type text not null default 'sot',
   odd_flag numeric not null,
   prob_modelo numeric,
   prob_devig numeric,
@@ -23,7 +28,7 @@ create table if not exists paper_ledger (
   resultado int,
   clv numeric,
   criado_em timestamptz default now(),
-  unique (event_id, jogador, linha)  -- 1 registro por jogo/jogador/linha (update_fechamento casa nessa tripla)
+  unique (event_id, jogador, linha, market_type)
 );
 
 create table if not exists jogadores_crosswalk (
