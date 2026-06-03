@@ -117,11 +117,14 @@ def test_score_targets_reflete_minutos_estimados():
                 {"player_id": 20, "team_id": 2, "minutes_played": 90, "total_tackle": 1},
             ]}
         def player_stats(self, pid):
+            # older games: per-90 rate idêntica nos dois cenários (conta proporcional aos minutos)
+            # 90 min → 4 tackles (per90=4.0); 45 min → 2 tackles (per90=4.0). Só os minutos diferem.
+            tk = 4 if self._m >= 90 else 2
             return {"results": [
                 {"event_id": 900, "team_id": 1, "total_tackle": 2, "minutes_played": 90},
-                {"event_id": 803, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
-                {"event_id": 802, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
-                {"event_id": 801, "team_id": 1, "total_tackle": 3, "minutes_played": self._m},
+                {"event_id": 803, "team_id": 1, "total_tackle": tk, "minutes_played": self._m},
+                {"event_id": 802, "team_id": 1, "total_tackle": tk, "minutes_played": self._m},
+                {"event_id": 801, "team_id": 1, "total_tackle": tk, "minutes_played": self._m},
             ]}
         def event_stats(self, eid):
             return {"stats": {}}
@@ -136,3 +139,4 @@ def test_score_targets_reflete_minutos_estimados():
     p90 = pred_o15(90)
     p45 = pred_o15(45)
     assert p45 < p90  # menos minutos esperados → mu menor → prob menor
+    assert p90 - p45 > 0.02  # diferença significativa: só os minutos mudam, taxa per-90 é igual
