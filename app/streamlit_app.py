@@ -51,7 +51,7 @@ def tela_lista():
     try:
         jogos = service.listar_jogos(_client(), int(league), status)
     except Exception as e:
-        st.error(f"Fonte indisponível ({type(e).__name__}). Tente de novo. "
+        st.error(f"Fonte indisponível: {type(e).__name__} — {e}. Tente de novo. "
                  f"Se persistir, confira BZZOIRO_API_KEY no .env.")
         return
     if busca:
@@ -100,7 +100,8 @@ def _render_mercado(j, market_key, modo):
     try:
         out = service.analisar(_client(), j["id"], market_key, linha, over, under, usar_ia=usar_ia, repo=_repo())
     except Exception as e:
-        st.error(f"Falha na análise ({type(e).__name__}).")
+        st.error(f"Falha na análise: {type(e).__name__} — {e}")
+        st.exception(e)  # traceback completo na própria página
         return
     cands = out["candidatos"]
     if not cands:
