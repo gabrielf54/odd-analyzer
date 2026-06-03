@@ -9,6 +9,7 @@ from odd_analyzer.config import get_required
 from odd_analyzer.bsd.client import BSDClient
 from odd_analyzer.store.repo import InMemoryRepo
 from odd_analyzer import service
+from odd_analyzer.model.markets import MARKETS
 
 MERCADOS_JOGADOR = [("sot", "SOT"), ("finalizacoes", "Finalizações"), ("desarmes", "Desarmes")]
 MERCADOS_PARTIDA = [("gols", "Gols"), ("escanteios", "Escanteios")]
@@ -74,7 +75,8 @@ def tela_analise():
 
 
 def _render_mercado(j, market_key, modo):
-    em_validacao = market_key in dict(MERCADOS_PARTIDA)
+    spec = MARKETS.get(market_key)
+    em_validacao = (spec.nivel == "partida") if spec else (market_key in dict(MERCADOS_PARTIDA))
     if em_validacao:
         st.warning("EM VALIDAÇÃO — este mercado ainda não calibra; não apostar.")
     c1, c2, c3, c4 = st.columns(4)
@@ -95,7 +97,7 @@ def _render_mercado(j, market_key, modo):
         return
 
     reais = {}
-    if modo == "pos":
+    if modo == "pos" and not em_validacao:
         try:
             reais = service.resultado_real_jogador(_client(), j["id"], market_key, linha)
         except Exception:
