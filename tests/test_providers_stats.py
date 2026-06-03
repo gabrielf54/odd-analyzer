@@ -280,3 +280,84 @@ def test_team_taxa_matchup_adversario_vazado_aumenta_mu():
     mu_leaky = leaky.team_taxa("150", ESCANTEIOS, ctx)["mu"]
     mu_solid = solid.team_taxa("150", ESCANTEIOS, ctx)["mu"]
     assert mu_leaky > mu_solid
+
+
+# ---- entity_taxa defensivo: player_stats 404 (id que não resolve) não derruba ----
+
+def test_entity_taxa_returns_none_quando_player_stats_levanta():
+    class Boom(FakeBSDClient):
+        def player_stats(self, player_id, **filtros):
+            raise RuntimeError("404 Not Found")
+    provider = BSDStatsProvider(client=Boom())
+    assert provider.entity_taxa("974505", DESARMES, _contexto()) is None
+
+
+# ---- CrosswalkStatsProvider: resolve ids do lineup → stats-ids (por nome) ----
+
+from odd_analyzer.providers.stats import CrosswalkStatsProvider
+
+CW_EVENT = {
+    "id": "207441",
+    "home_team": {"id": "489", "name": "Argentina"},
+    "away_team": {"id": "665", "name": "Iceland"},
+}
+
+
+class FakeCrosswalkClient:
+    """lineup traz ids do namespace-lineup (grandes) + nomes; o histórico/stats usa
+    outro namespace (387/500). events+player-stats+player dão o tradutor."""
+    def __init__(self, confirmed=False):
+        self._status = "confirmed" if confirmed else "predicted"
+
+    def lineups(self, event_id):
+        return {"lineup_status": self._status, "lineups": {
+            "home": {"team_id": 489, "players": [
+                {"id": 974505, "name": "Enzo Fernández", "position": "M"}]},
+            "away": {"team_id": 665, "players": [
+                {"id": 888888, "name": "Gylfi Sigurdsson", "position": "M"}]},
+        }}
+
+    def events(self, team_id=None, **filtros):
+        return {"results": [{"id": 9001 if str(team_id) == "489" else 9101}]}
+
+    def event_player_stats(self, event_id):
+        if event_id == 9001:
+            return {"player_stats": [{"player_id": 387, "team_id": 489}]}
+        return {"player_stats": [{"player_id": 500, "team_id": 665}]}
+
+    def player(self, player_id):
+        return {"id": player_id, "name": {387: "Enzo Fernández", 500: "Gylfi Sigurdsson"}[player_id]}
+
+
+def _wrap():
+    client = FakeCrosswalkClient()
+    return CrosswalkStatsProvider(BSDStatsProvider(client), client)
+
+
+def test_crosswalk_elenco_devolve_stats_ids():
+    elenco = _wrap().elenco(CW_EVENT)
+    by_name = {p["name"]: p for p in elenco}
+    assert by_name["Enzo Fernández"]["id"] == "387"
+    assert by_name["Gylfi Sigurdsson"]["id"] == "500"
+    # team_id e posicao preservados
+    assert by_name["Enzo Fernández"]["team_id"] == "489"
+    assert by_name["Enzo Fernández"]["posicao"] == "M"
+
+
+def test_crosswalk_xi_ids_vazio_quando_nao_confirmado():
+    assert _wrap().xi_ids(CW_EVENT) == set()
+
+
+def test_crosswalk_xi_ids_resolvido_quando_confirmado():
+    client = FakeCrosswalkClient(confirmed=True)
+    prov = CrosswalkStatsProvider(BSDStatsProvider(client), client)
+    assert prov.xi_ids(CW_EVENT) == {"387", "500"}
+
+
+def test_crosswalk_delega_entity_taxa_ao_inner():
+    """entity_taxa não é tocado pelo wrapper — delega o stats-id ao provider real."""
+    class CapturingInner:
+        def entity_taxa(self, entity_id, market, contexto):
+            return {"capturado": entity_id}
+    prov = CrosswalkStatsProvider(CapturingInner(), FakeCrosswalkClient())
+    assert prov.entity_taxa("387", DESARMES, {})["capturado"] == "387"

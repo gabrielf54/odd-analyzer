@@ -60,6 +60,8 @@ Estatística velha não serve. A análise usa **dados recentes e atualizados dos
 
 **Nos mercados de jogador (chutes/finalizações/desarmes)** o sistema me mostra a **escalação provável** do jogo (mandante × visitante); se ainda não houver escalação, lista quem **jogou os últimos 3 jogos**. Eu escolho o jogador, vejo a média recente dele e coloco a odd real dele — a análise roda só pra ele.
 
+> Detalhe técnico resolvido (2026-06-03): a fonte de dados usa "dois crachás" diferentes para o mesmo jogador — um na lista da escalação, outro no histórico de estatísticas. O sistema agora **traduz um no outro automaticamente** (casando pelo nome), então a análise de jogos **futuros** funciona de ponta a ponta. Testado num jogo real da próxima rodada (Argentina × Islândia, 10/06): os 11 titulares de cada lado foram reconhecidos corretamente.
+
 ---
 
 ## O que o produto entrega

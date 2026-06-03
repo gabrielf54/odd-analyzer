@@ -35,6 +35,12 @@ PLAYER_STATS = {
 
 
 class FakeRealClient:
+    # Crosswalk: a escalação e o histórico compartilham o mesmo namespace de id NESTE
+    # fake (lineup-id == stats-id), então resolver por nome devolve o mesmo id — a
+    # cadeia ponta-a-ponta passa pelo crosswalk sem mudar as asserções.
+    _ROSTERS = {"150": [1867, 3946], "153": [2001]}
+    _NAMES = {1867: "M. Pereira", 3946: "Otávio", 2001: "Fábio"}
+
     def get_event(self, event_id):
         return RAW_EVENT
     def lineups(self, event_id):
@@ -43,6 +49,14 @@ class FakeRealClient:
         return PLAYER_STATS
     def team_stats(self, event_id):
         raise RuntimeError("404 /team-stats/")
+    def events(self, team_id=None, **filtros):
+        return {"results": [{"id": f"g{team_id}", "home_team_id": int(team_id)}]}
+    def event_player_stats(self, event_id):
+        tid = str(event_id)[1:]  # "g150" → "150"
+        return {"player_stats": [
+            {"player_id": pid, "team_id": int(tid)} for pid in self._ROSTERS[tid]]}
+    def player(self, player_id):
+        return {"id": player_id, "name": self._NAMES[player_id]}
 
 
 def test_e2e_desarmes_gera_candidato_com_edge_ev_positivos():

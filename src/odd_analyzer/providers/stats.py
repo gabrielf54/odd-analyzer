@@ -108,7 +108,12 @@ class BSDStatsProvider:
         xi_team_ids: set = contexto.get("xi_team_ids", set())
         entity_team_id = str(contexto.get("entity_team_id", entity_id))
 
-        raw = self._client.player_stats(entity_id)
+        try:
+            raw = self._client.player_stats(entity_id)
+        except Exception:
+            # id que não resolve em /players/{id}/stats/ (ex.: lineup-id sem crosswalk)
+            # não pode derrubar a análise — sem histórico = sem sinal.
+            return None
         results: list[dict] = raw.get("results", [])
         if not results:
             return None
@@ -245,6 +250,47 @@ class BSDStatsProvider:
             "lambda_for": sum(gols_for) / len(gols_for),
             "lambda_against": (sum(gols_against) / len(gols_against)) if gols_against else sum(gols_for) / len(gols_for),
         }
+
+
+class CrosswalkStatsProvider:
+    """Envolve um StatsProvider (BSD) e resolve os player_ids da escalação (namespace
+    do lineup, que dá 404 em /players/{id}/stats/) p/ os stats-ids reais, casando por
+    NOME via os jogadores recentes de cada time. elenco()/xi_ids() saem em stats-id;
+    entity_taxa/team_taxa/team_rates delegam ao provider real (recebem stats-id já
+    resolvido). Sem isto, o motor não acha o histórico de quem está escalado."""
+
+    def __init__(self, inner, client, n_jogos: int = 5, threshold: float = 0.85):
+        if inner is None or client is None:
+            raise ValueError("CrosswalkStatsProvider requer inner e client não-nulos")
+        self._inner = inner
+        self._client = client
+        self._n = n_jogos
+        self._threshold = threshold
+
+    def elenco(self, event: dict) -> list[dict]:
+        from odd_analyzer.crosswalk.bsd_ids import construir_mapa_time, resolver
+        brutos = self._inner.elenco(event)
+        out: list[dict] = []
+        for team_id in dict.fromkeys(p.get("team_id", "") for p in brutos):
+            grupo = [p for p in brutos if p.get("team_id", "") == team_id]
+            mapa = construir_mapa_time(self._client, team_id, self._n)
+            out.extend(resolver(grupo, mapa, self._threshold))
+        return out
+
+    def xi_ids(self, event: dict) -> set:
+        inner_xi = self._inner.xi_ids(event) if hasattr(self._inner, "xi_ids") else set()
+        if not inner_xi:
+            return set()  # sem confirmação → gate inerte (igual ao provider base)
+        return {p["id"] for p in self.elenco(event)}
+
+    def entity_taxa(self, entity_id, market: MarketSpec, contexto: dict) -> dict | None:
+        return self._inner.entity_taxa(entity_id, market, contexto)
+
+    def team_taxa(self, *args, **kwargs):
+        return self._inner.team_taxa(*args, **kwargs)
+
+    def team_rates(self, *args, **kwargs):
+        return self._inner.team_rates(*args, **kwargs)
 
 
 class ApiFootballStatsProvider:

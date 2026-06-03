@@ -66,6 +66,18 @@ def test_player_stats_retorna_fixture(tmp_path):
     client = _make_client(PLAYER_STATS_FIXTURE, tmp_path)
     assert client.player_stats(100, seasons="2025") == PLAYER_STATS_FIXTURE
 
+def test_player_retorna_fixture(tmp_path):
+    player_fixture = {"id": 761, "name": "Nahuel Molina", "position": "D"}
+    client = _make_client(player_fixture, tmp_path)
+    assert client.player(761) == player_fixture
+
+def test_player_usa_endpoint_players_id(tmp_path):
+    urls = []
+    client = BSDClient(api_key="k", cache_dir=tmp_path)
+    client._get = lambda url, params=None: (urls.append(url), {"id": 761})[1]
+    client.player(761)
+    assert urls[0].endswith("/players/761/")
+
 def test_lineups_retorna_fixture(tmp_path):
     client = _make_client(LINEUPS_FIXTURE, tmp_path)
     assert client.lineups("evt_001") == LINEUPS_FIXTURE

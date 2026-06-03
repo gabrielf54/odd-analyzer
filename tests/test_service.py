@@ -181,38 +181,54 @@ def test_listar_jogos_inclui_league_id():
 from odd_analyzer.service import escalacao_provavel
 
 
+class _LineupCrosswalkClient:
+    """Lineup traz ids do namespace-lineup (11/12/21) + nomes; o histórico usa stats-ids
+    (901/902/903). events+player-stats+player dão o tradutor por nome."""
+    _ROSTER = {"150": [(901, "Wesley"), (902, "Gerson")], "160": [(903, "Piquerez")]}
+    _NAMES = {901: "Wesley", 902: "Gerson", 903: "Piquerez"}
+
+    def __init__(self, status="confirmed"):
+        self._status = status
+
+    def get_event(self, eid):
+        return {"id": eid, "home_team": "Flamengo", "away_team": "Palmeiras",
+                "home_team_id": 150, "away_team_id": 160}
+
+    def lineups(self, eid):
+        return {"lineup_status": self._status, "lineups": {
+            "home": {"team_id": 150, "players": [
+                {"id": 11, "name": "Wesley", "position": "D"},
+                {"id": 12, "name": "Gerson", "position": "M"}]},
+            "away": {"team_id": 160, "players": [
+                {"id": 21, "name": "Piquerez", "position": "D"}]}}}
+
+    def events(self, team_id=None, **kw):
+        return {"results": [{"id": f"g{team_id}"}]}
+
+    def event_player_stats(self, eid):
+        tid = str(eid)[1:]
+        return {"player_stats": [
+            {"player_id": pid, "team_id": int(tid)} for pid, _ in self._ROSTER[tid]]}
+
+    def player(self, pid):
+        return {"id": pid, "name": self._NAMES[pid]}
+
+
 def test_escalacao_provavel_usa_lineup_quando_existe():
-    class _C:
-        def get_event(self, eid):
-            return {"id": eid, "home_team": "Flamengo", "away_team": "Palmeiras",
-                    "home_team_id": 150, "away_team_id": 160}
-        def lineups(self, eid):
-            return {"lineup_status": "confirmed", "lineups": {
-                "home": {"team_id": 150, "players": [
-                    {"id": 11, "name": "Wesley", "position": "D"},
-                    {"id": 12, "name": "Gerson", "position": "M"}]},
-                "away": {"team_id": 160, "players": [
-                    {"id": 21, "name": "Piquerez", "position": "D"}]}}}
-    esc = escalacao_provavel(_C(), event_id=7000)
+    esc = escalacao_provavel(_LineupCrosswalkClient(), event_id=7000)
     assert esc["origem"] == "confirmada"
     assert esc["home"]["team_name"] == "Flamengo" and esc["home"]["team_id"] == "150"
     nomes_home = [p["name"] for p in esc["home"]["jogadores"]]
     assert nomes_home == ["Wesley", "Gerson"]
-    assert esc["home"]["jogadores"][0]["id"] == "11"  # id vira string
-    assert esc["home"]["jogadores"][0]["posicao"] == "D"
+    # id resolvido p/ stats-id (crosswalk por nome), não o id do lineup (11)
+    assert esc["home"]["jogadores"][0]["id"] == "901"
+    assert esc["home"]["jogadores"][0]["posicao"] == "D"  # posição preservada
     assert [p["name"] for p in esc["away"]["jogadores"]] == ["Piquerez"]
+    assert esc["away"]["jogadores"][0]["id"] == "903"
 
 
 def test_escalacao_provavel_marca_provavel_sem_confirmacao():
-    class _C:
-        def get_event(self, eid):
-            return {"id": eid, "home_team": "A", "away_team": "B",
-                    "home_team_id": 1, "away_team_id": 2}
-        def lineups(self, eid):
-            return {"lineups": {
-                "home": {"team_id": 1, "players": [{"id": 9, "name": "X", "position": "F"}]},
-                "away": {"team_id": 2, "players": []}}}
-    esc = escalacao_provavel(_C(), event_id=1)
+    esc = escalacao_provavel(_LineupCrosswalkClient(status="predicted"), event_id=1)
     assert esc["origem"] == "provavel"
 
 
