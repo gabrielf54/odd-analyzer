@@ -111,6 +111,20 @@ def escalacao_provavel(client, event_id) -> dict:
     }
 
 
+def media_recente_jogador(client, event_id, market_key, player_id) -> dict:
+    """Média recente do stat do mercado p/ UM jogador (1 call). Roda só quando o
+    usuário escolhe o jogador no picker (dado caro só depois de escolher)."""
+    if market_key not in MARKETS:
+        raise ValueError(f"mercado desconhecido: {market_key}. Opções: {list(MARKETS)}")
+    field = MARKETS[market_key].stat_field
+    raw = client.player_stats(player_id)
+    results = raw.get("results", []) if isinstance(raw, dict) else []
+    valores = [float(r[field]) for r in results if r.get(field) is not None]
+    if not valores:
+        return {"media": 0.0, "jogos": 0}
+    return {"media": sum(valores) / len(valores), "jogos": len(valores)}
+
+
 def analisar(client, event_id, market_key, linha, odd_over, odd_under,
              usar_ia: bool = False, repo=None,
              escopo_historico: str = "todos", league_id=None) -> dict:

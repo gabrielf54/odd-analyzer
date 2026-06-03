@@ -238,3 +238,32 @@ def test_escalacao_provavel_fallback_ultimos3():
     ids = [p["id"] for p in esc["home"]["jogadores"]]
     assert ids == ["100"]                      # Pedro (0 min) fora; Joao deduplicado
     assert esc["home"]["jogadores"][0]["name"] == "Joao"
+
+
+from odd_analyzer.service import media_recente_jogador
+
+
+def test_media_recente_jogador_agrega_stat_do_mercado():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": [
+                {"total_tackle": 2}, {"total_tackle": 4}, {"total_tackle": 3}]}
+    mr = media_recente_jogador(_C(), event_id=1, market_key="desarmes", player_id=100)
+    assert mr["jogos"] == 3
+    assert mr["media"] == 3.0
+
+
+def test_media_recente_jogador_sem_dado_retorna_zero():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": []}
+    mr = media_recente_jogador(_C(), event_id=1, market_key="desarmes", player_id=100)
+    assert mr == {"media": 0.0, "jogos": 0}
+
+
+def test_media_recente_jogador_mercado_invalido():
+    class _C:
+        def player_stats(self, pid):
+            return {"results": []}
+    with pytest.raises(ValueError):
+        media_recente_jogador(_C(), event_id=1, market_key="xxx", player_id=100)
