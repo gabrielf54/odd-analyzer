@@ -34,7 +34,7 @@ MARKETS: dict[str, MarketSpec] = {
         lines=[0.5, 1.5, 2.5],
         eixo_concessao="chutes_a_gol_concedidos_por_jogo",
         label="Chutes a Gol (SOT)",
-        concede_baseline=4.5,
+        concede_baseline=4.55,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
     ),
     "finalizacoes": MarketSpec(
         key="finalizacoes",
@@ -47,7 +47,7 @@ MARKETS: dict[str, MarketSpec] = {
         lines=[0.5, 1.5, 2.5],
         eixo_concessao="finalizacoes_concedidas_por_jogo",
         label="Finalizações Totais",
-        concede_baseline=12.0,
+        concede_baseline=13.46,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
     ),
     "desarmes": MarketSpec(
         key="desarmes",
@@ -60,7 +60,7 @@ MARKETS: dict[str, MarketSpec] = {
         lines=[0.5, 1.5, 2.5],
         eixo_concessao="desarmes_concedidos_por_jogo",
         label="Desarmes",
-        concede_baseline=16.0,
+        concede_baseline=14.64,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
     ),
     "escanteios": MarketSpec(
         key="escanteios",
@@ -73,7 +73,7 @@ MARKETS: dict[str, MarketSpec] = {
         lines=[8.5, 9.5, 10.5],
         eixo_concessao="escanteios_concedidos_por_jogo",
         label="Escanteios (Total)",
-        concede_baseline=5.0,
+        concede_baseline=4.79,  # league-sweep BSD liga 9, 80 jogos (2026-06-03)
     ),
     "gols": MarketSpec(
         key="gols",
