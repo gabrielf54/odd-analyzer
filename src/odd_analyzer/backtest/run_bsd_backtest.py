@@ -16,6 +16,24 @@ from odd_analyzer.backtest.calibration import (
 
 def run(market_key, league_id=9, n_events=120):
     market = MARKETS[market_key]
+    if market.nivel == "partida":
+        from odd_analyzer.backtest.collect_bsd import collect_bsd_team
+        from odd_analyzer.model.sot_model import prob_over_line
+        c = BSDClient(get_required("BZZOIRO_API_KEY"))
+        team_field = "corner_kicks" if market.stat_field == "corners" else market.stat_field
+        totais, _ = collect_bsd_team(c, league_id, n_events, team_field)
+        if not totais:
+            raise SystemExit("sem amostra de totais")
+        mu = sum(totais) / len(totais)   # baseline simples: média da liga (sem matchup no backtest)
+        print(f"mercado={market_key} | jogos={len(totais)} | média total/jogo={mu:.2f}")
+        for l in market.lines:
+            preds = [prob_over_line(mu, l, r=market.nb_dispersion)] * len(totais)
+            actuals = [1 if t > l else 0 for t in totais]
+            base = sum(actuals) / len(actuals)
+            print(f"\n=== {market_key} over {l} | n={len(totais)} | freq real={base:.3f} ===")
+            print(f"Brier {brier_score(preds, actuals):.4f} | ECE {expected_calibration_error(preds, actuals):.4f} | "
+                  f"BrierSkill {brier_skill_score(preds, actuals):.3f}")
+        return
     if market.nivel != "jogador":
         raise SystemExit(f"{market_key} não é mercado de jogador (use o caminho de partida).")
     c = BSDClient(get_required("BZZOIRO_API_KEY"))

@@ -51,3 +51,24 @@ def collect_bsd(client, league_id, n_events, stat_field):
     else:
         home_factor = away_factor = 1.0
     return meta, records, conceded_pg, league_avg, home_factor, away_factor
+
+
+def collect_bsd_team(client, league_id, n_events, team_field):
+    """Para mercado de partida (escanteios): retorna (totais_por_jogo, corners_for_por_time).
+    totais = [home+away por jogo]; by_team {team_id: [valor-for em cada jogo]}."""
+    evs = client.events(league_id=league_id, status="finished", limit=n_events)
+    results = evs.get("results", []) if isinstance(evs, dict) else []
+    totais, by_team = [], {}
+    for ev in results[:n_events]:
+        try:
+            stats = client.event_stats(ev["id"]).get("stats", {})
+        except Exception:
+            continue
+        h = stats.get("home", {}).get(team_field)
+        a = stats.get("away", {}).get(team_field)
+        if h is None or a is None:
+            continue
+        totais.append(float(h) + float(a))
+        by_team.setdefault(ev["home_team_id"], []).append(float(h))
+        by_team.setdefault(ev["away_team_id"], []).append(float(a))
+    return totais, by_team
