@@ -25,11 +25,59 @@ class BSDStatsProvider:
 
     HOME_FACTOR = 1.08
     AWAY_FACTOR = 0.92
+    # Clamp do multiplicador de matchup: um adversário esquisito (ou baseline torto,
+    # já que é prior estático pré-calibração) não pode explodir/zerar o mu. Banda
+    # estreita = matchup ajusta, não domina. A revisar quando houver league-sweep (Fase 4).
+    OPP_MULT_MIN = 0.7
+    OPP_MULT_MAX = 1.4
 
     def __init__(self, client):
         if client is None:
             raise ValueError("BSDStatsProvider requer um BSDClient")
         self._client = client
+
+    def _opp_team_id(self, contexto: dict) -> str | None:
+        """Id do adversário: explícito no contexto, ou derivado do event (o outro time)."""
+        explicit = contexto.get("opp_team_id")
+        if explicit:
+            return str(explicit)
+        event = contexto.get("event", {})
+        is_home = contexto.get("is_home", False)
+        other = event.get("away_team" if is_home else "home_team", {})
+        oid = other.get("id")
+        return str(oid) if oid else None
+
+    def _team_conceded(self, opp_team_id, team_field: str, janela: int = 10) -> float | None:
+        """Concessão do adversário no eixo: média do que os adversários DELE produzem
+        (lado oposto) por jogo, no histórico finalizado. None se sem dado."""
+        if not opp_team_id:
+            return None
+        opp_team_id = str(opp_team_id)
+        try:
+            events = self._client.events(team_id=opp_team_id, status="finished", limit=janela)
+        except Exception:
+            return None
+        results = events.get("results", []) if isinstance(events, dict) else []
+        valores: list[float] = []
+        for ev in results[:janela]:
+            conceded_side = "away" if str(ev.get("home_team_id")) == opp_team_id else "home"
+            try:
+                stats = self._client.event_stats(ev["id"]).get("stats", {})
+                valor = stats.get(conceded_side, {}).get(team_field)
+            except Exception:
+                valor = None
+            if valor is not None:
+                valores.append(float(valor))
+        if not valores:
+            return None
+        return sum(valores) / len(valores)
+
+    def _opp_mult(self, opp_conceded, league_avg: float) -> float:
+        """opponent_multiplier + clamp. opp_conceded None → neutro (1.0)."""
+        if opp_conceded is None:
+            return 1.0
+        mult = opponent_multiplier(opp_conceded, league_avg)
+        return max(self.OPP_MULT_MIN, min(self.OPP_MULT_MAX, mult))
 
     def elenco(self, event: dict) -> list[dict]:
         # Forma REAL: {lineups: {home: {team_id, players:[...], substitutes:[...]}, away:{...}}}
@@ -74,17 +122,13 @@ class BSDStatsProvider:
 
         shrunk = shrink_rate(rate=raw_rate, apps=len(games),
                              prior_rate=market.prior_rate, prior_strength=market.prior_strength)
-        # Concessão do adversário: /events/{id}/team-stats/ dá 404 no BSD real → degrada p/
-        # league_avg (matchup NEUTRO no v1). Concessão por-mercado real (via /events/{id}/stats/
-        # ou agregação de event_player_stats) é follow-up da doutrina de confronto.
-        try:
-            team_stats = self._client.team_stats(event["id"])
-            opp_side = "away" if is_home else "home"
-            opp_conceded = float(team_stats.get(opp_side, {}).get(market.stat_field, league_avg))
-        except Exception:
-            opp_conceded = league_avg
-
-        opp_mult = opponent_multiplier(opp_conceded, league_avg)
+        # Matchup REAL (produção × concessão no mesmo eixo): concessão do adversário vem do
+        # histórico DELE (lado oposto em /events/{id}/stats/), não de /team-stats/ (404).
+        # Sem dado → neutro (1.0). Baseline nível-time = market.concede_baseline (ou ctx).
+        opp_team_id = self._opp_team_id(contexto)
+        team_field = self._TEAM_STAT_FIELD.get(market.stat_field, market.stat_field)
+        opp_conceded = self._team_conceded(opp_team_id, team_field)
+        opp_mult = self._opp_mult(opp_conceded, league_avg)
         ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
         minutos_esperados = 90.0
         mu = assemble_mu(rate_per90=shrunk, minutos_esperados=minutos_esperados,
@@ -92,10 +136,11 @@ class BSDStatsProvider:
         xi_confirmado = (entity_team_id in xi_team_ids) if xi_team_ids else True
         n = len(games)
         incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
+        concedido = f"{opp_conceded:.1f}" if opp_conceded is not None else "n/d (neutro)"
         return {
             "mu": mu, "minutos_esperados": minutos_esperados,
             "xi_confirmado": xi_confirmado, "amostra_jogos": n,
-            "concedido_adversario": str(opp_conceded), "incerteza": incerteza,
+            "concedido_adversario": concedido, "incerteza": incerteza,
         }
 
     # market.stat_field (de jogador) → nome do campo no /events/{id}/stats/ (nível TIME).
@@ -139,14 +184,18 @@ class BSDStatsProvider:
                              prior_rate=market.prior_rate, prior_strength=market.prior_strength)
         is_home: bool = contexto.get("is_home", False)
         ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
-        # Concessão do adversário NEUTRA no v1 (mesmo follow-up do caminho de jogador).
-        mu = assemble_mu(rate_per90=shrunk, minutos_esperados=90.0, opp_mult=1.0, ha_mult=ha_mult)
+        # Matchup REAL: concessão do adversário no MESMO eixo (escanteios que ele cede).
+        league_avg = contexto.get("league_avg_conceded", market.concede_baseline)
+        opp_conceded = self._team_conceded(self._opp_team_id(contexto), team_field, janela)
+        opp_mult = self._opp_mult(opp_conceded, league_avg)
+        mu = assemble_mu(rate_per90=shrunk, minutos_esperados=90.0, opp_mult=opp_mult, ha_mult=ha_mult)
         n = len(games)
         incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
+        concedido = f"{opp_conceded:.1f}" if opp_conceded is not None else "n/d (neutro)"
         return {
             "mu": mu, "minutos_esperados": 90.0,
             "xi_confirmado": True, "amostra_jogos": n,
-            "concedido_adversario": "n/d", "incerteza": incerteza,
+            "concedido_adversario": concedido, "incerteza": incerteza,
         }
 
     def team_rates(self, team_id, contexto: dict) -> dict | None:

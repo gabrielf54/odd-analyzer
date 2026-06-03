@@ -208,3 +208,75 @@ def test_team_taxa_none_quando_sem_jogos_finalizados():
             return {"count": 0, "results": []}
     provider = BSDStatsProvider(client=EmptyTeamClient())
     assert provider.team_taxa("150", ESCANTEIOS, _team_ctx()) is None
+
+
+# ---- #1 matchup REAL: concessão do adversário entra no mu (produção × concessão) ----
+
+def test_markets_tem_concede_baseline_nivel_time():
+    # baseline de concessão é nível-TIME (não o prior de jogador) — senão o
+    # multiplicador divide concessão-de-time (~12 desarmes) pelo prior do jogador (~2) e explode.
+    for k in ("sot", "finalizacoes", "desarmes", "escanteios"):
+        assert MARKETS[k].concede_baseline > 0
+
+
+class FakeMatchupClient(FakeBSDClient):
+    """Rate de jogador fixo + histórico do ADVERSÁRIO (153). opp_concede = quantos
+    total_tackles o adversário concede por jogo (lado oposto ao 153 nos jogos dele)."""
+    def __init__(self, opp_concede):
+        self._oc = opp_concede
+    def player_stats(self, player_id, **filtros):
+        return {"count": 10, "next": None, "previous": None,
+                "results": [{"player_id": 1867, "event_id": 7000 + i, "team_id": 150,
+                             "minutes_played": 90, "total_tackle": 2} for i in range(10)]}
+    def events(self, **filtros):
+        # adversário 153 sempre como mandante → concessão = lado away.
+        return {"count": 10, "results": [
+            {"id": 2000 + i, "home_team_id": 153, "away_team_id": 777, "status": "finished"}
+            for i in range(10)]}
+    def event_stats(self, event_id):
+        return {"event_id": event_id,
+                "stats": {"home": {"total_tackles": 1}, "away": {"total_tackles": self._oc}}}
+
+
+def _matchup_ctx():
+    return {"event": EVENT, "entity_team_id": "150", "is_home": True,
+            "league_avg_conceded": 12.0, "opp_team_id": "153"}
+
+
+def test_entity_taxa_matchup_adversario_vazado_aumenta_mu():
+    leaky = BSDStatsProvider(client=FakeMatchupClient(opp_concede=24))  # 2x baseline
+    solid = BSDStatsProvider(client=FakeMatchupClient(opp_concede=6))   # 0.5x baseline
+    mu_leaky = leaky.entity_taxa("1867", DESARMES, _matchup_ctx())["mu"]
+    mu_solid = solid.entity_taxa("1867", DESARMES, _matchup_ctx())["mu"]
+    assert mu_leaky > mu_solid
+
+
+def test_entity_taxa_matchup_clampado_nao_explode():
+    extreme = BSDStatsProvider(client=FakeMatchupClient(opp_concede=240))  # 20x baseline
+    neutral = BSDStatsProvider(client=FakeMatchupClient(opp_concede=12))   # 1x baseline
+    mu_ext = extreme.entity_taxa("1867", DESARMES, _matchup_ctx())["mu"]
+    mu_neu = neutral.entity_taxa("1867", DESARMES, _matchup_ctx())["mu"]
+    assert mu_ext > mu_neu                      # matchup ligado (subiu)
+    assert mu_ext <= mu_neu * 1.4 + 1e-9        # mas clampado em 1.4
+
+
+class FakeTeamMatchupClient:
+    """Time-alvo (mandante) produz 5 corners/jogo; adversário concede opp_concede."""
+    def __init__(self, opp_concede):
+        self._oc = opp_concede
+    def events(self, team_id=None, **filtros):
+        return {"count": 10, "results": [
+            {"id": 3000 + i, "home_team_id": int(team_id), "away_team_id": 888, "status": "finished"}
+            for i in range(10)]}
+    def event_stats(self, event_id):
+        return {"event_id": event_id,
+                "stats": {"home": {"corner_kicks": 5}, "away": {"corner_kicks": self._oc}}}
+
+
+def test_team_taxa_matchup_adversario_vazado_aumenta_mu():
+    leaky = BSDStatsProvider(client=FakeTeamMatchupClient(opp_concede=10))  # 2x baseline 5
+    solid = BSDStatsProvider(client=FakeTeamMatchupClient(opp_concede=2))   # 0.4x baseline 5
+    ctx = {"event": EVENT, "is_home": True, "league_avg_conceded": 5.0, "opp_team_id": "153"}
+    mu_leaky = leaky.team_taxa("150", ESCANTEIOS, ctx)["mu"]
+    mu_solid = solid.team_taxa("150", ESCANTEIOS, ctx)["mu"]
+    assert mu_leaky > mu_solid

@@ -82,9 +82,11 @@ def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list
     home = event.get("home_team", {})
     away = event.get("away_team", {})
     th = stats_provider.team_taxa(home.get("id"), market,
-                                  {"event": event, "is_home": True, "league_avg_conceded": market.prior_rate})
+                                  {"event": event, "is_home": True, "opp_team_id": away.get("id"),
+                                   "league_avg_conceded": market.concede_baseline})
     ta = stats_provider.team_taxa(away.get("id"), market,
-                                  {"event": event, "is_home": False, "league_avg_conceded": market.prior_rate})
+                                  {"event": event, "is_home": False, "opp_team_id": home.get("id"),
+                                   "league_avg_conceded": market.concede_baseline})
     if th is None or ta is None:
         return []
     mu_total = th["mu"] + ta["mu"]
@@ -107,13 +109,17 @@ def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list
 
 def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
     elenco = stats_provider.elenco(event)
+    home_id = str(event.get("home_team", {}).get("id", ""))
+    away_id = str(event.get("away_team", {}).get("id", ""))
     candidatos = []
     for entidade in elenco:
+        is_home = entidade.get("team_id") == home_id
         contexto = {
             "event": event,
             "entity_team_id": entidade.get("team_id", entidade["id"]),
-            "is_home": entidade.get("team_id") == str(event.get("home_team", {}).get("id", "")),
-            "league_avg_conceded": market.prior_rate,
+            "is_home": is_home,
+            "opp_team_id": away_id if is_home else home_id,
+            "league_avg_conceded": market.concede_baseline,
         }
         taxa = stats_provider.entity_taxa(entidade["id"], market, contexto)
         if taxa is None:

@@ -63,7 +63,7 @@ def analisar(argv: list[str]) -> None:
                                  description="Analisa 1 mercado de jogador num jogo real do BSD (odd manual).")
     ap.add_argument("--event", required=True, help="event_id do BSD (ex.: 7166)")
     ap.add_argument("--market", required=True, help="mercado: desarmes/sot/finalizacoes (jogador) ou escanteios (partida)")
-    ap.add_argument("--player", default=None, help="id ou parte do nome do jogador (só p/ mercado de jogador)")
+    ap.add_argument("--player", default=None, help="id ou parte do nome do jogador; OMITIR escaneia o elenco inteiro (só mercado de jogador)")
     ap.add_argument("--linha", type=float, required=True, help="linha da casa (ex.: 1.5)")
     ap.add_argument("--over", type=float, required=True, help="odd do over")
     ap.add_argument("--under", type=float, required=True, help="odd do under")

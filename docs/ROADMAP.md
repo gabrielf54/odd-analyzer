@@ -1,6 +1,6 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 · **Branch:** `feat/sub3-bsd-oficial-multimercado` (NÃO mergeada na main) · **Suíte:** 303 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 · **Branch:** `feat/sub3-bsd-oficial-multimercado` · **Suíte:** 308 testes verdes · **Custo até aqui:** $0.
 
 ## TL;DR — onde estamos
 
@@ -9,7 +9,9 @@ Construindo o **motor multi-mercado** sobre o **BSD/Bzzoiro** (fonte oficial de 
 - ✅ **PRIMEIRA SAÍDA REAL** (2026-06-03): `cli.py analisar` puxa dado VIVO do BSD e imprime candidato com edge/EV. Ex. real (evento 7166, Cruzeiro×Flu finalizado): **Kaiki o1.5 desarmes — p_modelo 0.731 (3.38 desarmes/jogo em 50 jogos) vs odd de-vig 0.546 → edge +0.185, EV +0.242**. EV decide em código; IA só explica.
 - 🔴 **Causa-raiz que estava escondida:** os providers liam uma **forma idealizada de JSON que NÃO batia com o BSD real**; os 287 testes passavam porque o `FakeBSDClient` devolvia a forma idealizada. **O e2e de escanteios da "Fase 1" era fixture-idealizada, não forma-real** → escanteios **nunca rodou em dado vivo**. Reconciliar provider↔forma-real é o verdadeiro bloqueador (resolvido p/ jogador; pendente p/ escanteios).
 - ✅ **Slice 1 (jogador) em dado REAL:** desarmes ponta-a-ponta (`bsd-probe` → reconciliação `elenco`/`entity_taxa` → `runner` + `ManualOdds` → `cli analisar`). **SOT e finalizações** usam o **mesmo caminho** (`shots_on_target`/`total_shots` no mesmo payload) — validados rodando (basta trocar `--market`).
-- ✅ **Slice 2 (escanteios) em dado REAL:** #25 resolvido (`team_taxa` agrega `corner_kicks` do histórico de cada time via `events(team_id, finished)` + `/events/{id}/stats/`); pipeline ramifica por `market.nivel` (total da partida = soma dos dois times). Ex. real (7166): Cruzeiro 6.26 + Fluminense 3.86 = **10.13** corners → over 8.5 @2.10 → **edge +0.069, EV +0.099**. Odd colada via `ManualOdds`. **Automático (odds do BSD) = pendente** (só pré-jogo, ver follow-up `odds-corners`).
+- ✅ **Slice 2 (escanteios) em dado REAL:** #25 resolvido (`team_taxa` agrega `corner_kicks` do histórico de cada time via `events(team_id, finished)` + `/events/{id}/stats/`); pipeline ramifica por `market.nivel` (total da partida = soma dos dois times). Odd colada via `ManualOdds`. **Automático (odds do BSD) = pendente** (só pré-jogo, ver follow-up `odds-corners`).
+- ✅ **MATCHUP REAL ligado (2026-06-03)** — o diferencial da doutrina entra no `mu`: `BSDStatsProvider._team_conceded` agrega o que o **adversário concede** no mesmo eixo (lado oposto em `/events/{id}/stats/` do histórico DELE) → `opponent_multiplier` (clampado `[0.7,1.4]`) multiplica a produção. Liga em jogador (`entity_taxa`) e partida (`team_taxa`). Baseline nível-TIME = `MarketSpec.concede_baseline` (prior estático, **pendente de league-sweep na Fase 4**). **Efeito real visível:** escanteios do 7166, que no número *ingênuo* dava over 8.5 (mu 10.13, "edge +0.069"), com o confronto cai p/ **mu 7.94** (Fluminense concede só 3.0 corners/jogo → mult 0.7; Cruzeiro 4.6 → 0.92) → **deixa de ser valor**. Produção × concessão, não média bruta.
+- ✅ **VARREDURA ligada (2026-06-03)** — `cli analisar` SEM `--player` escaneia o **elenco inteiro** e o filtro edge/EV revela quem tem valor (não precisa adivinhar o jogador). Ex. 7166 desarmes o1.5 @1.90: Kaiki (edge +0.205) e L. Romero (+0.164). Coluna `adv_concede` mostra o matchup na tabela.
 - ⬜ Faltam **Fases 3, 4** + follow-ups (abaixo).
 
 ### Formas REAIS do BSD (inspecione com `cli.py bsd-probe 7166` → dumpa em `.probe_dumps/`, descartável/gitignorado)
@@ -43,9 +45,8 @@ Commits: `7a3a467` `05a6ac9` `8a5872c` `ff84b12` `4793cb4` `a641a52`.
 ### ✅ Slice 2 — Escanteios em dado REAL (stats; odds via ManualOdds)
 `client.event_stats` (`/events/{id}/stats/`) · `BSDStatsProvider.team_taxa` (#25: agrega `corner_kicks` do histórico do time via `events(team_id, finished)`) · pipeline ramifica `market.nivel=="partida"` → `_contagem_partida` (mu = soma dos dois times) · runner aceita mercado de partida (sem `--player`). **Falta só o modo automático de odds** (`BSDMatchOdds` na forma real + endpoint de odds de corners — só existe pré-jogo; ver follow-up `odds-corners`).
 
-### ⬜ Fase 3 — Modelo de PARTIDA (vitória 1X2 + gols)
-`match_model.py` (Poisson bivariado + Dixon-Coles) → `probs_1x2` + `prob_total_over`; `team_rates`.
-Tasks do plano: 22–28 (pular **23** — markets já tem vitoria/gols).
+### ✅ Slice 3 — Matchup real + varredura (2026-06-03)
+`BSDStatsProvider._team_conceded` (concessão do adversário no eixo, via histórico DELE) + `_opp_mult` (clamp `[0.7,1.4]`) ligados em `entity_taxa` e `team_taxa` · `MarketSpec.concede_baseline` (baseline nível-time, prior estático→Fase 4) · pipeline passa `opp_team_id`+baseline · `runner.run_analise` sem `--player` = **varredura** do elenco · coluna `adv_concede` na tabela. **+5 testes (308 total).** Diferencial da doutrina (produção × concessão) agora entra no número. **Caveats:** baseline estático (`concede-baseline-estatico`) e eixo de desarmes é proxy (`matchup-desarmes-proxy`) — ambos mapeados nos follow-ups.
 
 ### ⬜ Fase 3 — Modelo de PARTIDA (vitória 1X2 + gols)
 `match_model.py` (Poisson bivariado + Dixon-Coles) → `probs_1x2` + `prob_total_over`; `team_rates`.
@@ -65,8 +66,10 @@ Não quebram testes (fixtures), mas **bloqueiam dado REAL**:
 |---|-----|---------|-----------------|
 | ~~#25~~ ✅ | **RESOLVIDO** — histórico de TIME p/ escanteios via `team_taxa` + `events(team_id, finished)` + `/events/{id}/stats/`; pipeline ramifica por `market.nivel`. Escanteios roda em dado real (odds via ManualOdds) | — | Feito (Slice 2) |
 | **odds-corners** | `/events/{id}/odds/` de jogo finalizado vem **sem corners e sem bookmakers** (só 1x2/over_under_gols/btts, flat). `BSDMatchOdds` ainda espera a forma idealizada (`bookmakers[].outcomes[].point/price`) | Sem odds automáticas de escanteios não há modo **automático/pré-jogo** (ManualOdds funciona) | Testar `/odds/?market=total_corners` ou `/odds/comparison/` num jogo **futuro** (corners só existem pré-kickoff) |
-| **matchup-neutro** | Concessão do adversário p/ jogador está **NEUTRA** no v1 (`/team-stats/` 404 → cai p/ `league_avg`). A doutrina de confronto (produção × concessão no mesmo eixo) ainda não entra no `mu` | Sinal de jogador ignora o matchup (subestima/superestima edge) | Próximo: agregar `event_player_stats`/`stats` do adversário por mercado |
-| **per90-minutos** | `entity_taxa` usa média por-jogo (ignora minutos); doutrina pede per-90 ponderado por minutos (Σstat/Σmin×90) | Erra `mu` de quem joga minutos parciais (suplente/substituído) | Junto do matchup |
+| ~~**matchup-neutro**~~ ✅ | **RESOLVIDO (2026-06-03)** — `_team_conceded` agrega a concessão do adversário no eixo (lado oposto do histórico dele) → `opponent_multiplier` clampado `[0.7,1.4]` entra no `mu`, em jogador (`entity_taxa`) e partida (`team_taxa`). Produção × concessão ligado | — | Feito (#1) |
+| **concede-baseline-estatico** | O denominador do `opponent_multiplier` (`MarketSpec.concede_baseline`: sot 4.5 / finalizações 12 / desarmes 16 / escanteios 5) é **prior estático chutado**, não a média real da liga. Se torto, enviesa TODO o matchup pra cima/baixo (o clamp limita, não corrige) | Edge do matchup pode ter viés sistemático até calibrar | **Fase 4**: league-sweep que mede a concessão média real por mercado/liga e substitui os baselines |
+| **matchup-desarmes-proxy** | P/ desarmes o eixo "desarmes concedidos" é **proxy fraco** (jogador desarma conforme o adversário ataca na zona dele, não conforme "tackles que o adversário cede"). SOT/escanteios/finalizações o eixo é limpo | Sinal de desarmes pode ler o matchup errado | Quando houver dado posicional/zonal (nível direcional da doutrina) |
+| **per90-minutos** | `entity_taxa` usa média por-jogo (ignora minutos); doutrina pede per-90 ponderado por minutos (Σstat/Σmin×90) | Erra `mu` de quem joga minutos parciais (suplente/substituído) | Próximo (junto do refinamento de matchup) |
 | **xi-confirmado** | pipeline não popula `xi_team_ids` → `xi_confirmado` é sempre `True` (gate do filtro inerte) | Filtro não barra jogador fora do XI provável (ok em jogo finalizado; importa no pré-jogo) | Junto do modo pré-jogo |
 | **front 2 modos** | Front precisa de **dois modos**: **pós-jogo** (validar/melhorar produto com resultado conhecido) e **pré-jogo** (apostar de verdade). Hoje só há `cli analisar` + `streamlit` quebrado | Sem UI não dá p/ operar/validar em escala | Religar streamlit (Fase 4 / Task 34) já com os 2 modos |
 | — | `app/streamlit_app.py` quebrado (assinatura antiga de `analisar_jogo`) | App não roda até religar | Fase 4 (Task 34) — junto dos 2 modos |
@@ -103,6 +106,7 @@ Não quebram testes (fixtures), mas **bloqueiam dado REAL**:
 - **Dados/endpoints do BSD:** [dados-necessarios-analise.md](dados-necessarios-analise.md) · **APIs:** [apis/README.md](apis/README.md)
 - **Rodar o que já funciona** (`python -m odd_analyzer.cli ...`):
   - `bsd-probe <event_id>` — dumpa a forma real do BSD em `.probe_dumps/` (descartável/gitignorado).
-  - `analisar --event 7166 --market desarmes --player Kaiki --linha 1.5 --over 1.70 --under 2.00 [--ia]` — jogador.
-  - `analisar --event 7166 --market escanteios --linha 8.5 --over 2.10 --under 1.75` — partida (sem `--player`).
-- **Próxima fatia:** **modo automático/pré-jogo de odds** (follow-up `odds-corners`: reconciliar `BSDMatchOdds` + endpoint de odds de corners num jogo futuro) e o **front 2 modos**. Depois Fases 3 (partida 1X2/gols) e 4 (calibração/CLV).
+  - `analisar --event 7166 --market desarmes --linha 1.5 --over 1.90 --under 1.90 [--ia]` — **varredura** (sem `--player`: escaneia o elenco; coluna `adv_concede` = matchup).
+  - `analisar --event 7166 --market desarmes --player Kaiki --linha 1.5 --over 1.70 --under 2.00` — 1 jogador.
+  - `analisar --event 7166 --market escanteios --linha 8.5 --over 2.10 --under 1.75` — partida (sem `--player`; matchup já reduz o mu pelo confronto).
+- **Próxima fatia:** **modo automático/pré-jogo de odds** (follow-up `odds-corners`: reconciliar `BSDMatchOdds` + endpoint de odds de corners num jogo futuro) e o **front 2 modos**. Depois Fase 3 (partida 1X2/gols) e Fase 4 (calibração/CLV — onde o `concede_baseline` estático vira league-sweep real).

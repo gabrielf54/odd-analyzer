@@ -66,12 +66,14 @@ def format_resultado(out: dict, market_label: str) -> str:
     if not cands:
         linhas.append("Nenhum candidato passou nos cortes (edge>=0.04, ev>=0.05, xi_confirmado, amostra>=10).")
     else:
-        linhas.append(f"{'jogador':<22}{'linha':>6}{'p_mod':>8}{'p_devig':>9}{'edge':>8}{'EV':>8}{'n':>4}")
+        linhas.append(f"{'jogador':<22}{'linha':>6}{'p_mod':>8}{'p_devig':>9}"
+                      f"{'edge':>8}{'EV':>8}{'n':>4}  {'adv_concede':<14}")
         for c in cands:
             linhas.append(
                 f"{str(c['jogador']):<22}{c['linha']:>6}"
                 f"{c['prob_modelo']:>8.3f}{c['prob_devig']:>9.3f}"
-                f"{c['edge']:>+8.3f}{c['ev']:>+8.3f}{c['amostra_jogos']:>4}"
+                f"{c['edge']:>+8.3f}{c['ev']:>+8.3f}{c['amostra_jogos']:>4}  "
+                f"{str(c.get('concedido_adversario', 'n/d')):<14}"
             )
     ap = (out.get("ia") or {}).get("melhor_aposta")
     if ap:
@@ -99,11 +101,15 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
     if market.nivel == "partida":
         stats = BSDStatsProvider(client)
         entidade = "partida"
-    else:
-        if not player_ref:
-            raise ValueError(f"mercado '{market_key}' é de jogador — informe --player")
+    elif player_ref:
+        # Jogador específico: restringe o elenco (mesma linha não vaza p/ os 22).
         stats = OnlyPlayer(BSDStatsProvider(client), player_ref)
         entidade = player_ref
+    else:
+        # Varredura (#2): sem --player, escaneia o elenco inteiro e deixa o
+        # filtro edge/EV revelar quem tem valor — sem adivinhar o jogador antes.
+        stats = BSDStatsProvider(client)
+        entidade = "jogadores"
     odds = ManualOdds([{
         "entidade": entidade, "linha": linha,
         "odd_over": odd_over, "odd_under": odd_under, "book": "manual",

@@ -81,3 +81,15 @@ def test_format_resultado_mostra_jogador_e_alerta_ia_desligada():
     texto = format_resultado(out, "Desarmes")
     assert "M. Pereira" in texto
     assert "IA desligada" in texto
+
+
+# ---- #2 varredura: sem --player, escaneia o elenco inteiro (acha valor sem adivinhar) ----
+
+def test_e2e_sem_player_escaneia_elenco_inteiro():
+    # FakeRealClient devolve o MESMO player_stats (12 jogos, ~3 desarmes) p/ qualquer id,
+    # logo os 3 jogadores do lineup viram candidato com a linha 1.5.
+    out = run_analise(FakeRealClient(), "7166", "desarmes", None,
+                      linha=1.5, odd_over=1.90, odd_under=1.90)
+    nomes = {c["jogador"] for c in out["candidatos"]}
+    assert len(out["candidatos"]) >= 2
+    assert "M. Pereira" in nomes  # não restringe a 1 jogador

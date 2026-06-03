@@ -18,7 +18,7 @@ def test_market_spec_fields_present():
     assert field_names == {
         "key", "nivel", "kind", "stat_field",
         "prior_rate", "prior_strength", "nb_dispersion",
-        "lines", "eixo_concessao", "label",
+        "lines", "eixo_concessao", "label", "concede_baseline",
     }
 
 def test_sot_spec_values():
