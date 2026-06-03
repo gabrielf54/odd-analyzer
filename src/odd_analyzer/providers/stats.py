@@ -8,6 +8,9 @@ Contrato (Protocol):
 """
 from typing import Protocol, runtime_checkable
 from odd_analyzer.model.markets import MarketSpec
+from odd_analyzer.model.assemble import windowed_rate, assemble_mu
+from odd_analyzer.model.shrinkage import shrink_rate
+from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multiplier
 
 
 @runtime_checkable
@@ -20,19 +23,75 @@ class StatsProvider(Protocol):
 class BSDStatsProvider:
     """Fonte primária: BSD/Bzzoiro. Implementação completa na Fase 1."""
 
+    HOME_FACTOR = 1.08
+    AWAY_FACTOR = 0.92
+
     def __init__(self, client):
         if client is None:
             raise ValueError("BSDStatsProvider requer um BSDClient")
         self._client = client
 
     def elenco(self, event: dict) -> list[dict]:
-        raise NotImplementedError("BSDStatsProvider.elenco — implementar na Fase 1")
+        data = self._client.lineups(event["id"])
+        players: list[dict] = []
+        home_team_id = str(event.get("home_team", {}).get("id", data.get("home", {}).get("team_id", "")))
+        away_team_id = str(event.get("away_team", {}).get("id", data.get("away", {}).get("team_id", "")))
+        for side, team_id in (("home", home_team_id), ("away", away_team_id)):
+            side_data = data.get(side, {})
+            for p in side_data.get("starting_xi", []):
+                players.append({
+                    "id": str(p["id"]),
+                    "name": p["name"],
+                    "team_id": team_id,
+                    "posicao": p.get("position", ""),
+                })
+        return players
 
     def entity_taxa(self, entity_id, market: MarketSpec, contexto: dict) -> dict | None:
-        raise NotImplementedError("BSDStatsProvider.entity_taxa — implementar na Fase 1")
+        if market.kind != "contagem":
+            return None
+        event = contexto["event"]
+        is_home: bool = contexto.get("is_home", False)
+        league_avg: float = contexto.get("league_avg_conceded", 1.0)
+        xi_team_ids: set = contexto.get("xi_team_ids", set())
+        entity_team_id = str(contexto.get("entity_team_id", entity_id))
+
+        raw = self._client.player_stats(entity_id)
+        games: list[dict] = raw.get("games", [])
+        if not games:
+            return None
+
+        rates = windowed_rate(games, market.stat_field)
+        w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
+        raw_rate = w5 if w5 is not None else (w3 if w3 is not None else w10)
+        if raw_rate is None:
+            return None
+
+        shrunk = shrink_rate(rate=raw_rate, apps=len(games),
+                             prior_rate=market.prior_rate, prior_strength=market.prior_strength)
+        try:
+            team_stats = self._client.team_stats(event["id"])
+            opp_side = "away" if is_home else "home"
+            opp_conceded = float(team_stats.get(opp_side, {}).get(market.stat_field, league_avg))
+        except Exception:
+            opp_conceded = league_avg
+
+        opp_mult = opponent_multiplier(opp_conceded, league_avg)
+        ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
+        minutos_esperados = 90.0
+        mu = assemble_mu(rate_per90=shrunk, minutos_esperados=minutos_esperados,
+                         opp_mult=opp_mult, ha_mult=ha_mult)
+        xi_confirmado = (entity_team_id in xi_team_ids) if xi_team_ids else True
+        n = len(games)
+        incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
+        return {
+            "mu": mu, "minutos_esperados": minutos_esperados,
+            "xi_confirmado": xi_confirmado, "amostra_jogos": n,
+            "concedido_adversario": str(opp_conceded), "incerteza": incerteza,
+        }
 
     def team_rates(self, team_id, contexto: dict) -> dict | None:
-        raise NotImplementedError("BSDStatsProvider.team_rates — implementar na Fase 1")
+        return None
 
 
 class ApiFootballStatsProvider:
