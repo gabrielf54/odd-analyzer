@@ -1,0 +1,152 @@
+{
+  "count": 3474,
+  "next": "https://sports.bzzoiro.com/api/v2/events/?league_id=9&limit=50&offset=50&status=finished",
+  "previous": null,
+  "results": [
+    {
+      "id": 7166,
+      "league_id": 9,
+      "season_id": 28,
+      "home_team_id": 150,
+      "home_team": "Cruzeiro",
+      "away_team_id": 153,
+      "away_team": "Fluminense",
+      "home_coach_id": 143,
+      "away_coach_id": 152,
+      "referee_id": 1839,
+      "venue_id": 148,
+      "event_date": "2026-05-31T23:30:00+00:00",
+      "status": "finished",
+      "replaced_by": null,
+      "round_number": 18,
+      "round_name": "",
+      "group_name": null,
+      "period": "FT",
+      "current_minute": 97,
+      "home_score": 1,
+      "away_score": 1,
+      "home_score_ht": 0,
+      "away_score_ht": 1,
+      "penalty_shootout": null,
+      "extra_time_score": null,
+      "is_local_derby": false,
+      "is_neutral_ground": false,
+      "travel_distance_km": 396,
+      "weather": {
+        "code": 2,
+        "description": "cloudy",
+        "wind_speed": 4.0,
+        "temperature_c": 22
+      },
+      "pitch_condition": 1,
+      "attendance": null,
+      "live_websocket": true,
+      "highlights": [
+        {
+          "kind": "full",
+          "title": "Cruzeiro 1 - 1 Fluminense — Full Highlights",
+          "url": "https://www.youtube.com/watch?v=lpwqrOgNPYQ",
+          "thumbnail": "https://i.ytimg.com/vi/lpwqrOgNPYQ/hqdefault.jpg",
+          "published_at": "2026-06-01T03:24:32+00:00"
+        }
+      ]
+    },
+    {
+      "id": 7171,
+      "league_id": 9,
+      "season_id": 28,
+      "home_team_id": 372,
+      "home_team": "Remo",
+      "away_team_id": 158,
+      "away_team": "São Paulo",
+      "home_coach_id": 157,
+      "away_coach_id": 1579,
+      "referee_id": 1840,
+      "venue_id": 352,
+      "event_date": "2026-05-31T23:30:00+00:00",
+      "status": "finished",
+      "replaced_by": null,
+      "round_number": 18,
+      "round_name": "",
+      "group_name": null,
+      "period": "FT",
+      "current_minute": 95,
+      "home_score": 1,
+      "away_score": 0,
+      "home_score_ht": 0,
+      "away_score_ht": 0,
+      "penalty_shootout": null,
+      "extra_time_score": null,
+      "is_local_derby": false,
+      "is_neutral_ground": false,
+      "travel_distance_km": null,
+      "weather": {
+        "code": 2,
+        "description": "cloudy",
+        "wind_speed": 4.4,
+        "temperature_c": 26
+      },
+      "pitch_condition": 1,
+      "attendance": null,
+      "live_websocket": true,
+      "highlights": [
+        {
+          "kind": "full",
+          "title": "Remo 1 - 0 São Paulo — Full Highlights",
+          "url": "https://www.youtube.com/watch?v=dzzEDgflY2c",
+          "thumbnail": "https://i.ytimg.com/vi/dzzEDgflY2c/hqdefault.jpg",
+          "published_at": "2026-06-01T02:02:32+00:00"
+        }
+      ]
+    },
+    {
+      "id": 7173,
+      "league_id": 9,
+      "season_id": 28,
+      "home_team_id": 164,
+      "home_team": "Vasco da Gama",
+      "away_team_id": 155,
+      "away_team": "Atlético Mineiro",
+      "home_coach_id": 147,
+      "away_coach_id": 159,
+      "referee_id": 1604,
+      "venue_id": 161,
+      "event_date": "2026-05-31T19:00:00+00:00",
+      "status": "finished",
+      "replaced_by": null,
+      "round_number": 18,
+      "round_name": "",
+      "group_name": null,
+      "period": "FT",
+      "current_minute": 96,
+      "home_score": 0,
+      "away_score": 1,
+      "home_score_ht": 0,
+      "away_score_ht": 1,
+      "penalty_shootout": null,
+      "extra_time_score": null,
+      "is_local_derby": false,
+      "is_neutral_ground": false,
+      "travel_distance_km": 394,
+      "weather": {
+        "code": 0,
+        "description": "unknown",
+        "wind_speed": 10.5,
+        "temperature_c": 23
+      },
+      "pitch_condition": 1,
+      "attendance": null,
+      "live_websocket": true,
+      "highlights": [
+        {
+          "kind": "full",
+          "title": "Vasco 0 - 1 Atlético-MG — Full Highlights",
+          "url": "https://youtu.be/szj0NfQOgjo",
+          "thumbnail": "https://i.ytimg.com/vi/szj0NfQOgjo/hqdefault.jpg",
+          "published_at": "2026-05-31T21:35:36+00:00"
+        }
+      ]
+    },
+    "... (+47 itens omitidos)"
+  ]
+}

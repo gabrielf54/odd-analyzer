@@ -1,0 +1,48 @@
+{
+  "id": 7166,
+  "league_id": 9,
+  "season_id": 28,
+  "home_team_id": 150,
+  "home_team": "Cruzeiro",
+  "away_team_id": 153,
+  "away_team": "Fluminense",
+  "home_coach_id": 143,
+  "away_coach_id": 152,
+  "referee_id": 1839,
+  "venue_id": 148,
+  "event_date": "2026-05-31T23:30:00+00:00",
+  "status": "finished",
+  "replaced_by": null,
+  "round_number": 18,
+  "round_name": "",
+  "group_name": null,
+  "period": "FT",
+  "current_minute": 97,
+  "home_score": 1,
+  "away_score": 1,
+  "home_score_ht": 0,
+  "away_score_ht": 1,
+  "penalty_shootout": null,
+  "extra_time_score": null,
+  "is_local_derby": false,
+  "is_neutral_ground": false,
+  "travel_distance_km": 396,
+  "weather": {
+    "code": 2,
+    "description": "cloudy",
+    "wind_speed": 4.0,
+    "temperature_c": 22
+  },
+  "pitch_condition": 1,
+  "attendance": null,
+  "live_websocket": true,
+  "highlights": [
+    {
+      "kind": "full",
+      "title": "Cruzeiro 1 - 1 Fluminense — Full Highlights",
+      "url": "https://www.youtube.com/watch?v=lpwqrOgNPYQ",
+      "thumbnail": "https://i.ytimg.com/vi/lpwqrOgNPYQ/hqdefault.jpg",
+      "published_at": "2026-06-01T03:24:32+00:00"
+    }
+  ]
+}

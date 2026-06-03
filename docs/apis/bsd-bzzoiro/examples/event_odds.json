@@ -1,0 +1,16 @@
+{
+  "event_id": 7166,
+  "odds": {
+    "home_win": 1.9,
+    "draw": 3.32,
+    "away_win": 4.21,
+    "over_15_goals": 1.38,
+    "over_25_goals": 2.17,
+    "over_35_goals": 3.99,
+    "under_15_goals": 2.91,
+    "under_25_goals": 1.65,
+    "under_35_goals": 1.22,
+    "btts_yes": 1.97,
+    "btts_no": 1.77
+  }
+}
