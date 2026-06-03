@@ -1,6 +1,6 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 (Task 10c) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 321 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 (meta A→D completa) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 325 testes verdes · **Custo até aqui:** $0.
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
@@ -99,9 +99,8 @@ Commits: `7a3a467` `05a6ac9` `8a5872c` `ff84b12` `4793cb4` `a641a52`.
 ### ✅ Slice 3 — Matchup real + varredura (2026-06-03)
 `BSDStatsProvider._team_conceded` (concessão do adversário no eixo, via histórico DELE) + `_opp_mult` (clamp `[0.7,1.4]`) ligados em `entity_taxa` e `team_taxa` · `MarketSpec.concede_baseline` (baseline nível-time, prior estático→Fase 4) · pipeline passa `opp_team_id`+baseline · `runner.run_analise` sem `--player` = **varredura** do elenco · coluna `adv_concede` na tabela. **+5 testes (308 total).** Diferencial da doutrina (produção × concessão) agora entra no número. **Caveats:** baseline estático (`concede-baseline-estatico`) e eixo de desarmes é proxy (`matchup-desarmes-proxy`) — ambos mapeados nos follow-ups.
 
-### ⬜ Fase 3 — Modelo de PARTIDA (vitória 1X2 + gols)
-`match_model.py` (Poisson bivariado + Dixon-Coles) → `probs_1x2` + `prob_total_over`; `team_rates`.
-Tasks do plano: 22–28 (pular **23** — markets já tem vitoria/gols).
+### ⚠️ Fase 3 — Modelo de PARTIDA (vitória 1X2 + gols) — CÓDIGO FEITO, NÃO CALIBRA
+`match_model.py` (Poisson bivariado + Dixon-Coles → `probs_1x2` + `prob_total_over`), `team_rates` (ataque+defesa) e dispatch `_run_partida` no pipeline **existem e rodam** (Fase C da meta A→D). **MAS gols NÃO presta na calibração** (ver seção Calibração): testados ataque-only, +defesa, +shrinkage{3,5,8} — melhor config (ps=8) ainda dá BrierSkill<0 em over2.5. **NÃO ligado à produção.** Próximos passos: split casa/fora, fit do `rho`, mais ligas/dados. Mercado de partida fica fora do MVP de produção até calibrar.
 
 ### ⬜ Fase 4 — Validação + fallback + UI + extensão
 Backtest por mercado + **calibração (ECE<0.05)** · **ApiFootballStatsProvider + FallbackStatsProvider** wired · religar **streamlit** · slot PropOdds documentado.
@@ -120,8 +119,10 @@ Não quebram testes (fixtures), mas **bloqueiam dado REAL**:
 | ~~**matchup-neutro**~~ ✅ | **RESOLVIDO (2026-06-03)** — `_team_conceded` agrega a concessão do adversário no eixo (lado oposto do histórico dele) → `opponent_multiplier` clampado `[0.7,1.4]` entra no `mu`, em jogador (`entity_taxa`) e partida (`team_taxa`). Produção × concessão ligado | — | Feito (#1) |
 | ~~**concede-baseline-estatico**~~ ✅ | **RESOLVIDO p/ liga 9 (2026-06-03)** — `scripts/measure_concede_baseline.py` mediu a concessão média real no BSD e substituiu os priors chutados: sot 4.5→4.55 · finalizações 12→13.46 · desarmes 16→14.64 · escanteios 5→4.79 (80 jogos). Resta apenas re-validar cross-liga | Viés do matchup corrigido na liga medida | **Fase 4**: estender o league-sweep a outras ligas/Copa antes de operar nelas |
 | **matchup-desarmes-proxy** | P/ desarmes o eixo "desarmes concedidos" é **proxy fraco** (jogador desarma conforme o adversário ataca na zona dele, não conforme "tackles que o adversário cede"). SOT/escanteios/finalizações o eixo é limpo | Sinal de desarmes pode ler o matchup errado | Quando houver dado posicional/zonal (nível direcional da doutrina) |
-| **per90-minutos** | `entity_taxa` usa média por-jogo (ignora minutos); doutrina pede per-90 ponderado por minutos (Σstat/Σmin×90) | Erra `mu` de quem joga minutos parciais (suplente/substituído) | Próximo (junto do refinamento de matchup) |
-| **xi-confirmado** | pipeline não popula `xi_team_ids` → `xi_confirmado` é sempre `True` (gate do filtro inerte) | Filtro não barra jogador fora do XI provável (ok em jogo finalizado; importa no pré-jogo) | Junto do modo pré-jogo |
+| ~~**per90-minutos**~~ ✅ | **RESOLVIDO (2026-06-03)** — `windowed_rate(minutes_field="minutes_played")` faz per-90 ponderado (Σstat/Σmin×90); `entity_taxa` liga isso e reverte o histórico do BSD (decrescente→crescente) p/ usar a forma RECENTE. `team_taxa` também reverte (per-jogo, time joga ~90) | Resolvido p/ jogador e time | Feito (Fase A) |
+| ~~**xi-confirmado**~~ ✅ | **RESOLVIDO (2026-06-03)** — `BSDStatsProvider.xi_ids` lê o lineup confirmado; pipeline popula `xi_team_ids`; `entity_taxa` compara `str(entity_id)` (bug: comparava team_id). Gate deixa de ser inerte quando o lineup está confirmado | Filtro barra reserva fora do XI confirmado | Feito (Fase D) |
+| **partida-protocol** | `team_taxa`/`xi_ids` não estão no Protocol `StatsProvider` e `_contagem_partida` chama `team_taxa` SEM `hasattr` (≠ `xi_ids`, que é guardado). `FallbackStatsProvider` não encaminha `team_taxa`/`xi_ids`. Latente: provider não-BSD em mercado de partida → `AttributeError` | Só BSDStatsProvider é usado em produção hoje → sem impacto atual; trap p/ fallback | Ao ligar o `FallbackStatsProvider` de verdade (Fase 4) |
+| **partida-vitoria-lines** | `vitoria` (`partida_1x2`) tem `lines=[1.5,2.5,3.5]` (linhas de GOLS, sem sentido p/ 1X2) → `_run_partida` gera 3 candidatos idênticos (mesma prob home). Cosmético; gols/vitoria não estão em produção (não calibram) | Sem sinal errado (mesma prob); só ruído | Quando o modelo de partida calibrar (Fase 4) |
 | **front 2 modos** | Front precisa de **dois modos**: **pós-jogo** (validar/melhorar produto com resultado conhecido) e **pré-jogo** (apostar de verdade). Hoje só há `cli analisar` + `streamlit` quebrado | Sem UI não dá p/ operar/validar em escala | Religar streamlit (Fase 4 / Task 34) já com os 2 modos |
 | — | `app/streamlit_app.py` quebrado (assinatura antiga de `analisar_jogo`) | App não roda até religar | Fase 4 (Task 34) — junto dos 2 modos |
 | — | `save_analise`/`get_analise` sem `market_type` | Múltiplas análises por evento colidem na persistência | Quando persistir multi-mercado de verdade |
