@@ -8,6 +8,13 @@ Contrato (Protocol):
 from typing import Protocol, runtime_checkable
 from odd_analyzer.model.markets import MarketSpec
 
+# Mapeamento market.key → chave de mercado no BSD
+_BSD_MARKET_KEY: dict[str, str] = {
+    "escanteios": "corners_total",
+    "gols": "goals_total",
+    "vitoria": "match_winner",
+}
+
 
 @runtime_checkable
 class OddsProvider(Protocol):
@@ -49,4 +56,32 @@ class BSDMatchOdds:
         self._client = client
 
     def linhas(self, event: dict, market: MarketSpec) -> list[dict]:
-        raise NotImplementedError("BSDMatchOdds.linhas — implementar na Fase 1")
+        bsd_market_key = _BSD_MARKET_KEY.get(market.key)
+        if bsd_market_key is None:
+            return []
+        try:
+            data = self._client.event_odds(event["id"])
+        except Exception:
+            return []
+        grouped: dict[tuple, dict] = {}
+        for bm in data.get("bookmakers", []):
+            book = bm.get("name", "")
+            for mk in bm.get("markets", []):
+                if mk.get("key") != bsd_market_key:
+                    continue
+                for outcome in mk.get("outcomes", []):
+                    name = (outcome.get("name") or "").lower()
+                    point = outcome.get("point")
+                    price = outcome.get("price")
+                    if point is None or price is None:
+                        continue
+                    entry = grouped.setdefault(
+                        (book, point),
+                        {"entidade": "partida", "linha": point,
+                         "odd_over": None, "odd_under": None, "book": book},
+                    )
+                    if name == "over":
+                        entry["odd_over"] = price
+                    elif name == "under":
+                        entry["odd_under"] = price
+        return [l for l in grouped.values() if l["odd_over"] and l["odd_under"]]
