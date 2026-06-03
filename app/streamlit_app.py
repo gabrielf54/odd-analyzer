@@ -90,6 +90,45 @@ def tela_analise():
             _render_mercado(j, mkey, modo)
 
 
+def _render_picker(j, market_key):
+    """Picker de 1 jogador: 2 colunas (mandante|visitante) da escalação provável
+    (ou últimos 3 no fallback). Devolve o player_id escolhido, ou None."""
+    try:
+        esc = service.escalacao_provavel(_client(), j["id"])
+    except Exception as e:
+        st.warning(f"Não consegui montar a escalação ({type(e).__name__}); tente de novo.")
+        return None
+    badges = {
+        "confirmada": "✅ Escalação confirmada",
+        "provavel": "📋 Escalação provável",
+        "ultimos3": "⚠ Sem escalação — jogadores dos últimos 3 jogos",
+    }
+    st.caption(badges.get(esc["origem"], esc["origem"]))
+
+    sel_key = f"sel-{market_key}"
+    escolhido = st.session_state.get(sel_key)
+    col_home, col_away = st.columns(2)
+    for col, lado in ((col_home, "home"), (col_away, "away")):
+        side = esc[lado]
+        col.markdown(f"**{side['team_name']}**")
+        for p in side["jogadores"]:
+            rotulo = f"{p['name']} · {p['posicao']}" if p["posicao"] else p["name"]
+            if col.button(rotulo, key=f"pick-{market_key}-{p['id']}"):
+                st.session_state[sel_key] = p
+                st.rerun()
+    if not escolhido:
+        return None
+    st.success(f"Selecionado: **{escolhido['name']}** ({escolhido.get('posicao') or 's/ pos'})")
+    try:
+        mr = service.media_recente_jogador(_client(), j["id"], market_key, escolhido["id"])
+        if mr["jogos"]:
+            st.caption(f"Média recente ({MARKETS[market_key].label}): "
+                       f"**{mr['media']:.1f}/jogo** · {mr['jogos']} jogos")
+    except Exception:
+        pass
+    return escolhido["id"]
+
+
 def _render_mercado(j, market_key, modo):
     spec = MARKETS.get(market_key)
     em_validacao = (spec.nivel == "partida") if spec else (market_key in dict(MERCADOS_PARTIDA))
@@ -118,6 +157,13 @@ def _render_mercado(j, market_key, modo):
     else:
         st.caption("⚠️ Calibração de seleção: este mercado segue em **paper/observação** na Copa "
                    "(não dinheiro real) até passar o crivo com minutos estimados. Ver ROADMAP.")
+    nivel_jogador = bool(spec) and spec.nivel != "partida"
+    player_ref = None
+    if nivel_jogador:
+        player_ref = _render_picker(j, market_key)
+        if player_ref is None:
+            st.info("Escolha um jogador na lista para analisar.")
+            return
     c1, c2, c3, c4 = st.columns(4)
     linha = c1.number_input(
         "Linha", value=1.5, step=0.5, key=f"l-{market_key}",
@@ -130,7 +176,8 @@ def _render_mercado(j, market_key, modo):
         help="Cotação REAL da casa p/ o jogador ficar ABAIXO da linha.")
     usar_ia = c4.checkbox("IA", key=f"ia-{market_key}",
                           help="Liga a explicação em linguagem natural (a IA explica, nunca inventa o número).")
-    if not st.button("Varrer elenco", key=f"scan-{market_key}"):
+    botao_label = "Analisar jogador" if nivel_jogador else "Varrer elenco"
+    if not st.button(botao_label, key=f"scan-{market_key}"):
         return
     if over is None or under is None:
         st.info("Coloque as **odds reais** da casa (Over e Under) pra calcular o valor. "
@@ -142,7 +189,8 @@ def _render_mercado(j, market_key, modo):
     try:
         out = service.analisar(_client(), j["id"], market_key, linha, over, under,
                                usar_ia=usar_ia, repo=_repo(),
-                               escopo_historico=escopo_historico, league_id=j.get("league_id"))
+                               escopo_historico=escopo_historico, league_id=j.get("league_id"),
+                               player_ref=player_ref)
     except Exception as e:
         st.error(f"Falha na análise: {type(e).__name__} — {e}")
         st.exception(e)  # traceback completo na própria página
