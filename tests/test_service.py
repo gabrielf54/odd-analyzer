@@ -31,3 +31,36 @@ def test_listar_jogos_sem_placar_quando_nao_finalizado():
             ]}
     jogos = listar_jogos(_C(), league_id=9, status="notstarted")
     assert jogos[0]["placar"] is None
+
+
+from odd_analyzer.service import analisar
+from odd_analyzer.model.markets import MARKETS
+
+def _fake_client_para_analise():
+    class _C:
+        def get_event(self, eid):
+            return {"id": eid, "home_team": "Cruzeiro", "away_team": "Fluminense",
+                    "home_team_id": 150, "away_team_id": 153}
+        def lineups(self, eid):
+            return {"lineups": {"home": {"team_id": 150, "players": [
+                {"id": 1867, "name": "Kaiki", "position": "M"}]}, "away": {"team_id": 153, "players": []}}}
+        def player_stats(self, pid):
+            return {"results": [{"event_id": i, "total_tackle": 3, "minutes_played": 90} for i in range(12)]}
+        def events(self, **kw):
+            return {"results": []}
+        def event_stats(self, eid):
+            return {"stats": {}}
+    return _C()
+
+def test_analisar_jogador_retorna_estrutura():
+    out = analisar(_fake_client_para_analise(), event_id=7166, market_key="desarmes",
+                   linha=1.5, odd_over=1.90, odd_under=1.90, usar_ia=False)
+    assert out["jogo"] == "Cruzeiro x Fluminense"
+    assert out["em_validacao"] is False
+    assert isinstance(out["candidatos"], list)
+    assert "ia" in out
+
+def test_analisar_marca_em_validacao_para_partida():
+    out = analisar(_fake_client_para_analise(), event_id=7166, market_key="escanteios",
+                   linha=8.5, odd_over=1.90, odd_under=1.90, usar_ia=False)
+    assert out["em_validacao"] is True

@@ -23,3 +23,26 @@ def listar_jogos(client, league_id, status, limit: int = 50) -> list[dict]:
             "placar": placar,
         })
     return jogos
+
+
+def analisar(client, event_id, market_key, linha, odd_over, odd_under,
+             usar_ia: bool = False, repo=None) -> dict:
+    """Roda a varredura do elenco (player_ref=None) p/ 1 jogo+mercado. Devolve
+    {jogo, candidatos, ia, em_validacao}. em_validacao=True p/ mercados de partida
+    (gols/escanteios) que ainda não calibram → a UI sela ('não apostar')."""
+    if market_key not in MARKETS:
+        raise ValueError(f"mercado desconhecido: {market_key}. Opções: {list(MARKETS)}")
+    market = MARKETS[market_key]
+    em_validacao = market.nivel == "partida"
+
+    raw = client.get_event(event_id)
+    jogo = f'{raw.get("home_team", "")} x {raw.get("away_team", "")}'.strip(" x")
+
+    out = run_analise(client, event_id, market_key, None,
+                      linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo)
+    return {
+        "jogo": jogo,
+        "candidatos": out.get("candidatos", []),
+        "ia": out.get("ia", {}),
+        "em_validacao": em_validacao,
+    }
