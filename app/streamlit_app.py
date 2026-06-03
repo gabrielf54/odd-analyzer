@@ -14,6 +14,11 @@ from odd_analyzer.model.markets import MARKETS
 MERCADOS_JOGADOR = [("sot", "SOT"), ("finalizacoes", "Finalizações"), ("desarmes", "Desarmes")]
 MERCADOS_PARTIDA = [("gols", "Gols"), ("escanteios", "Escanteios")]
 
+# Status de calibração na Copa por mercado de jogador (atualizado pela re-validação de minutos):
+# "ready" = passou o crivo (ECE<0.08 + BrierSkill>0) com minutos estimados → dinheiro liberado;
+# "paper" = ainda não passou → paper/observação.
+COPA_STATUS = {"sot": "paper", "finalizacoes": "paper", "desarmes": "paper"}
+
 
 @st.cache_resource
 def _client():
@@ -106,9 +111,13 @@ def _render_mercado(j, market_key, modo):
         help="Quais jogos do jogador entram na média: só os pela seleção (mesma camisa deste jogo, "
              "default — modo que calibra melhor em jogo de seleção), todos, ou só os do clube.")
     escopo_historico = ESCOPOS[escopo_label]
-    st.caption("⚠️ Calibração de SELEÇÃO ainda em ajuste (priors de clube super-estimam em jogo de "
-               "seleção; ver ROADMAP). Na Copa, mercado de jogador = **paper/observação**, não dinheiro "
-               "real, até re-tunar os priors.")
+    _status = COPA_STATUS.get(market_key, "paper")
+    if _status == "ready":
+        st.caption("✅ Calibração de seleção validada com minutos esperados (ECE<0.08, BrierSkill>0). "
+                   "Mercado liberado para dinheiro na Copa.")
+    else:
+        st.caption("⚠️ Calibração de seleção: este mercado segue em **paper/observação** na Copa "
+                   "(não dinheiro real) até passar o crivo com minutos estimados. Ver ROADMAP.")
     c1, c2, c3, c4 = st.columns(4)
     linha = c1.number_input(
         "Linha", value=1.5, step=0.5, key=f"l-{market_key}",
