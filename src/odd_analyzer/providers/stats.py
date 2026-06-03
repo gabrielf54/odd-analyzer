@@ -9,7 +9,7 @@ Contrato (Protocol):
 from typing import Protocol, runtime_checkable
 from odd_analyzer.model.markets import MarketSpec
 from odd_analyzer.model.assemble import (
-    windowed_rate, assemble_mu, filter_games_by_scope, player_mu_from_games,
+    windowed_rate, assemble_mu, filter_games_by_scope, player_mu_from_games, expected_minutes,
 )
 from odd_analyzer.model.shrinkage import shrink_rate
 from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multiplier
@@ -126,11 +126,12 @@ class BSDStatsProvider:
         opp_conceded = self._team_conceded(opp_team_id, team_field)
         opp_mult = self._opp_mult(opp_conceded, league_avg)
         ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
+        minutos_esperados = expected_minutes(games) or 90.0
 
         calc = player_mu_from_games(
             games, stat_field=market.stat_field, prior_rate=market.prior_rate,
             prior_strength=market.prior_strength, opp_mult=opp_mult, ha_mult=ha_mult,
-            minutos_esperados=90.0)
+            minutos_esperados=minutos_esperados)
         if calc is None:
             return None
         xi_confirmado = (str(entity_id) in xi_team_ids) if xi_team_ids else True
@@ -138,7 +139,7 @@ class BSDStatsProvider:
         incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
         concedido = f"{opp_conceded:.1f}" if opp_conceded is not None else "n/d (neutro)"
         return {
-            "mu": calc["mu"], "minutos_esperados": 90.0,
+            "mu": calc["mu"], "minutos_esperados": minutos_esperados,
             "xi_confirmado": xi_confirmado, "amostra_jogos": n,
             "concedido_adversario": concedido, "incerteza": incerteza,
         }

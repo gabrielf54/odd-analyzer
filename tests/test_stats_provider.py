@@ -81,3 +81,20 @@ def test_entity_taxa_escopo_so_selecao_filtra_por_team_id():
     assert so_sel is not None and so_clube is not None
     assert so_sel["mu"] < so_clube["mu"]
     assert so_sel["amostra_jogos"] == 5 and so_clube["amostra_jogos"] == 5
+
+
+def test_entity_taxa_escala_mu_por_minutos_estimados():
+    # mesma taxa por jogo (2 tackles/jogo), mas um histórico de 90 min/jogo e outro de 45.
+    cheio = [{"event_id": 100+i, "team_id": 1, "total_tackle": 2, "minutes_played": 90} for i in range(10)]
+    meio  = [{"event_id": 100+i, "team_id": 1, "total_tackle": 1, "minutes_played": 45} for i in range(10)]
+    ctx = {"event": {"home_team": {"id": "1"}, "away_team": {"id": "2"}},
+           "is_home": True, "entity_team_id": "1", "league_avg_conceded": 16.0}
+    t90 = BSDStatsProvider(_FakeClient(cheio)).entity_taxa("p1", MARKETS["desarmes"], ctx)
+    t45 = BSDStatsProvider(_FakeClient(meio)).entity_taxa("p1", MARKETS["desarmes"], ctx)
+    assert t90 is not None and t45 is not None
+    # 45 min reporta ~45 esperados (não 90) e mu menor (escala por minutos)
+    assert abs(t45["minutos_esperados"] - 45.0) < 1e-9
+    assert abs(t90["minutos_esperados"] - 90.0) < 1e-9
+    assert t45["mu"] < t90["mu"]
+    # escala ~linear: mu(45) ≈ mu(90) * 45/90 (per-90 rate idêntica nos dois)
+    assert abs(t45["mu"] - t90["mu"] * 0.5) < 1e-6
