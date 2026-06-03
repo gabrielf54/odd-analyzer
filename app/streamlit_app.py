@@ -90,13 +90,37 @@ def _render_mercado(j, market_key, modo):
     em_validacao = (spec.nivel == "partida") if spec else (market_key in dict(MERCADOS_PARTIDA))
     if em_validacao:
         st.warning("EM VALIDAÇÃO — este mercado ainda não calibra; não apostar.")
+    nome_metrica = spec.label if spec else market_key
+    with st.expander("❓ Como ler isto"):
+        st.markdown(
+            f"- **Linha** = o nº de corte da métrica (*{nome_metrica}*). Ex.: **1,5** → a aposta é o jogador fazer **2 ou mais**.\n"
+            "- **Odd Over** = quanto a casa paga se o jogador fizer **MAIS** que a linha (ex.: 2+). É a cotação (1,90 = aposto R$1, recebo R$1,90).\n"
+            "- **Odd Under** = quanto a casa paga se ele ficar **ABAIXO** da linha (ex.: 0 ou 1).\n"
+            "- Copie as odds **reais da sua casa de apostas** (Bet365/Betano…). Sem odd real, não dá pra medir valor.\n\n"
+            "Na tabela: **p_mod** = chance pelo nosso modelo · **p_devig** = chance da casa já SEM a margem · "
+            "**Edge** = sua vantagem (modelo − casa) · **EV** = retorno esperado por R$1 apostado."
+        )
     c1, c2, c3, c4 = st.columns(4)
-    linha = c1.number_input("Linha", value=1.5, step=0.5, key=f"l-{market_key}")
-    over = c2.number_input("Over", value=1.90, step=0.01, key=f"o-{market_key}")
-    under = c3.number_input("Under", value=1.90, step=0.01, key=f"u-{market_key}")
-    usar_ia = c4.checkbox("IA", key=f"ia-{market_key}")
+    linha = c1.number_input(
+        "Linha", value=1.5, step=0.5, key=f"l-{market_key}",
+        help=f"Nº de corte de {nome_metrica}. 1,5 = 'faz 2 ou mais'.")
+    over = c2.number_input(
+        "Odd Over", value=None, step=0.01, key=f"o-{market_key}", placeholder="ex. 1.70",
+        help="Cotação REAL da casa p/ o jogador fazer MAIS que a linha. Copie da sua casa de apostas.")
+    under = c3.number_input(
+        "Odd Under", value=None, step=0.01, key=f"u-{market_key}", placeholder="ex. 2.10",
+        help="Cotação REAL da casa p/ o jogador ficar ABAIXO da linha.")
+    usar_ia = c4.checkbox("IA", key=f"ia-{market_key}",
+                          help="Liga a explicação em linguagem natural (a IA explica, nunca inventa o número).")
     if not st.button("Varrer elenco", key=f"scan-{market_key}"):
         return
+    if over is None or under is None:
+        st.info("Coloque as **odds reais** da casa (Over e Under) pra calcular o valor. "
+                "Sem a odd real dá só pra ver a chance do modelo — não se a aposta vale a pena.")
+        return
+    if over == under:
+        st.warning(f"Over e Under iguais ({over:g}) costuma ser placeholder: a 'casa justa' vira "
+                   "**50%** e o Edge deixa de medir valor real. Confira as odds reais (quase nunca são iguais).")
     try:
         out = service.analisar(_client(), j["id"], market_key, linha, over, under, usar_ia=usar_ia, repo=_repo())
     except Exception as e:
