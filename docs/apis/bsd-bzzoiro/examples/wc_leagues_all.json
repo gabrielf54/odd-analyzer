@@ -1,0 +1,52 @@
+{
+  "count": 65,
+  "results": [
+    {
+      "id": 30,
+      "name": "Africa Cup of Nations 2023",
+      "country": "Africa",
+      "is_women": false,
+      "is_active": true,
+      "current_season": {
+        "id": 211,
+        "name": "Africa Cup of Nations 2025",
+        "year": 2025,
+        "start_date": "2025-07-01",
+        "end_date": "2026-06-30",
+        "is_current": true
+      }
+    },
+    {
+      "id": 29,
+      "name": "CAF Champions League",
+      "country": "Africa",
+      "is_women": false,
+      "is_active": true,
+      "current_season": {
+        "id": 229,
+        "name": "CAF Champions League 25/26",
+        "year": 2025,
+        "start_date": "2025-07-01",
+        "end_date": "2026-06-30",
+        "is_current": true
+      }
+    },
+    {
+      "id": 60,
+      "name": "World Cup Qualification CAF",
+      "country": "Africa",
+      "is_women": false,
+      "is_active": true,
+      "current_season": null
+    },
+    {
+      "id": 68,
+      "name": "AFC Asian Cup 2023",
+      "country": "Asia",
+      "is_women": false,
+      "is_active": true,
+      "current_season": null
+    },
+    "... (+61 itens omitidos)"
+  ]
+}

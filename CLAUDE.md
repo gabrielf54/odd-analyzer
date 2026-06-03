@@ -39,6 +39,20 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 **Estado (2026-06-02):** motor (modelo+de-vig+EV+filtro+IA) e backtest de calibração existem e rodam offline (97 testes). **Mas a produção entrega zero** porque `app/streamlit_app.py::_taxa_fn` é placeholder (`mu=0`) e `elenco=[]` mata o crosswalk. Roadmap e raciocínio completo: [docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md](docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md).
 
+## Glossário — conceitos em linguagem simples (o dono é leigo em código)
+
+> O dono entende o PRODUTO mas **não lê código**. Ao explicar qualquer coisa pra ele, use analogias do dia a dia, não jargão. Estes são os termos que mais aparecem:
+
+- **Calibração** = o "detector de mentira" do nosso modelo. Igual homem do tempo: se ele diz "70% de chuva", junta todos os dias que ele falou 70% e vê se choveu em ~70% deles. Nosso modelo diz "Kaiki 73% de fazer 2+ desarmes"; calibrar = em centenas de jogos passados, quando o modelo disse ~73%, aconteceu mesmo ~73% das vezes? Se sim, o número é confiável; se não, a "vantagem" que ele aponta é fantasma e perde dinheiro. **É a prova de que o modelo não mente, feita ANTES de arriscar dinheiro — por isso vem primeiro.**
+- **CLV (Closing Line Value) / CLV-forward** = "comprei antes do preço subir". A odd final, segundos antes do jogo, é a mais esperta de todas (muito dinheiro a empurrou). Se você apostou antes numa odd melhor que essa, "bateu o fechamento" — sinal forte de que é bom de verdade, não sorte. **Forward** = só dá pra medir ao vivo, daqui pra frente (jogo velho não guardou como a odd mexeu).
+- **Lineup** = lista confirmada dos 11 titulares. Time só anuncia ~1h antes do jogo. Antes disso não há certeza de quem joga — não recomendar aposta em quem pode ficar no banco.
+- **Leave-one-out** = "prova sem colar". Pra testar se o modelo teria acertado um jogo, escondemos ESSE jogo, deixamos ele aprender só com os outros, ele chuta, e comparamos com o que aconteceu de verdade. Repete escondendo um de cada vez. Igual professora testando o aluno com questão fora da lista de estudo: prova que aprendeu, não decorou.
+- **Backtest** = rodar o modelo "no passado" (em jogos já acontecidos) pra ver como ele teria se saído. É onde a calibração é medida.
+- **De-vig (tirar a margem)** = a casa de aposta embute um lucro garantido no preço (a "vig"/"juice"). De-vig = remover esse lucro pra achar a probabilidade "justa" que a casa realmente acredita. A gente compara NOSSO número com esse número justo, não com a odd crua.
+- **Edge / EV** = Edge é o tamanho da nossa vantagem (nosso número − número justo da casa). EV (valor esperado) é quanto se ganha em média por R$1 apostado, no longo prazo. Só aposta quando os dois são positivos.
+- **Brier / ECE / BrierSkill** = notas da prova de calibração. Quanto menor o Brier e o ECE, melhor (modelo mais certeiro/honesto). BrierSkill > 0 significa "melhor que chutar a média" — abaixo de 0 o modelo não presta naquele mercado.
+- **Shift de população** = calibrar num grupo (ex.: clubes do Brasileirão) e usar em outro (ex.: seleções da Copa). Os grupos jogam diferente, então a calibração de um pode não valer no outro — tem que re-medir no grupo certo.
+
 ## Supabase — contexto
 
 - **Project ref:** `pepizcpowzhtawzjnzui` · região `us-east-1`

@@ -1,8 +1,18 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 (meta A→D completa, mergeada na `main`) · **Suíte:** 325 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 (meta A→D completa, mergeada na `main`) · **Suíte:** 336 testes verdes · **Custo até aqui:** $0.
 >
 > **Validação pré-front (veredito):** mercados de **JOGADOR (SOT · finalizações · desarmes) PRESTAM** e liberam o front. Mercados de **PARTIDA (gols/1x2 · escanteios) NÃO calibram ainda** → ficam fora do MVP de produção (código existe, ver Fase 3). Detalhe na seção Calibração abaixo. Casado com o escopo do [PITCH.md](PITCH.md).
+
+## 🎯 Meta crítica — dinheiro real em 11/06/2026 (Copa do Mundo)
+
+**O usuário começa a apostar DINHEIRO REAL em 11/06/2026** (início da Copa). Janela de prep: 03→11/06 (**8 dias**). Objetivo da janela: **maximizar confiança no que já valida**, não expandir escopo. Regras travadas para o dia 11:
+
+- **Só mercados de JOGADOR** (SOT/finalizações/desarmes, já calibrados) carregam dinheiro. **Partida fica em paper/observação.**
+- **Validação forward = paper-trade forward** (não CLV clássico — prop de jogador não tem linha de fechamento < $99/mês): prever antes → registrar no `paper_ledger` → liquidar pós-jogo → medir Brier/hit-rate/EV realizado num lote **NOVO**.
+- **AMEAÇA #1 — shift de população (REBAIXADA por spike 2026-06-03):** calibração foi em **liga 9 (Brasileirão, clubes)**; a Copa é **seleções**. Jogo de seleção tem MENOS finalização (Kosovo×Türkiye SOT soma=5; Chile×Uruguai 6) → **calibração de clube NÃO transfere cega**. MAS o spike confirmou que o BSD tem **>1300 jogos de SELEÇÃO finalizados com player-stats completos** (eliminatórias 58/59/60/61/62, Nations League 64/65, amistosos 31 populando hoje, Euro 66, Copa América 67) no mesmo formato da liga 9 → **dá pra RE-CALIBRAR na população certa**, não só fazer sanity. Histórico montável via `team_id` (separa clube/seleção) + ordem mais-recente-primeiro. Ameaça vira **mensurável/mitigável**. Detalhe: [apis/bsd-bzzoiro/wc-validation-spike.md](apis/bsd-bzzoiro/wc-validation-spike.md).
+
+**Prioridade da janela (ordem, pós-spike):** (1) **re-calibrar mercados de jogador na população de SELEÇÃO** (reusar `collect_bsd.py`+`run_bsd_backtest.py` nas ligas 58/59/64/31/66/67; testar rate clube-misto vs só-seleção via `team_id`; re-medir `concede_baseline` de seleção) → veredito honesto por mercado; (2) harness de validação forward — loop paper-bet→liquida→mede, alimentado por amistosos (liga 31) frescos; (3) `snapshot_fechamento` no pré-jogo; (4) disciplina de risco dia 11.
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
