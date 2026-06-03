@@ -34,7 +34,8 @@ def analisar_jogo(event: dict, elenco: list[dict], taxa_fn, repo,
             prob_modelo=prob_modelo, mu=t["mu"],
             minutos_esperados=t["minutos_esperados"], xi_confirmado=t["xi_confirmado"],
             amostra_jogos=t["amostra_jogos"],
-            sot_concedido_adversario=t["sot_concedido_adversario"], incerteza=t["incerteza"],
+            concedido_adversario=t["sot_concedido_adversario"], incerteza=t["incerteza"],
+            market_type="sot",
         ))
     selecionados = filter_candidates(candidatos)
     ia = analista_fn(selecionados, {"jogo": event.get("jogo", event["id"])})
