@@ -58,6 +58,8 @@ Estatística velha não serve. A análise usa **dados recentes e atualizados dos
 
 > Importante: a **IA nunca inventa o número**. O cálculo é feito no código. A IA só aplica o filtro final e **explica** de um jeito que eu entendo.
 
+**Nos mercados de jogador (chutes/finalizações/desarmes)** o sistema me mostra a **escalação provável** do jogo (mandante × visitante); se ainda não houver escalação, lista quem **jogou os últimos 3 jogos**. Eu escolho o jogador, vejo a média recente dele e coloco a odd real dele — a análise roda só pra ele.
+
 ---
 
 ## O que o produto entrega
@@ -80,10 +82,12 @@ Estatística velha não serve. A análise usa **dados recentes e atualizados dos
 
 O motor não entra no ar por fé — cada mercado passou (ou não) por uma calibração honesta em dados reais. Estado atual:
 
-- ✅ **Validados e prontos pro front — mercados de JOGADOR:** **chutes a gol (SOT)**, **finalizações** e **desarmes**. O modelo acerta a probabilidade (calibração boa em ~3300 jogos reais). São o núcleo do MVP.
+- ✅ **Validados e prontos — mercados de JOGADOR:** **chutes a gol (SOT)**, **finalizações** e **desarmes**. O modelo acerta a probabilidade (calibração boa). São o núcleo do MVP.
+  - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e os três mercados continuam acertando lá também.
+  - **O que descobrimos no caminho (honestidade):** num primeiro teste pareceu que o modelo "errava" pra seleção. Investigando, o erro não era a conta de quanto o jogador produz — era assumir que **todo titular joga 90 minutos**. Seleção troca/roda muito; quem joga menos produz menos. Ao **estimar os minutos esperados** de cada jogador, o acerto voltou ao normal. Lição: a parte difícil (o modelo serve pra seleção?) está respondida **sim**.
 - ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda (não vendemos o que não provamos).
 
-> Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
+> Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados, inclusive na população de seleção da Copa) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
 ---
 

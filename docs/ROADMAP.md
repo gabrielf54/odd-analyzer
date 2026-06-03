@@ -1,8 +1,23 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 (meta A→D completa, mergeada na `main`) · **Suíte:** 336 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 · **Suíte:** 364 testes verdes · **Custo até aqui:** $0.
 >
-> **Validação pré-front (veredito):** mercados de **JOGADOR (SOT · finalizações · desarmes) PRESTAM** e liberam o front. Mercados de **PARTIDA (gols/1x2 · escanteios) NÃO calibram ainda** → ficam fora do MVP de produção (código existe, ver Fase 3). Detalhe na seção Calibração abaixo. Casado com o escopo do [PITCH.md](PITCH.md).
+> **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Front: seletor de jogador (escalação provável) — FEITO (2026-06-03)
+
+Antes, as abas de mercado de jogador só tinham "Varrer elenco" (varredura cega dos 22); sem
+escalação confirmada (pré-jogo) o elenco vinha vazio e nada aparecia. Agora a aba de jogador
+(SOT/finalizações/desarmes) traz um **seletor de 1 jogador**: 2 colunas (mandante|visitante)
+da **escalação provável**, com **fallback** para quem jogou nos últimos 3 jogos quando não há
+escalação. Badge marca a origem (confirmada/provável/últimos-3). Ao escolher, mostra a média
+recente do jogador (1 call) e o botão "Analisar jogador" roda só ele (odd real por jogador, não
+placeholder de elenco). Mercados de partida (gols/escanteios) seguem na varredura atual.
+
+Lógica nova em `service.py` (puro, testado): `escalacao_provavel`, `media_recente_jogador`,
+`analisar(..., player_ref=...)`. Front (`streamlit_app.py`) continua fino. Spec/plano:
+[specs/2026-06-03-front-picker-jogador-design.md](superpowers/specs/2026-06-03-front-picker-jogador-design.md).
+Branch `feat/front-picker-jogador`, 364 testes verdes.
 
 ## 🎯 Meta crítica — dinheiro real em 11/06/2026 (Copa do Mundo)
 
@@ -12,7 +27,12 @@
 - **Validação forward = paper-trade forward** (não CLV clássico — prop de jogador não tem linha de fechamento < $99/mês): prever antes → registrar no `paper_ledger` → liquidar pós-jogo → medir Brier/hit-rate/EV realizado num lote **NOVO**.
 - **AMEAÇA #1 — shift de população (REBAIXADA por spike 2026-06-03):** calibração foi em **liga 9 (Brasileirão, clubes)**; a Copa é **seleções**. Jogo de seleção tem MENOS finalização (Kosovo×Türkiye SOT soma=5; Chile×Uruguai 6) → **calibração de clube NÃO transfere cega**. MAS o spike confirmou que o BSD tem **>1300 jogos de SELEÇÃO finalizados com player-stats completos** (eliminatórias 58/59/60/61/62, Nations League 64/65, amistosos 31 populando hoje, Euro 66, Copa América 67) no mesmo formato da liga 9 → **dá pra RE-CALIBRAR na população certa**, não só fazer sanity. Histórico montável via `team_id` (separa clube/seleção) + ordem mais-recente-primeiro. Ameaça vira **mensurável/mitigável**. Detalhe: [apis/bsd-bzzoiro/wc-validation-spike.md](apis/bsd-bzzoiro/wc-validation-spike.md).
 
-**Prioridade da janela (ordem, pós-spike):** (1) **re-calibrar mercados de jogador na população de SELEÇÃO** (reusar `collect_bsd.py`+`run_bsd_backtest.py` nas ligas 58/59/64/31/66/67; testar rate clube-misto vs só-seleção via `team_id`; re-medir `concede_baseline` de seleção) → veredito honesto por mercado; (2) harness de validação forward — loop paper-bet→liquida→mede, alimentado por amistosos (liga 31) frescos; (3) `snapshot_fechamento` no pré-jogo; (4) disciplina de risco dia 11.
+**Prioridade da janela (status atualizado):**
+- ✅ **(1) Re-calibrar mercados de jogador na população de SELEÇÃO — FEITO.** `collect_national.py`+`run_national_backtest.py` (não os de liga 9); rate só-seleção vs todos via `team_id`; `concede_baseline_nacional` medido. Veredito: só-seleção > todos; amistoso neutro. (mergeado)
+- ✅ **(1b) minutos-esperados — FEITO.** O gap era projetar 90 min, não a taxa. Com minutos estimados os 3 mercados passam (ECE<0.08, BrierSkill>0). **money-ready.** (mergeado)
+- ⬜ **(2) Harness de validação forward** — loop paper-bet→liquida→mede num lote NOVO ao vivo (amistosos liga 31 frescos + 1ºs jogos da Copa). **Próximo build recomendado.**
+- ⬜ **(3) Disciplina de risco** dia 11 (stake pequeno, só jogador, threshold rígido) + cross-check de settlement BSD-vs-casa.
+- ⬜ **(4) `snapshot_fechamento`/CLV-forward** no pré-jogo (gate de dinheiro junto do harness).
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
@@ -65,6 +85,8 @@ Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
 
 ## Calibração — população de SELEÇÃO (Copa, 2026-06-03)
 
+> ⚠️ **LEIA PRIMEIRO — esta seção é um histórico cronológico em 3 atos.** O veredito que vale é o **ÚLTIMO** (subseção "Re-validação com minutos ESTIMADOS"): **os 3 mercados de jogador PASSAM e estão money-ready.** Os vereditos do meio ("nenhum mercado passa", "paper/observação até re-tunar") refletem o estado ANTES de descobrir que o gap era minutos — estão **SUPERADOS**. Ato 1: 90-min → falha. Ato 2: diagnóstico → o gap é minutos, não a taxa. Ato 3: minutos estimados → passa.
+
 Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo-alvo) sobre o **pool de ligas de seleção** (eliminatórias 58/59/60/61/62, Nations League 64/65, amistosos 31, Euro 66, Copa América 67). Script: `src/odd_analyzer/backtest/run_national_backtest.py`. Varredura 4× = {só-seleção, todos} × {com/sem amistoso}. `concede_baseline_nacional` medido em 392 jogos: sot 4.28 · finalizações 12.22 · desarmes 13.97 (todos < clube → seleção produz/concede menos).
 
 **Melhores números por mercado (modo só-seleção + com-amistoso; n≈1800 jogador-jogo):**
@@ -81,7 +103,7 @@ Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo
 | desarmes | over 1.5 | 0.243 | 0.1858 | 0.1325 | -0.009 |
 | desarmes | over 2.5 | 0.112 | 0.1077 | 0.0924 | -0.085 |
 
-**Veredito honesto: os priors de CLUBE NÃO transferem pra seleção como estão.** Os bins de confiabilidade mostram **super-estimação sistemática** (em todo bin, prev > real). ECE 0.10–0.19 nas linhas úteis (vs 0.047 na liga 9) e BrierSkill ~0/negativo. **Nenhum mercado passa o crivo (ECE<0.08 + BrierSkill>0) na população de seleção** — exceção isolada: **SOT over 1.5 (ECE 0.032)**, mas com BrierSkill +0.004 (mal bate a climatologia → valor marginal). **→ Mercados de jogador NÃO carregam dinheiro na Copa até re-tunar os priors.**
+**[ATO 1 — SUPERADO] Veredito (90 min, antes do diagnóstico): os priors de CLUBE parecem NÃO transferir pra seleção.** Os bins de confiabilidade mostram **super-estimação sistemática** (em todo bin, prev > real). ECE 0.10–0.19 nas linhas úteis (vs 0.047 na liga 9) e BrierSkill ~0/negativo. Nenhum mercado passa o crivo *com projeção de 90 min*. ⚠️ **Esta conclusão foi SUPERADA:** o diagnóstico abaixo mostra que a causa era a projeção de 90 min (não a taxa) — com minutos estimados, os 3 mercados passam. NÃO usar este parágrafo como veredito.
 
 **Sub-achados (resolvem decisões de design):**
 - **só-seleção ≥ todos** em todos os mercados (BrierSkill maior, ECE igual/menor) → escopo "Só seleção" vira default da UI pra jogo de seleção. Confirma que a população importa.
@@ -105,7 +127,7 @@ Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo
 
 **Conclusão:** com minutos reais, o modelo de taxa **calibra excelente na população de seleção** (ECE quase todo <0.05, BrierSkill +0.08 a +0.20). **A taxa transfere clube→seleção sem problema** — a super-estimação vinha 100% da **projeção de 90 min** ignorando rodízio/substituição de seleção.
 
-**Próximo passo (follow-up `minutos-esperados`, NÃO re-tunar priors):** modelar **minutos esperados** por jogador na produção (estimar via média recente de `minutes_played` + status do lineup) em vez de assumir 90 → `mu = taxa_por90 × min_esperados/90`. Re-validar o backtest com minutos ESTIMADOS (não reais — produção não os conhece pré-jogo) e medir o ECE resultante. Se a estimativa de minutos calibrar perto do teto (min reais), **os 3 mercados de jogador ficam money-ready pra Copa**. Até ligar isso, **player markets = paper/observação**.
+**Próximo passo (follow-up `minutos-esperados`, NÃO re-tunar priors):** modelar **minutos esperados** por jogador na produção (estimar via média recente de `minutes_played` + status do lineup) em vez de assumir 90 → `mu = taxa_por90 × min_esperados/90`. Re-validar o backtest com minutos ESTIMADOS (não reais — produção não os conhece pré-jogo) e medir o ECE resultante. Se a estimativa de minutos calibrar perto do teto (min reais), **os 3 mercados de jogador ficam money-ready pra Copa**. ⚠️ **RESOLVIDO no ATO 3 abaixo** — a estimativa calibrou; o "paper/observação até ligar isso" desta linha está **SUPERADO** (já ligado e validado).
 
 ### Re-validação com minutos ESTIMADOS (2026-06-03) — ✅ os 3 mercados de jogador passam
 
@@ -137,7 +159,8 @@ Construindo o **motor multi-mercado** sobre o **BSD/Bzzoiro** (fonte oficial de 
 - ✅ **Slice 2 (escanteios) em dado REAL:** #25 resolvido (`team_taxa` agrega `corner_kicks` do histórico de cada time via `events(team_id, finished)` + `/events/{id}/stats/`); pipeline ramifica por `market.nivel` (total da partida = soma dos dois times). Odd colada via `ManualOdds`. **Automático (odds do BSD) = pendente** (só pré-jogo, ver follow-up `odds-corners`).
 - ✅ **MATCHUP REAL ligado (2026-06-03)** — o diferencial da doutrina entra no `mu`: `BSDStatsProvider._team_conceded` agrega o que o **adversário concede** no mesmo eixo (lado oposto em `/events/{id}/stats/` do histórico DELE) → `opponent_multiplier` (clampado `[0.7,1.4]`) multiplica a produção. Liga em jogador (`entity_taxa`) e partida (`team_taxa`). Baseline nível-TIME = `MarketSpec.concede_baseline` (prior estático, **pendente de league-sweep na Fase 4**). **Efeito real visível:** escanteios do 7166, que no número *ingênuo* dava over 8.5 (mu 10.13, "edge +0.069"), com o confronto cai p/ **mu 7.94** (Fluminense concede só 3.0 corners/jogo → mult 0.7; Cruzeiro 4.6 → 0.92) → **deixa de ser valor**. Produção × concessão, não média bruta.
 - ✅ **VARREDURA ligada (2026-06-03)** — `cli analisar` SEM `--player` escaneia o **elenco inteiro** e o filtro edge/EV revela quem tem valor (não precisa adivinhar o jogador). Ex. 7166 desarmes o1.5 @1.90: Kaiki (edge +0.205) e L. Romero (+0.164). Coluna `adv_concede` mostra o matchup na tabela.
-- ⬜ Faltam **Fases 3, 4** + follow-ups (abaixo).
+- ✅ **CALIBRAÇÃO DE JOGADOR FECHADA (2026-06-03):** re-validada na população de seleção (Copa) com minutos estimados → SOT/finalizações/desarmes money-ready (ver seções de Calibração no topo). 357 testes.
+- ⬜ Falta: **harness de validação forward** (gate de dinheiro ao vivo), **Fase 3** (partida/gols — não calibra) e o resto da **Fase 4** (fallback provider, odds automáticas de corners) + follow-ups (abaixo).
 
 ### Formas REAIS do BSD (inspecione com `cli.py bsd-probe 7166` → dumpa em `.probe_dumps/`, descartável/gitignorado)
 - `/events/{id}/` — **flat**: `home_team_id`(int) + `home_team`(**nome**), idem away. (o `runner.normalize_event` aninha p/ o pipeline)
@@ -176,9 +199,12 @@ Commits: `7a3a467` `05a6ac9` `8a5872c` `ff84b12` `4793cb4` `a641a52`.
 ### ⚠️ Fase 3 — Modelo de PARTIDA (vitória 1X2 + gols) — CÓDIGO FEITO, NÃO CALIBRA
 `match_model.py` (Poisson bivariado + Dixon-Coles → `probs_1x2` + `prob_total_over`), `team_rates` (ataque+defesa) e dispatch `_run_partida` no pipeline **existem e rodam** (Fase C da meta A→D). **MAS gols NÃO presta na calibração** (ver seção Calibração): testados ataque-only, +defesa, +shrinkage{3,5,8} — melhor config (ps=8) ainda dá BrierSkill<0 em over2.5. **NÃO ligado à produção.** Próximos passos: split casa/fora, fit do `rho`, mais ligas/dados. Mercado de partida fica fora do MVP de produção até calibrar.
 
-### ⬜ Fase 4 — Validação + fallback + UI + extensão
-Backtest por mercado + **calibração (ECE<0.05)** · **ApiFootballStatsProvider + FallbackStatsProvider** wired · religar **streamlit** · slot PropOdds documentado.
-Tasks do plano: 29–35 (pular **33** — PropOdds stub já feito na Fase 0).
+### ⚠️ Fase 4 — Validação + fallback + UI + extensão (PARCIAL)
+- ✅ **Calibração por mercado (jogador)** — feita na liga 9 E re-validada na população de seleção (Copa) com minutos estimados (ECE<0.08, BrierSkill>0). Ver seções de Calibração no topo.
+- ✅ **Streamlit religado** — front 2-modos sobre `service.py` (ver follow-up `front 2 modos`).
+- ⬜ **ApiFootballStatsProvider + FallbackStatsProvider** wired (hoje só BSD).
+- ⬜ **Harness de validação forward** (paper→liquida→mede ao vivo) — gate de dinheiro real, **próximo build**.
+- ⬜ slot PropOdds documentado.
 
 ---
 
