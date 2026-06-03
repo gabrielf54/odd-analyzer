@@ -132,3 +132,23 @@ def test_player_mu_from_games_pura_e_deterministica():
 def test_player_mu_from_games_sem_amostra_retorna_none():
     assert player_mu_from_games([], stat_field="total_tackle", prior_rate=1.3,
                                 prior_strength=12.0, opp_mult=1.0, ha_mult=1.0) is None
+
+
+from odd_analyzer.model.assemble import expected_minutes
+
+
+def test_expected_minutes_media_da_janela():
+    # 10 jogos, todos 45 min → média 45 (w5 pega os 5 últimos, todos 45)
+    games = [{"minutes_played": 45} for _ in range(10)]
+    assert expected_minutes(games) == 45.0
+
+
+def test_expected_minutes_usa_w5_recente():
+    # ordem crescente (recente no fim): 5 antigos com 30, 5 recentes com 90.
+    # w5 = média dos 5 recentes = 90.
+    games = [{"minutes_played": 30} for _ in range(5)] + [{"minutes_played": 90} for _ in range(5)]
+    assert expected_minutes(games) == 90.0
+
+
+def test_expected_minutes_vazio_retorna_none():
+    assert expected_minutes([]) is None

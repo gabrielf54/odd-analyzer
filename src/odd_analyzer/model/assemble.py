@@ -76,6 +76,15 @@ def filter_games_by_scope(games: list[dict], escopo: str, entity_team_id) -> lis
     return games
 
 
+def expected_minutes(games: list[dict]) -> float | None:
+    """Minutos esperados = média de minutes_played na janela recente (mesma seleção
+    w5/w3/w10 que a taxa usa). Reusa windowed_rate com minutes_field=None (média por-jogo).
+    None se não há jogos. Captura rodízio: titular fixo ~88, rodado ~55."""
+    rates = windowed_rate(games, "minutes_played")
+    w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
+    return w5 if w5 is not None else (w3 if w3 is not None else w10)
+
+
 def player_mu_from_games(games: list[dict], stat_field: str, prior_rate: float,
                          prior_strength: float, opp_mult: float, ha_mult: float,
                          minutos_esperados: float = 90.0) -> dict | None:
