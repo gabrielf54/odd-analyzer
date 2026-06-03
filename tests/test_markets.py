@@ -46,7 +46,7 @@ def test_desarmes_spec_values():
     assert s.nivel == "jogador"
     assert s.kind == "contagem"
     assert s.stat_field == "total_tackle"
-    assert s.prior_rate == pytest.approx(2.0)
+    assert s.prior_rate == pytest.approx(1.3)  # tunado por ECE (Fase B, liga 9): era 2.0
     assert s.lines == [0.5, 1.5, 2.5]
 
 def test_escanteios_spec_values():

@@ -1,6 +1,6 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 315 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 (Task 5b) · **Branch:** `feat/motor-calibracao-pre-front` · **Suíte:** 315 testes verdes · **Custo até aqui:** $0.
 
 ## Calibração (Fase B — BSD liga 9, 2026-06-03)
 
@@ -9,9 +9,9 @@ Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
 
 | mercado | linha | n | freq_real | Brier | ECE | BrierSkill |
 |---------|-------|---|-----------|-------|-----|------------|
-| desarmes | over 0.5 | 3304 | 0.522 | 0.2215 | 0.0869 | 0.112 |
-| desarmes | over 1.5 | 3304 | 0.258 | 0.1672 | 0.0777 | 0.126 |
-| desarmes | over 2.5 | 3304 | 0.109 | 0.0914 | 0.0601 | 0.059 |
+| desarmes | over 0.5 | 3304 | 0.522 | 0.2102 | 0.0645 | 0.157 |
+| desarmes | over 1.5 | 3304 | 0.258 | 0.1598 | 0.0474 | 0.165 |
+| desarmes | over 2.5 | 3304 | 0.109 | 0.0866 | 0.0149 | 0.108 |
 | sot | over 0.5 | 3304 | 0.227 | 0.1559 | 0.0388 | 0.112 |
 | sot | over 1.5 | 3304 | 0.058 | 0.0492 | 0.0089 | 0.092 |
 | sot | over 2.5 | 3304 | 0.010 | 0.0098 | 0.0010 | 0.034 |
@@ -25,7 +25,7 @@ Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
 
 **Vereditos honestos por mercado:**
 
-- **desarmes**: `borderline` — BrierSkill positivo em todas as linhas (skill real existe), mas ECE acima de 0.08 nas linhas 0.5 e 1.5 (modelo sistematicamente otimista no bin 0.5-0.6, sub-estima freq real 0.373 vs pred 0.560). Causa provável: `prior_rate=2.0` muito alto (proxy de eixo fraco — ver follow-up `matchup-desarmes-proxy`) empurra predições para cima. **Não usar para apostas até ajustar prior e confirmar ECE < 0.08.**
+- **desarmes**: `presta (over 1.5)` — após tune de `prior_rate 2.0→1.3` (sweep ECE em liga 9, Task 5b): over 1.5 agora ECE 0.0474 e BrierSkill 0.165 (melhor linha); over 2.5 ECE 0.0149 (excelente). Over 0.5 ficou em ECE 0.0645 (borderline, mas 30% abaixo do baseline 0.0869 pré-tune). Causa do over-confidence anterior confirmada: `prior_rate=2.0` encolhia jogadores para taxa muito alta. **Caveats: (1) prior fit em liga 9 — re-validar em outras ligas na Fase 4; (2) eixo de concessão é proxy fraco** (ver follow-up `matchup-desarmes-proxy`). **Usar over 1.5 e over 2.5; over 0.5 monitorar.**
 - **sot**: `presta` nas linhas úteis — over 0.5 (ECE 0.0388, BrierSkill 0.112) e over 1.5 (ECE 0.0089, BrierSkill 0.092) passam o crivo. Over 2.5 é tecnicamente calibrado (ECE 0.0010) mas freq_real=0.010 → aposta raramente acionada (evento raro). **Melhor mercado no momento; over 0.5 e 1.5 prontos para uso cauteloso.**
 - **finalizacoes**: `presta` nas linhas altas — over 1.5 (ECE 0.0465, BrierSkill 0.161) e over 2.5 (ECE 0.0188, BrierSkill 0.132) são os melhores resultados absolutos do backtest. Over 0.5 é borderline (ECE 0.0815, sub-estima freq real nos bins do meio). **Usar over 1.5 e over 2.5; over 0.5 aguardar ajuste de prior.**
 - **escanteios**: `baseline inconcluso` — este backtest usa **mu único da liga** (sem matchup por jogo): toda partida recebe a mesma predição. Por construção, BrierSkill ≈ 0 (predição constante vs climatologia) e ECE mede apenas o erro de localização do mu na NB. Interpretação: over 10.5 (ECE 0.0026, BrierSkill ≈ 0) confirma que `mu=9.73` com `NB(r=3.0)` captura a distribuição marginal na vizinhança da mediana — a NB está corretamente parametrizada para a liga. O BrierSkill negativo em over 8.5/9.5 reflete que a predição constante cai abaixo da freq_real nessas linhas (NB subestima levemente a aba direita). **Isso NÃO é falha do engine** — é esperado num baseline-vs-baseline. O skill real de escanteios emerge apenas com o `team_taxa` matchup por jogo (produção × concessão já implementado no pipeline principal), que este backtest simplificado não exercita. **Não usar este backtest para decisão de aposta; é uma verificação de consistência da distribuição marginal.**
