@@ -91,7 +91,21 @@ Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo
 1. **Transferência clube→seleção da taxa** — a forma de clube super-estima a saída em seleção. Mitigação: re-tunar `prior_rate`/`prior_strength` por mercado na população de seleção (mesmo método do tune liga-9 desarmes 2.0→1.3, que derrubou o ECE).
 2. **Projeção de 90 min** — o motor projeta todo titular pra 90 min, mas seleção tem muito rodízio; quem joga <90 produz menos que a projeção → super-estima. (O backtest da liga 9 usava minutos REAIS, isolando a taxa; este usa 90 como a produção → parte do gap é minutos, não taxa.) Mitigação: modelar minutos esperados (papel/lineup) em vez de assumir 90.
 
-**Próximo passo (follow-up `recalibracao-priors-selecao`):** re-tunar priors na população de seleção + diagnosticar o efeito-minutos (rodar variante com minutos reais p/ separar "taxa ruim" de "projeção de 90") → re-validar → só então liberar dinheiro. Até lá, **player markets na Copa = paper/observação**.
+**DIAGNÓSTICO DE MINUTOS (2026-06-03, `scripts/diag_minutos_selecao.py`) — o gap é MINUTOS, não a taxa.** Rodando o MESMO conjunto com **minutos reais** do jogo-alvo (escala `mu_real = mu_90 × min_real/90`) em vez de projetar 90, a calibração se transforma (escopo só-seleção+amistoso, n=76 alvos):
+
+| mercado | linha | ECE_90 | BS_90 | **ECE_real** | **BS_real** |
+|---------|-------|--------|-------|----------|---------|
+| desarmes | o0.5 | 0.1615 | +0.033 | **0.0579** | **+0.204** |
+| desarmes | o1.5 | 0.1324 | -0.018 | **0.0256** | **+0.178** |
+| desarmes | o2.5 | 0.0911 | -0.091 | **0.0224** | **+0.083** |
+| sot | o0.5 | 0.1043 | +0.035 | **0.0549** | **+0.113** |
+| sot | o1.5 | 0.0317 | +0.004 | **0.0084** | **+0.114** |
+| finalizacoes | o1.5 | 0.1343 | -0.028 | **0.0528** | **+0.129** |
+| finalizacoes | o2.5 | 0.0708 | -0.005 | **0.0202** | **+0.173** |
+
+**Conclusão:** com minutos reais, o modelo de taxa **calibra excelente na população de seleção** (ECE quase todo <0.05, BrierSkill +0.08 a +0.20). **A taxa transfere clube→seleção sem problema** — a super-estimação vinha 100% da **projeção de 90 min** ignorando rodízio/substituição de seleção.
+
+**Próximo passo (follow-up `minutos-esperados`, NÃO re-tunar priors):** modelar **minutos esperados** por jogador na produção (estimar via média recente de `minutes_played` + status do lineup) em vez de assumir 90 → `mu = taxa_por90 × min_esperados/90`. Re-validar o backtest com minutos ESTIMADOS (não reais — produção não os conhece pré-jogo) e medir o ECE resultante. Se a estimativa de minutos calibrar perto do teto (min reais), **os 3 mercados de jogador ficam money-ready pra Copa**. Até ligar isso, **player markets = paper/observação**.
 
 ---
 
