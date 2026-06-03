@@ -47,11 +47,53 @@ def probe_all() -> None:
     print(f"\nSalvo em {out}")
 
 
+def bsd_probe(event_id: str) -> None:
+    from odd_analyzer.probes.bsd_probe import probe_event
+    probe_event(event_id)
+
+
+def analisar(argv: list[str]) -> None:
+    import argparse
+    from odd_analyzer.config import get_required
+    from odd_analyzer.bsd.client import BSDClient
+    from odd_analyzer.model.markets import MARKETS
+    from odd_analyzer.runner import run_analise, format_resultado
+
+    ap = argparse.ArgumentParser(prog="odd_analyzer.cli analisar",
+                                 description="Analisa 1 mercado de jogador num jogo real do BSD (odd manual).")
+    ap.add_argument("--event", required=True, help="event_id do BSD (ex.: 7166)")
+    ap.add_argument("--market", required=True, help="mercado: desarmes/sot/finalizacoes (jogador) ou escanteios (partida)")
+    ap.add_argument("--player", default=None, help="id ou parte do nome do jogador (só p/ mercado de jogador)")
+    ap.add_argument("--linha", type=float, required=True, help="linha da casa (ex.: 1.5)")
+    ap.add_argument("--over", type=float, required=True, help="odd do over")
+    ap.add_argument("--under", type=float, required=True, help="odd do under")
+    ap.add_argument("--ia", action="store_true", help="liga a explicação da IA (usa OPENROUTER_API_KEY)")
+    args = ap.parse_args(argv)
+
+    client = BSDClient(get_required("BZZOIRO_API_KEY"))
+    out = run_analise(client, args.event, args.market, args.player,
+                      linha=args.linha, odd_over=args.over, odd_under=args.under,
+                      usar_ia=args.ia)
+    label = MARKETS[args.market].label if args.market in MARKETS else args.market
+    print(format_resultado(out, label))
+
+
 def main() -> None:
+    try:  # Windows: console cp1252 quebra em acento/símbolo; força utf-8 se possível.
+        sys.stdout.reconfigure(encoding="utf-8")
+    except Exception:
+        pass
     if len(sys.argv) >= 2 and sys.argv[1] == "probe-all":
         probe_all()
+    elif len(sys.argv) >= 3 and sys.argv[1] == "bsd-probe":
+        bsd_probe(sys.argv[2])
+    elif len(sys.argv) >= 2 and sys.argv[1] == "analisar":
+        analisar(sys.argv[2:])
     else:
         print("uso: python -m odd_analyzer.cli probe-all")
+        print("     python -m odd_analyzer.cli bsd-probe <event_id>   (ex.: 7166)")
+        print("     python -m odd_analyzer.cli analisar --event 7166 --market desarmes \\")
+        print("            --player Pereira --linha 1.5 --over 1.90 --under 1.90 [--ia]")
 
 
 if __name__ == "__main__":

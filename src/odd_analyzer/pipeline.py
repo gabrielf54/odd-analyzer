@@ -1,51 +1,137 @@
-"""Orquestra a análise de UM jogo: props -> crosswalk -> modelo -> candidatos
--> filtro -> IA -> grava paper_ledger e cache. A matemática vem do código
-(builder); a IA só lê. taxa_fn e analista_fn são injetados p/ testar offline."""
-from odd_analyzer.odds.the_odds_api import parse_sot_props
-from odd_analyzer.crosswalk.match import match_player
+"""Orquestra a análise de UM jogo: provider → mu → candidatos → filtro → IA → repo.
+A matemática (builder) é código; a IA só lê e explica.
+stats_provider e odds_provider são injetados — sem import direto de fonte."""
 from odd_analyzer.candidates.builder import build_candidate
 from odd_analyzer.candidates.filtro import filter_candidates
 from odd_analyzer.model.sot_model import prob_over_line
 from odd_analyzer.ai.analista import analisar as _default_analista
+from odd_analyzer.model.markets import MarketSpec
 
-from odd_analyzer.model.params import NB_DISPERSION  # fonte única (mesmo r do backtest)
 
-def analisar_jogo(event: dict, elenco: list[dict], taxa_fn, repo,
-                  overrides: dict | None = None, analista_fn=_default_analista) -> dict:
-    """Analisa 1 jogo e devolve {"candidatos": [...], "ia": {...}}.
+def analisar_jogo(
+    event: dict,
+    market: MarketSpec,
+    stats_provider,
+    odds_provider,
+    repo,
+    overrides: dict | None = None,
+    analista_fn=_default_analista,
+) -> dict:
+    """Analisa 1 jogo para 1 mercado. Retorna {"candidatos": [...], "ia": {...}}.
 
-    taxa_fn(player_id, linha) -> dict com as chaves:
-        mu, minutos_esperados, xi_confirmado, amostra_jogos,
-        sot_concedido_adversario, incerteza.
-    `prob_modelo` NÃO vem do taxa_fn: é sempre recomputado aqui de `mu` via
-    prob_over_line (NB_DISPERSION) — a matemática mora no código.
-    analista_fn(candidatos, contexto) -> dict no formato de ai.analista.analisar.
+    dispatch por market.kind:
+      "contagem"      → prob_over_line (NB) por linha × entidade
+      "partida_totais"/ "partida_1x2" → match_model (Fase 3, ainda não implementado)
     """
-    candidatos = []
-    for prop in parse_sot_props(event):
-        m = match_player(prop["player_name"], elenco, overrides=overrides)
-        if m is None:
-            continue  # fail-closed: sem jogador confiável, descarta
-        t = taxa_fn(m["id"], prop["line"])
-        prob_modelo = prob_over_line(t["mu"], prop["line"], r=NB_DISPERSION)
-        candidatos.append(build_candidate(
-            jogador=m["name"], linha=prop["line"],
-            odd_over=prop["odd_over"], odd_under=prop["odd_under"],
-            prob_modelo=prob_modelo, mu=t["mu"],
-            minutos_esperados=t["minutos_esperados"], xi_confirmado=t["xi_confirmado"],
-            amostra_jogos=t["amostra_jogos"],
-            sot_concedido_adversario=t["sot_concedido_adversario"], incerteza=t["incerteza"],
-        ))
+    if market.kind == "contagem":
+        candidatos = _run_contagem(event, market, stats_provider, odds_provider)
+    else:
+        candidatos = []
+
     selecionados = filter_candidates(candidatos)
     ia = analista_fn(selecionados, {"jogo": event.get("jogo", event["id"])})
-    repo.save_analise(event["id"], {"jogo": event.get("jogo"), "candidatos": selecionados,
-                                    "llm_resultado": ia})
+
+    repo.save_analise(event["id"], {
+        "jogo": event.get("jogo"),
+        "market_type": market.key,
+        "candidatos": selecionados,
+        "llm_resultado": ia,
+    })
+
     aposta = ia.get("melhor_aposta")
     if aposta and aposta.get("veredito") == "APOSTAR":
-        c = next((c for c in selecionados
-                  if c["jogador"] == aposta["jogador"] and c["linha"] == aposta["linha"]), None)
+        c = next(
+            (c for c in selecionados
+             if c["jogador"] == aposta["jogador"] and c["linha"] == aposta["linha"]),
+            None,
+        )
         if c:
-            repo.save_ledger([{"event_id": event["id"], "jogador": c["jogador"], "linha": c["linha"],
-                               "odd_flag": c["odd"], "prob_modelo": c["prob_modelo"],
-                               "prob_devig": c["prob_devig"], "edge": c["edge"], "ev": c["ev"]}])
+            repo.save_ledger([{
+                "event_id": event["id"],
+                "jogador": c["jogador"],
+                "linha": c["linha"],
+                "market_type": c["market_type"],
+                "odd_flag": c["odd"],
+                "prob_modelo": c["prob_modelo"],
+                "prob_devig": c["prob_devig"],
+                "edge": c["edge"],
+                "ev": c["ev"],
+            }])
+
     return {"candidatos": selecionados, "ia": ia}
+
+
+_INCERTEZA_ORDEM = {"baixa": 0, "media": 1, "alta": 2}
+
+
+def _run_contagem(event, market: MarketSpec, stats_provider, odds_provider) -> list[dict]:
+    """Constrói candidatos para mercados de contagem. Dispatch por market.nivel:
+    'partida' → total da partida (soma dos dois times via team_taxa);
+    'jogador' → um candidato por jogador do elenco (entity_taxa)."""
+    linhas = odds_provider.linhas(event, market)
+    if not linhas:
+        return []
+    if market.nivel == "partida":
+        return _contagem_partida(event, market, stats_provider, linhas)
+    return _contagem_jogador(event, market, stats_provider, linhas)
+
+
+def _contagem_partida(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
+    """Escanteios & cia: a linha é o TOTAL da partida → mu = corners-for(home) +
+    corners-for(away), cada um do histórico do próprio time (team_taxa, #25)."""
+    home = event.get("home_team", {})
+    away = event.get("away_team", {})
+    th = stats_provider.team_taxa(home.get("id"), market,
+                                  {"event": event, "is_home": True, "league_avg_conceded": market.prior_rate})
+    ta = stats_provider.team_taxa(away.get("id"), market,
+                                  {"event": event, "is_home": False, "league_avg_conceded": market.prior_rate})
+    if th is None or ta is None:
+        return []
+    mu_total = th["mu"] + ta["mu"]
+    amostra = min(th["amostra_jogos"], ta["amostra_jogos"])
+    incerteza = max((th["incerteza"], ta["incerteza"]), key=lambda x: _INCERTEZA_ORDEM.get(x, 2))
+    label = event.get("jogo") or f'{home.get("name", "")} x {away.get("name", "")}'.strip() or "partida"
+
+    candidatos = []
+    for linha_info in linhas:
+        prob_modelo = prob_over_line(mu_total, linha_info["linha"], r=market.nb_dispersion)
+        candidatos.append(build_candidate(
+            jogador=label, linha=linha_info["linha"],
+            odd_over=linha_info["odd_over"], odd_under=linha_info["odd_under"],
+            prob_modelo=prob_modelo, mu=mu_total, minutos_esperados=90.0,
+            xi_confirmado=True, amostra_jogos=amostra,
+            concedido_adversario="n/d", incerteza=incerteza, market_type=market.key,
+        ))
+    return candidatos
+
+
+def _contagem_jogador(event, market: MarketSpec, stats_provider, linhas) -> list[dict]:
+    elenco = stats_provider.elenco(event)
+    candidatos = []
+    for entidade in elenco:
+        contexto = {
+            "event": event,
+            "entity_team_id": entidade.get("team_id", entidade["id"]),
+            "is_home": entidade.get("team_id") == str(event.get("home_team", {}).get("id", "")),
+            "league_avg_conceded": market.prior_rate,
+        }
+        taxa = stats_provider.entity_taxa(entidade["id"], market, contexto)
+        if taxa is None:
+            continue
+        for linha_info in linhas:
+            prob_modelo = prob_over_line(taxa["mu"], linha_info["linha"], r=market.nb_dispersion)
+            candidatos.append(build_candidate(
+                jogador=entidade["name"],
+                linha=linha_info["linha"],
+                odd_over=linha_info["odd_over"],
+                odd_under=linha_info["odd_under"],
+                prob_modelo=prob_modelo,
+                mu=taxa["mu"],
+                minutos_esperados=taxa["minutos_esperados"],
+                xi_confirmado=taxa["xi_confirmado"],
+                amostra_jogos=taxa["amostra_jogos"],
+                concedido_adversario=taxa["concedido_adversario"],
+                incerteza=taxa["incerteza"],
+                market_type=market.key,
+            ))
+    return candidatos

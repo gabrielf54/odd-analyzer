@@ -1,11 +1,13 @@
 import pytest
 from odd_analyzer.candidates.builder import build_candidate
 
+
 def test_build_candidate_monta_dossie():
     c = build_candidate(
         jogador="Vinicius Jr", linha=0.5, odd_over=1.72, odd_under=2.10,
         prob_modelo=0.68, mu=1.9, minutos_esperados=88, xi_confirmado=True,
-        amostra_jogos=24, sot_concedido_adversario="alto", incerteza="media",
+        amostra_jogos=24, concedido_adversario="alto", incerteza="media",
+        market_type="sot",
     )
     assert c["jogador"] == "Vinicius Jr"
     assert c["linha"] == 0.5
@@ -18,5 +20,30 @@ def test_build_candidate_monta_dossie():
     assert c["minutos_esperados"] == 88
     assert c["xi_confirmado"] is True
     assert c["amostra_jogos"] == 24
-    assert c["sot_concedido_adversario"] == "alto"
+    assert c["concedido_adversario"] == "alto"
     assert c["incerteza"] == "media"
+    assert c["market_type"] == "sot"
+
+
+def test_build_candidate_campo_renomeado_nao_usa_sot_prefix():
+    c = build_candidate(
+        jogador="Raphinha", linha=1.5, odd_over=2.40, odd_under=1.55,
+        prob_modelo=0.45, mu=0.9, minutos_esperados=75, xi_confirmado=False,
+        amostra_jogos=15, concedido_adversario="baixo", incerteza="alta",
+        market_type="finalizacoes",
+    )
+    assert "sot_concedido_adversario" not in c
+    assert "concedido_adversario" in c
+    assert c["market_type"] == "finalizacoes"
+
+
+def test_build_candidate_escanteios():
+    c = build_candidate(
+        jogador="Brasil", linha=9.5, odd_over=1.85, odd_under=1.95,
+        prob_modelo=0.55, mu=10.2, minutos_esperados=90, xi_confirmado=True,
+        amostra_jogos=12, concedido_adversario="medio", incerteza="baixa",
+        market_type="escanteios",
+    )
+    assert c["market_type"] == "escanteios"
+    assert c["jogador"] == "Brasil"
+    assert c["linha"] == 9.5
