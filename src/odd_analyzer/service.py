@@ -48,3 +48,20 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
         "ia": out.get("ia", {}),
         "em_validacao": em_validacao,
     }
+
+
+def resultado_real_jogador(client, event_id, market_key, linha) -> dict:
+    """Modo pós-jogo: lê os actuals de /events/{id}/player-stats/ e diz, por player_id,
+    o valor real do stat do mercado e se superou a linha. Chave = str(player_id)."""
+    market = MARKETS[market_key]
+    field = market.stat_field
+    data = client.event_player_stats(event_id)
+    rows = data.get("player_stats", []) if isinstance(data, dict) else []
+    out = {}
+    for row in rows:
+        pid = row.get("player_id")
+        if pid is None:
+            continue
+        valor = row.get(field) or 0
+        out[str(pid)] = {"valor_real": valor, "bateu": valor > linha}
+    return out

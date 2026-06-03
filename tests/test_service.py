@@ -82,3 +82,18 @@ def test_analisar_label_nao_corrompe_nome_com_x():
     out = analisar(_C(), event_id=1, market_key="desarmes",
                    linha=1.5, odd_over=1.90, odd_under=1.90, usar_ia=False)
     assert out["jogo"] == "Atletico x Ajax"
+
+
+from odd_analyzer.service import resultado_real_jogador
+
+def test_resultado_real_jogador_calcula_bateu():
+    class _C:
+        def event_player_stats(self, eid):
+            return {"player_stats": [
+                {"player_id": 1867, "total_tackle": 3, "minutes_played": 90},
+                {"player_id": 1861, "total_tackle": 1, "minutes_played": 90},
+            ]}
+    res = resultado_real_jogador(_C(), event_id=7166, market_key="desarmes", linha=1.5)
+    assert res["1867"]["valor_real"] == 3
+    assert res["1867"]["bateu"] is True
+    assert res["1861"]["bateu"] is False
