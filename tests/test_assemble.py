@@ -72,3 +72,27 @@ def test_assemble_mu_zero_minutes_returns_zero():
 def test_assemble_mu_neutral_multipliers_equals_expected_lambda():
     mu = assemble_mu(rate_per90=4.0, minutos_esperados=90.0, opp_mult=1.0, ha_mult=1.0)
     assert mu == pytest.approx(4.0)
+
+
+def test_windowed_rate_per90_pondera_por_minutos():
+    # 2 jogos: 90min/2 chutes e 30min/0 chutes. Per-jogo ingênuo = 1.0/jogo.
+    # Per-90 correto = (2+0)/(90+30)*90 = 1.5/90.
+    games = [
+        {"shots_on_target": 2, "minutes_played": 90},
+        {"shots_on_target": 0, "minutes_played": 30},
+    ]
+    r = windowed_rate(games, "shots_on_target", windows=(3,), minutes_field="minutes_played")
+    assert abs(r["w3"] - 1.5) < 1e-9
+
+
+def test_windowed_rate_per90_minutos_zero_retorna_none():
+    games = [{"shots_on_target": 0, "minutes_played": 0}]
+    r = windowed_rate(games, "shots_on_target", windows=(3,), minutes_field="minutes_played")
+    assert r["w3"] is None
+
+
+def test_windowed_rate_sem_minutes_field_mantem_media_por_jogo():
+    # nível-time (escanteios): sem minutos, média por-jogo preservada.
+    games = [{"corners": 4}, {"corners": 6}]
+    r = windowed_rate(games, "corners", windows=(3,))
+    assert abs(r["w3"] - 5.0) < 1e-9

@@ -10,17 +10,17 @@ def windowed_rate(
     stat_field: str,
     windows: tuple = (3, 5, 10),
     mando: str | None = None,
+    minutes_field: str | None = None,
 ) -> dict:
-    """Taxa média do stat_field nas últimas N partidas (janelas 3/5/10).
+    """Taxa do stat_field nas últimas N partidas (janelas 3/5/10).
 
-    Args:
-        games: lista de dicts com pelo menos {stat_field, mando} em ordem cronológica.
-        stat_field: chave do dict a somar (e.g. "corners", "shots_on_target").
-        windows: tupla de tamanhos de janela a calcular.
-        mando: se "home" ou "away", filtra apenas partidas nesse mando antes de janelas.
+    `games` deve estar em ordem CRONOLÓGICA CRESCENTE (mais antigo primeiro);
+    a janela `[-n:]` pega as N mais RECENTES. O chamador é responsável por ordenar.
 
-    Returns:
-        dict {f"w{n}": float | None} — None quando não há jogos disponíveis.
+    minutes_field:
+      None  → média por-jogo (nível-time: um time sempre joga ~90).
+      str   → per-90 ponderado por minutos: Σstat / Σmin × 90 (nível-jogador).
+              Σmin == 0 na janela → None.
     """
     source = games
     if mando is not None:
@@ -31,9 +31,13 @@ def windowed_rate(
         window = source[-n:] if len(source) >= 1 else []
         if not window:
             result[f"w{n}"] = None
-        else:
+        elif minutes_field is None:
             vals = [g[stat_field] for g in window]
             result[f"w{n}"] = sum(vals) / len(vals)
+        else:
+            tot_stat = sum(g[stat_field] for g in window)
+            tot_min = sum((g.get(minutes_field) or 0) for g in window)
+            result[f"w{n}"] = (tot_stat / tot_min * 90.0) if tot_min > 0 else None
     return result
 
 
