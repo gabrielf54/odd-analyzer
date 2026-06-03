@@ -63,6 +63,36 @@ Script: `src/odd_analyzer/backtest/run_bsd_backtest.py`.
 
 **Nota sobre CLV:** este backtest mede apenas calibração de probabilidade (confiabilidade + skill vs base). **CLV (Closing Line Value) NÃO é medido aqui** — props de jogador não têm mercado com linha de fechamento disponível (<$99/mês). O CLV entrará quando houver feed de odds de prop (ver decisões travadas na seção abaixo). Esta etapa (calibração offline) é a porta de entrada da sequência de validação: calibração → CLV → dinheiro real.
 
+## Calibração — população de SELEÇÃO (Copa, 2026-06-03)
+
+Backtest **fiel à produção** (mesma conta pura; recorte anti-espiada por jogo-alvo) sobre o **pool de ligas de seleção** (eliminatórias 58/59/60/61/62, Nations League 64/65, amistosos 31, Euro 66, Copa América 67). Script: `src/odd_analyzer/backtest/run_national_backtest.py`. Varredura 4× = {só-seleção, todos} × {com/sem amistoso}. `concede_baseline_nacional` medido em 392 jogos: sot 4.28 · finalizações 12.22 · desarmes 13.97 (todos < clube → seleção produz/concede menos).
+
+**Melhores números por mercado (modo só-seleção + com-amistoso; n≈1800 jogador-jogo):**
+
+| mercado | linha | freq_real | Brier | ECE | BrierSkill |
+|---------|-------|-----------|-------|-----|------------|
+| sot | over 0.5 | 0.181 | 0.1433 | 0.1043 | +0.035 |
+| sot | over 1.5 | 0.045 | 0.0428 | **0.0317** | +0.004 |
+| sot | over 2.5 | 0.011 | 0.0118 | 0.0120 | -0.093 |
+| finalizacoes | over 0.5 | 0.406 | 0.2377 | 0.1849 | +0.015 |
+| finalizacoes | over 1.5 | 0.170 | 0.1451 | 0.1343 | -0.028 |
+| finalizacoes | over 2.5 | 0.082 | 0.0754 | 0.0708 | -0.005 |
+| desarmes | over 0.5 | 0.495 | 0.2409 | 0.1628 | +0.036 |
+| desarmes | over 1.5 | 0.243 | 0.1858 | 0.1325 | -0.009 |
+| desarmes | over 2.5 | 0.112 | 0.1077 | 0.0924 | -0.085 |
+
+**Veredito honesto: os priors de CLUBE NÃO transferem pra seleção como estão.** Os bins de confiabilidade mostram **super-estimação sistemática** (em todo bin, prev > real). ECE 0.10–0.19 nas linhas úteis (vs 0.047 na liga 9) e BrierSkill ~0/negativo. **Nenhum mercado passa o crivo (ECE<0.08 + BrierSkill>0) na população de seleção** — exceção isolada: **SOT over 1.5 (ECE 0.032)**, mas com BrierSkill +0.004 (mal bate a climatologia → valor marginal). **→ Mercados de jogador NÃO carregam dinheiro na Copa até re-tunar os priors.**
+
+**Sub-achados (resolvem decisões de design):**
+- **só-seleção ≥ todos** em todos os mercados (BrierSkill maior, ECE igual/menor) → escopo "Só seleção" vira default da UI pra jogo de seleção. Confirma que a população importa.
+- **com-amistoso ≈ sem-amistoso** (métricas quase idênticas; com-amistoso dá mais amostra) → amistoso NÃO enviesa; manter incluído.
+
+**Causa provável dupla (norte do próximo passo):**
+1. **Transferência clube→seleção da taxa** — a forma de clube super-estima a saída em seleção. Mitigação: re-tunar `prior_rate`/`prior_strength` por mercado na população de seleção (mesmo método do tune liga-9 desarmes 2.0→1.3, que derrubou o ECE).
+2. **Projeção de 90 min** — o motor projeta todo titular pra 90 min, mas seleção tem muito rodízio; quem joga <90 produz menos que a projeção → super-estima. (O backtest da liga 9 usava minutos REAIS, isolando a taxa; este usa 90 como a produção → parte do gap é minutos, não taxa.) Mitigação: modelar minutos esperados (papel/lineup) em vez de assumir 90.
+
+**Próximo passo (follow-up `recalibracao-priors-selecao`):** re-tunar priors na população de seleção + diagnosticar o efeito-minutos (rodar variante com minutos reais p/ separar "taxa ruim" de "projeção de 90") → re-validar → só então liberar dinheiro. Até lá, **player markets na Copa = paper/observação**.
+
 ---
 
 ## TL;DR — onde estamos
