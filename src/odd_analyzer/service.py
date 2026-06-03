@@ -36,7 +36,9 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
     em_validacao = market.nivel == "partida"
 
     raw = client.get_event(event_id)
-    jogo = f'{raw.get("home_team", "")} x {raw.get("away_team", "")}'.strip(" x")
+    home = raw.get("home_team") or "?"
+    away = raw.get("away_team") or "?"
+    jogo = f"{home} x {away}"
 
     out = run_analise(client, event_id, market_key, None,
                       linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo)

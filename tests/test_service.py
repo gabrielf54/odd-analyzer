@@ -64,3 +64,21 @@ def test_analisar_marca_em_validacao_para_partida():
     out = analisar(_fake_client_para_analise(), event_id=7166, market_key="escanteios",
                    linha=8.5, odd_over=1.90, odd_under=1.90, usar_ia=False)
     assert out["em_validacao"] is True
+
+
+def test_analisar_label_nao_corrompe_nome_com_x():
+    class _C:
+        def get_event(self, eid):
+            return {"id": eid, "home_team": "Atletico", "away_team": "Ajax",
+                    "home_team_id": 1, "away_team_id": 2}
+        def lineups(self, eid):
+            return {"lineups": {"home": {"team_id": 1, "players": []}, "away": {"team_id": 2, "players": []}}}
+        def player_stats(self, pid):
+            return {"results": []}
+        def events(self, **kw):
+            return {"results": []}
+        def event_stats(self, eid):
+            return {"stats": {}}
+    out = analisar(_C(), event_id=1, market_key="desarmes",
+                   linha=1.5, odd_over=1.90, odd_under=1.90, usar_ia=False)
+    assert out["jogo"] == "Atletico x Ajax"
