@@ -159,3 +159,20 @@ def test_analisar_repassa_escopo_historico(monkeypatch):
     assert capturado["escopo"] == "selecao"
     assert capturado["league_id"] == 64
     assert out["em_validacao"] is False
+
+
+def test_listar_jogos_inclui_league_id():
+    from odd_analyzer import service
+
+    class _C:
+        def events(self, **kw):
+            return {"results": [
+                {"id": 900, "home_team": "A", "away_team": "B", "event_date": "2026-03-01",
+                 "status": "finished", "home_score": 1, "away_score": 0, "league_id": 64},
+                {"id": 901, "home_team": "C", "away_team": "D", "event_date": "2026-03-02",
+                 "status": "finished"},  # sem league_id na linha → usa o argumento
+            ]}
+
+    jogos = service.listar_jogos(_C(), league_id=64, status="finished")
+    assert jogos[0]["league_id"] == 64
+    assert jogos[1]["league_id"] == 64  # fallback pro argumento

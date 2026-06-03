@@ -100,6 +100,12 @@ def _render_mercado(j, market_key, modo):
             "Na tabela: **p_mod** = chance pelo nosso modelo · **p_devig** = chance da casa já SEM a margem · "
             "**Edge** = sua vantagem (modelo − casa) · **EV** = retorno esperado por R$1 apostado."
         )
+    ESCOPOS = {"Seleção + clube (todos)": "todos", "Só seleção": "selecao", "Só clube": "clube"}
+    escopo_label = st.selectbox(
+        "Forma recente (que jogos contar)", list(ESCOPOS), key=f"esc-{market_key}",
+        help="Quais jogos do jogador entram na média: todos, só os pela seleção (mesma camisa "
+             "deste jogo) ou só os do clube. Em jogo de Copa, 'Só seleção' usa apenas jogos pela seleção.")
+    escopo_historico = ESCOPOS[escopo_label]
     c1, c2, c3, c4 = st.columns(4)
     linha = c1.number_input(
         "Linha", value=1.5, step=0.5, key=f"l-{market_key}",
@@ -122,7 +128,9 @@ def _render_mercado(j, market_key, modo):
         st.warning(f"Over e Under iguais ({over:g}) costuma ser placeholder: a 'casa justa' vira "
                    "**50%** e o Edge deixa de medir valor real. Confira as odds reais (quase nunca são iguais).")
     try:
-        out = service.analisar(_client(), j["id"], market_key, linha, over, under, usar_ia=usar_ia, repo=_repo())
+        out = service.analisar(_client(), j["id"], market_key, linha, over, under,
+                               usar_ia=usar_ia, repo=_repo(),
+                               escopo_historico=escopo_historico, league_id=j.get("league_id"))
     except Exception as e:
         st.error(f"Falha na análise: {type(e).__name__} — {e}")
         st.exception(e)  # traceback completo na própria página

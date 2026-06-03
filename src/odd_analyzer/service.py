@@ -35,6 +35,7 @@ def listar_jogos(client, league_id, status, limit: int = 50) -> list[dict]:
             "data": ev.get("event_date"),
             "status": ev.get("status"),
             "placar": placar,
+            "league_id": ev.get("league_id", league_id),
         })
     return jogos
 
