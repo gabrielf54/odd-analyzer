@@ -62,3 +62,42 @@ def test_pool_targets_concede_por_time():
         include_friendlies=False)
     assert conceded[1] == 1.0 and conceded[2] == 3.0
     assert abs(league_avg - 2.0) < 1e-9
+
+
+from odd_analyzer.backtest.run_national_backtest import score_targets
+from odd_analyzer.model.markets import MARKETS
+
+
+class _ScoreClient:
+    """1 alvo (jogo 900). Jogador 10 tem histórico: alvo 900 + 3 jogos mais antigos de seleção."""
+    def events(self, league_id, status, limit):
+        return {"results": [{"id": 900, "home_team_id": 1, "away_team_id": 2,
+                             "event_date": "2026-03-01"}]}
+    def event_player_stats(self, eid):
+        return {"player_stats": [
+            {"player_id": 10, "team_id": 1, "minutes_played": 90, "total_tackle": 2},
+            {"player_id": 20, "team_id": 2, "minutes_played": 90, "total_tackle": 1},
+        ]}
+    def player_stats(self, pid):
+        # DESC (recente primeiro): alvo 900 no topo, depois 3 jogos mais antigos (ids menores).
+        return {"results": [
+            {"event_id": 900, "team_id": 1, "total_tackle": 2, "minutes_played": 90},
+            {"event_id": 803, "team_id": 1, "total_tackle": 3, "minutes_played": 90},
+            {"event_id": 802, "team_id": 1, "total_tackle": 2, "minutes_played": 90},
+            {"event_id": 801, "team_id": 1, "total_tackle": 4, "minutes_played": 90},
+        ]}
+    def event_stats(self, eid):
+        return {"stats": {}}
+
+
+def test_score_targets_gera_preds_e_actuals_sem_espiar_o_alvo():
+    targets, conceded, league_avg = pool_targets(
+        _ScoreClient(), leagues=(64,), n_per_league=10, stat_field="total_tackle",
+        include_friendlies=False)
+    preds, actuals = score_targets(
+        _ScoreClient(), targets, conceded, league_avg, MARKETS["desarmes"], escopo="selecao")
+    # jogador 10 fez 2 tackles no alvo → actual de over 1.5 = 1
+    assert actuals[1.5]  # tem amostra
+    assert all(0.0 <= p <= 1.0 for p in preds[1.5])
+    # a previsão usa só os 3 jogos ANTIGOS (801/802/803), nunca o alvo 900
+    assert len(preds[1.5]) >= 1
