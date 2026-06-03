@@ -63,3 +63,21 @@ def test_team_rates_retorna_lambda_for():
     assert abs(r["lambda_for"] - 2.5) < 1e-9
     # time 10 sofreu 1 (em casa) e 0 (fora) em 2 jogos → média 0.5
     assert abs(r["lambda_against"] - 0.5) < 1e-9
+
+
+def test_entity_taxa_escopo_so_selecao_filtra_por_team_id():
+    # histórico misto: 5 jogos pela seleção (team_id=1, 1 tackle) + 5 pelo clube (team_id=9, 6 tackles).
+    # BSD entrega decrescente (recente primeiro).
+    selecao = [{"event_id": 200+i, "team_id": 1, "total_tackle": 1, "minutes_played": 90} for i in range(5)]
+    clube   = [{"event_id": 100+i, "team_id": 9, "total_tackle": 6, "minutes_played": 90} for i in range(5)]
+    hist = selecao + clube
+    prov = BSDStatsProvider(_FakeClient(hist))
+    base_ctx = {"event": {"home_team": {"id": "1"}, "away_team": {"id": "2"}},
+                "is_home": True, "entity_team_id": "1", "league_avg_conceded": 16.0}
+    # só-seleção: taxa puxa pra ~1/jogo
+    so_sel = prov.entity_taxa("p1", MARKETS["desarmes"], {**base_ctx, "escopo_historico": "selecao"})
+    # só-clube: taxa puxa pra ~6/jogo (mu maior)
+    so_clube = prov.entity_taxa("p1", MARKETS["desarmes"], {**base_ctx, "escopo_historico": "clube"})
+    assert so_sel is not None and so_clube is not None
+    assert so_sel["mu"] < so_clube["mu"]
+    assert so_sel["amostra_jogos"] == 5 and so_clube["amostra_jogos"] == 5

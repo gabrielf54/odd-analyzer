@@ -8,7 +8,9 @@ Contrato (Protocol):
 """
 from typing import Protocol, runtime_checkable
 from odd_analyzer.model.markets import MarketSpec
-from odd_analyzer.model.assemble import windowed_rate, assemble_mu
+from odd_analyzer.model.assemble import (
+    windowed_rate, assemble_mu, filter_games_by_scope, player_mu_from_games,
+)
 from odd_analyzer.model.shrinkage import shrink_rate
 from odd_analyzer.model.adjustments import opponent_multiplier, home_away_multiplier
 
@@ -107,40 +109,36 @@ class BSDStatsProvider:
         entity_team_id = str(contexto.get("entity_team_id", entity_id))
 
         raw = self._client.player_stats(entity_id)
-        # Forma REAL de /players/{id}/stats/: {count,next,previous, results:[{...campos flat...}]}.
-        # Cada row já tem o campo do mercado (total_tackle/shots_on_target/total_shots) — alimenta
-        # windowed_rate direto. (Sem `mando` no payload → sem split casa/fora no v1; ver follow-up.)
         results: list[dict] = raw.get("results", [])
         if not results:
             return None
-        # BSD entrega mais-recente-primeiro; windowed_rate espera crescente (recente no fim).
+        # BSD entrega mais-recente-primeiro; a conta pura espera crescente (recente no fim).
         games = list(reversed(results))
-
-        rates = windowed_rate(games, market.stat_field, minutes_field="minutes_played")
-        w5, w3, w10 = rates.get("w5"), rates.get("w3"), rates.get("w10")
-        raw_rate = w5 if w5 is not None else (w3 if w3 is not None else w10)
-        if raw_rate is None:
+        # Escopo de histórico (escolha do usuário): 'todos' (default, = comportamento atual),
+        # 'selecao' (mesma camisa do jogo-alvo) ou 'clube' (outras camisas).
+        escopo = contexto.get("escopo_historico", "todos")
+        games = filter_games_by_scope(games, escopo, entity_team_id)
+        if not games:
             return None
 
-        shrunk = shrink_rate(rate=raw_rate, apps=len(games),
-                             prior_rate=market.prior_rate, prior_strength=market.prior_strength)
-        # Matchup REAL (produção × concessão no mesmo eixo): concessão do adversário vem do
-        # histórico DELE (lado oposto em /events/{id}/stats/), não de /team-stats/ (404).
-        # Sem dado → neutro (1.0). Baseline nível-time = market.concede_baseline (ou ctx).
         opp_team_id = self._opp_team_id(contexto)
         team_field = self._TEAM_STAT_FIELD.get(market.stat_field, market.stat_field)
         opp_conceded = self._team_conceded(opp_team_id, team_field)
         opp_mult = self._opp_mult(opp_conceded, league_avg)
         ha_mult = home_away_multiplier(is_home, self.HOME_FACTOR, self.AWAY_FACTOR)
-        minutos_esperados = 90.0
-        mu = assemble_mu(rate_per90=shrunk, minutos_esperados=minutos_esperados,
-                         opp_mult=opp_mult, ha_mult=ha_mult)
+
+        calc = player_mu_from_games(
+            games, stat_field=market.stat_field, prior_rate=market.prior_rate,
+            prior_strength=market.prior_strength, opp_mult=opp_mult, ha_mult=ha_mult,
+            minutos_esperados=90.0)
+        if calc is None:
+            return None
         xi_confirmado = (str(entity_id) in xi_team_ids) if xi_team_ids else True
-        n = len(games)
+        n = calc["n"]
         incerteza = "alta" if n < 5 else ("media" if n < 12 else "baixa")
         concedido = f"{opp_conceded:.1f}" if opp_conceded is not None else "n/d (neutro)"
         return {
-            "mu": mu, "minutos_esperados": minutos_esperados,
+            "mu": calc["mu"], "minutos_esperados": 90.0,
             "xi_confirmado": xi_confirmado, "amostra_jogos": n,
             "concedido_adversario": concedido, "incerteza": incerteza,
         }
