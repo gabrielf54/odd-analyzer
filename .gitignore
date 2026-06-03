@@ -9,3 +9,4 @@ tests/fixtures/*_REAL.json
 .cache_api/
 .cache_api_probe/
 .probe_dumps/
+.superpowers/
