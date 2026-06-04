@@ -1,3 +1,8 @@
+// GATE DE PARIDADE. As golden files (golden/engine.json) foram geradas pelo motor
+// Python de referência (scripts/gen_golden_parity.py, removido junto com o Python em
+// 2026-06-04 após o e2e ao vivo passar). Ficam CONGELADAS: o motor TS tem que
+// reproduzi-las em 1e-9. Se o motor mudar e divergir, o gate quebra — re-derivar exige
+// recuperar o gerador Python do histórico do git (até a remoção do legado).
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";

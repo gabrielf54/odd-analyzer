@@ -37,7 +37,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 **Restrição de custo (atual):** orçamento ~$20. **Não** pagar SportsGameOdds Pro ($299). Não existe fonte confirmada de odds de SOT da Copa por <$20 — o plano valida o motor offline ($0) e gasta no máximo **API-Football Pro $19** (stats, ~1 semana antes da Copa). Detalhes em [docs/apis/README.md](docs/apis/README.md).
 
-**Estado (2026-06-02):** motor (modelo+de-vig+EV+filtro+IA) e backtest de calibração existem e rodam offline (97 testes). **Mas a produção entrega zero** porque `app/streamlit_app.py::_taxa_fn` é placeholder (`mu=0`) e `elenco=[]` mata o crosswalk. Roadmap e raciocínio completo: [docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md](docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md).
+**Estado (2026-06-04):** backend **portado pra Node/TS** (`ts/`), motor+adapters+API rodando, **111 testes Vitest verdes** com gate de paridade (1e-9) protegendo a calibração. **E2E ao vivo provado** (análise real de desarmes via BSD → value bet coerente). Front **Next** no repo `odd-analyzer-frontend`. Python legado **removido** (2026-06-04). Raciocínio de produto: [docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md](docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md); migração: [docs/superpowers/specs/2026-06-04-migracao-node-design.md](docs/superpowers/specs/2026-06-04-migracao-node-design.md).
 
 ## Glossário — conceitos em linguagem simples (o dono é leigo em código)
 
@@ -73,7 +73,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 - **Project ref:** `pepizcpowzhtawzjnzui` · região `us-east-1`
 - **URL:** `https://pepizcpowzhtawzjnzui.supabase.co`
-- Persistência fica em [src/odd_analyzer/store/repo.py](src/odd_analyzer/store/repo.py) (`SupabaseRepo`). Fonte de verdade do schema: [src/odd_analyzer/store/schema.sql](src/odd_analyzer/store/schema.sql).
+- Persistência fica em [ts/src/store/repo.ts](ts/src/store/repo.ts) (`SupabaseRepo`). Fonte de verdade do schema: [ts/src/store/schema.sql](ts/src/store/schema.sql).
 - Tabelas: `analises` (cache de análise por `event_id`), `paper_ledger` (registro de apostas-papel + CLV), `jogadores_crosswalk` (mapeamento de IDs de jogador entre fontes).
 
 ## Duas chaves diferentes — não confundir
@@ -97,14 +97,14 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 1. **Olhe antes de mexer.** Antes de qualquer mudança, use `list_tables`, `list_migrations`, `get_advisors`, `get_logs` para entender o estado atual.
 2. **DDL via `apply_migration`, não `execute_sql`.** `apply_migration` registra a migration (nome descritivo, ex.: `create_analises_table`). Use `execute_sql` só para leitura/consulta ad-hoc.
-3. **`schema.sql` é a fonte de verdade.** Toda mudança de schema aplicada no banco deve ser refletida em [schema.sql](src/odd_analyzer/store/schema.sql) no mesmo commit — não deixe o arquivo divergir do banco.
+3. **`schema.sql` é a fonte de verdade.** Toda mudança de schema aplicada no banco deve ser refletida em [schema.sql](ts/src/store/schema.sql) no mesmo commit — não deixe o arquivo divergir do banco.
 4. **Rode `get_advisors` depois de mudar schema** (lints de segurança e performance — RLS faltando, índices, etc.) e trate o que aparecer.
 5. **Confirme antes de destrutivo.** `DROP`, `DELETE`, `TRUNCATE`, `reset_branch` — pare e confirme com o usuário antes. Prefira `create_branch` para mudanças arriscadas e só faça `merge_branch` após validar.
 6. **Não exponha segredos.** `.env` e `.mcp.json` estão no `.gitignore` — mantenha assim. Nunca cole PAT/service_role em commits, logs ou mensagens.
 
 ## Backend — Node/TypeScript (substitui o Python)
 
-> **Migração em curso (2026-06-04):** o backend está sendo portado de Python para Node/TS — o motivo é manutenibilidade (o dono dá suporte em JS/TS, não em Python). Plano: [docs/superpowers/plans/2026-06-04-migracao-node-plano1-motor.md](docs/superpowers/plans/2026-06-04-migracao-node-plano1-motor.md). Durante a coexistência o TS vive em `ts/`; ao fim, o Python (`src/odd_analyzer/`) é removido e `ts/` sobe pra raiz. O front Next fica em repo separado (`odd-analyzer-frontend`).
+> **Migração concluída (2026-06-04):** o backend foi portado de Python para Node/TS (motivo: manutenibilidade — o dono dá suporte em JS/TS, não em Python). Planos: [docs/superpowers/plans/](docs/superpowers/plans/) (1=motor, 2=integração, 3=front). O Python legado **foi removido**. O código TS vive em `ts/` (mover pra raiz é polimento opcional pendente). O front Next fica em repo separado (`odd-analyzer-frontend`).
 
 - Runtime Node LTS, TypeScript **strict** (ESM, NodeNext). Código em `ts/src/`, testes em `ts/test/`.
 - Rodar testes: `cd ts && npm test` (Vitest). Typecheck: `npm run typecheck`.
@@ -122,6 +122,6 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 ## Geral
 
-- **Legado Python (em remoção):** ambiente em `.venv`, código em `src/odd_analyzer/`, testes em `tests/` (`.venv\Scripts\python.exe -m pytest`). Mantido apenas como fonte de verdade da tradução e gerador das golden files do gate de paridade até a migração concluir.
+- **Python removido (2026-06-04):** o backend agora é exclusivamente Node/TS em `ts/`. As golden files do gate de paridade (`ts/test/parity/golden/`) ficam congeladas; o gerador Python original está no histórico do git se precisar re-derivar.
 - Config/segredos via `.env` (Python: `odd_analyzer.config.get_required(NOME)`; TS: variáveis de ambiente). Levanta erro se ausente.
 - Tanto o legado quanto o port TS têm `InMemoryRepo` para testes offline — não precisa de Supabase para a suíte de testes.
