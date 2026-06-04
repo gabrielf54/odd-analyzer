@@ -5,7 +5,7 @@
       "name": "API: backend (tsx)",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/ts",
+      "cwd": "${workspaceFolder}",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["tsx", "src/api/server.ts"],
       "console": "integratedTerminal"
@@ -14,7 +14,7 @@
       "name": "Vitest: arquivo atual",
       "type": "node",
       "request": "launch",
-      "cwd": "${workspaceFolder}/ts",
+      "cwd": "${workspaceFolder}",
       "runtimeExecutable": "npx",
       "runtimeArgs": ["vitest", "run", "${relativeFile}"],
       "console": "integratedTerminal"

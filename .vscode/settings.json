@@ -1,6 +1,5 @@
 {
-  "typescript.tsdk": "ts/node_modules/typescript/lib",
-  "eslint.workingDirectories": ["ts"],
+  "typescript.tsdk": "node_modules/typescript/lib",
   "search.exclude": {
     "**/node_modules": true,
     "**/dist": true

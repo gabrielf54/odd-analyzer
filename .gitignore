@@ -2,5 +2,7 @@
 .mcp.json
 docs/superpowers/reports/
 .superpowers/
-ts/node_modules/
-ts/dist/
+node_modules/
+dist/
+coverage/
+*.tsbuildinfo

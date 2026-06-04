@@ -28,7 +28,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - Mercados de contagem (SOT, finalizações, desarmes, escanteios) usam o modelo de contagem (NB2/Poisson sobre rate × multiplicadores de matchup). Gols/vitória usam um modelo de partida (Poisson de gols do time → deriva 1X2/totais).
 
 **Inteligência de matchup — dois níveis (não prometer o que o dado free não dá):**
-- **Por-mercado (base):** multiplicador de concessão do adversário por mercado (o `ts/src/model/adjustments.ts::opponentMultiplier` já faz isso para SOT; replicar para desarmes/escanteios/gols).
+- **Por-mercado (base):** multiplicador de concessão do adversário por mercado (o `src/model/adjustments.ts::opponentMultiplier` já faz isso para SOT; replicar para desarmes/escanteios/gols).
 - **Direcional/zonal (alvo):** lado de ataque (esquerda/direita) × posição específica do defensor. Precisa de dado posicional rico (zonas Opta/StatsBomb/SofaScore). **Depende de um spike de viabilidade de dado free antes de implementar**; se o dado não existir de graça, cai para o nível por-mercado. Documentado como norte, condicionado a dado.
 
 **Arena & validação:**
@@ -37,7 +37,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 **Restrição de custo (atual):** orçamento ~$20. **Não** pagar SportsGameOdds Pro ($299). Não existe fonte confirmada de odds de SOT da Copa por <$20 — o plano valida o motor offline ($0) e gasta no máximo **API-Football Pro $19** (stats, ~1 semana antes da Copa). Detalhes em [docs/apis/README.md](docs/apis/README.md).
 
-**Estado (2026-06-04):** backend **portado pra Node/TS** (`ts/`), motor+adapters+API rodando, **111 testes Vitest verdes** com gate de paridade (1e-9) protegendo a calibração. **E2E ao vivo provado** (análise real de desarmes via BSD → value bet coerente). Front **Next** no repo `odd-analyzer-frontend`. Python legado **removido** (2026-06-04). Raciocínio de produto: [docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md](docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md); migração: [docs/superpowers/specs/2026-06-04-migracao-node-design.md](docs/superpowers/specs/2026-06-04-migracao-node-design.md).
+**Estado (2026-06-04):** backend **portado pra Node/TS** (raiz do repo, `src/`+`test/`), motor+adapters+API rodando, **111 testes Vitest verdes** com gate de paridade (1e-9) protegendo a calibração. **E2E ao vivo provado** (análise real de desarmes via BSD → value bet coerente). Front **Next** no repo `odd-analyzer-frontend`. Python legado **removido** (2026-06-04). Raciocínio de produto: [docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md](docs/superpowers/specs/2026-06-02-produto-doutrina-roadmap-wc2026.md); migração: [docs/superpowers/specs/2026-06-04-migracao-node-design.md](docs/superpowers/specs/2026-06-04-migracao-node-design.md).
 
 ## Glossário — conceitos em linguagem simples (o dono é leigo em código)
 
@@ -73,7 +73,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 - **Project ref:** `pepizcpowzhtawzjnzui` · região `us-east-1`
 - **URL:** `https://pepizcpowzhtawzjnzui.supabase.co`
-- Persistência fica em [ts/src/store/repo.ts](ts/src/store/repo.ts) (`SupabaseRepo`). Fonte de verdade do schema: [ts/src/store/schema.sql](ts/src/store/schema.sql).
+- Persistência fica em [src/store/repo.ts](src/store/repo.ts) (`SupabaseRepo`). Fonte de verdade do schema: [src/store/schema.sql](src/store/schema.sql).
 - Tabelas: `analises` (cache de análise por `event_id`), `paper_ledger` (registro de apostas-papel + CLV), `jogadores_crosswalk` (mapeamento de IDs de jogador entre fontes).
 
 ## Duas chaves diferentes — não confundir
@@ -97,31 +97,31 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 
 1. **Olhe antes de mexer.** Antes de qualquer mudança, use `list_tables`, `list_migrations`, `get_advisors`, `get_logs` para entender o estado atual.
 2. **DDL via `apply_migration`, não `execute_sql`.** `apply_migration` registra a migration (nome descritivo, ex.: `create_analises_table`). Use `execute_sql` só para leitura/consulta ad-hoc.
-3. **`schema.sql` é a fonte de verdade.** Toda mudança de schema aplicada no banco deve ser refletida em [schema.sql](ts/src/store/schema.sql) no mesmo commit — não deixe o arquivo divergir do banco.
+3. **`schema.sql` é a fonte de verdade.** Toda mudança de schema aplicada no banco deve ser refletida em [schema.sql](src/store/schema.sql) no mesmo commit — não deixe o arquivo divergir do banco.
 4. **Rode `get_advisors` depois de mudar schema** (lints de segurança e performance — RLS faltando, índices, etc.) e trate o que aparecer.
 5. **Confirme antes de destrutivo.** `DROP`, `DELETE`, `TRUNCATE`, `reset_branch` — pare e confirme com o usuário antes. Prefira `create_branch` para mudanças arriscadas e só faça `merge_branch` após validar.
 6. **Não exponha segredos.** `.env` e `.mcp.json` estão no `.gitignore` — mantenha assim. Nunca cole PAT/service_role em commits, logs ou mensagens.
 
 ## Backend — Node/TypeScript (substitui o Python)
 
-> **Migração concluída (2026-06-04):** o backend foi portado de Python para Node/TS (motivo: manutenibilidade — o dono dá suporte em JS/TS, não em Python). Planos: [docs/superpowers/plans/](docs/superpowers/plans/) (1=motor, 2=integração, 3=front). O Python legado **foi removido**. O código TS vive em `ts/` (mover pra raiz é polimento opcional pendente). O front Next fica em repo separado (`odd-analyzer-frontend`).
+> **Migração concluída (2026-06-04):** o backend foi portado de Python para Node/TS (motivo: manutenibilidade — o dono dá suporte em JS/TS, não em Python). Planos: [docs/superpowers/plans/](docs/superpowers/plans/) (1=motor, 2=integração, 3=front). O Python legado **foi removido** e o código TS vive na **raiz do repo** (`src/`, `test/`). O front Next fica em repo separado (`odd-analyzer-frontend`).
 
-- Runtime Node LTS, TypeScript **strict** (ESM, NodeNext). Código em `ts/src/`, testes em `ts/test/`.
-- Rodar testes: `cd ts && npm test` (Vitest). Typecheck: `npm run typecheck`.
+- Runtime Node LTS, TypeScript **strict** (ESM, NodeNext). Código em `src/`, testes em `test/`.
+- Rodar testes: `npm test` (Vitest). Typecheck: `npm run typecheck`. (rodar da raiz do repo)
 - **Design pattern: Ports & Adapters.** O domínio (`model/`, `value/`, `candidates/`) **não importa** `express`, `supabase`, nem `fetch`. Dependências externas entram por interface (`StatsProvider`, `OddsProvider`, `Repo`, `Analista`); em teste, entram fakes (`InMemoryRepo`, `ManualOdds`, `OnlyPlayer`).
 - **Funções puras no motor** — sem I/O, sem estado global. Determinístico = testável.
 - **Convenção de nomes:** funções em camelCase (`probOverLine`, `fairProbOver`); **chaves de dados em snake_case PT** idênticas ao legado (`prob_devig`, `prob_modelo`, `amostra_jogos`, `market_type`) — fluem p/ API/DB/IA, não podem divergir.
 - **Validação de borda só com Zod** (na camada API), nunca checagem manual espalhada.
 - **`lib/mathx.ts`** tem o `lgamma` (Lanczos) que falta no `Math` do JS — base da NB2 (mercados de contagem).
-- **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`ts/test/parity/`). As golden files estão congeladas (o gerador Python original está no histórico do git). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
+- **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`test/parity/`). As golden files estão congeladas (o gerador Python original está no histórico do git). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
 - **Money-path:** toda probabilidade passa pelas funções de `model/`/`value/`; a IA nunca calcula número (princípio inegociável de Produto, acima).
-- **Subir a API:** `cd ts && npm run dev` (Express na porta 3001; usa `tsx`). Front Next consome via REST.
+- **Subir a API:** `npm run dev` (Express na porta 3001; usa `tsx`). Front Next consome via REST.
 - **Variáveis de ambiente** (`.env` na raiz): `BZZOIRO_API_KEY` (BSD), `THE_ODDS_API_KEY` (The Odds API), `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (IA), `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`. O `@supabase/supabase-js` **aceita a key nova** (`sb_secret_...`) — não precisa do JWT legado que o `supabase-py` exigia.
 - **Crosswalk:** o port usa **coeficiente de Dice** (bigramas) no lugar do `difflib` do Python. Scores não são idênticos; como é **fail-closed** (descarta na dúvida), divergência = no máximo perder um jogador, nunca casar id errado. Threshold ajustável.
 - **HTTP/banco injetáveis:** todos os adapters (BSDClient, OpenRouter, The Odds API, SupabaseRepo) recebem `get`/`post`/`client` por injeção → testes rodam offline com fakes (`InMemoryRepo`, `ManualOdds`, `OnlyPlayer`).
 
 ## Geral
 
-- **Python removido (2026-06-04):** o backend agora é exclusivamente Node/TS em `ts/`. As golden files do gate de paridade (`ts/test/parity/golden/`) ficam congeladas; o gerador Python original está no histórico do git se precisar re-derivar.
-- Config/segredos via `.env` na raiz, lidos por `ts/src/config.ts::getRequired(NOME)` (levanta erro se ausente).
+- **Python removido (2026-06-04):** o backend agora é exclusivamente Node/TS, na raiz do repo (`src/`, `test/`). As golden files do gate de paridade (`test/parity/golden/`) ficam congeladas; o gerador Python original está no histórico do git se precisar re-derivar.
+- Config/segredos via `.env` na raiz, lidos por `src/config.ts::getRequired(NOME)` (levanta erro se ausente).
 - Tanto o legado quanto o port TS têm `InMemoryRepo` para testes offline — não precisa de Supabase para a suíte de testes.
