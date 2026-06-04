@@ -49,6 +49,47 @@ class PropOddsProvider:
         )
 
 
+class TheOddsApiMatchOdds:
+    """Odds de PARTIDA via The Odds API (gols=totals, vitoria=h2h). Casa o evento do
+    BSD com o do The Odds API por NOME de time (sem id compartilhado entre as fontes).
+
+    Arena = Copa (sport_key default 'soccer_fifa_world_cup'). Props de jogador NÃO
+    são cobertas por nenhuma fonte barata → ficam manuais (follow-up odds-prop-jogador).
+    fetch_*_fn injetáveis p/ testar offline; default = o módulo real (com cache).
+    """
+
+    def __init__(self, sport_key: str = "soccer_fifa_world_cup",
+                 regions: str = "us,uk,eu",
+                 fetch_events_fn=None, fetch_event_odds_fn=None):
+        from odd_analyzer.odds import the_odds_api as _api
+        self._sport = sport_key
+        self._regions = regions
+        self._fetch_events = fetch_events_fn or _api.fetch_events
+        self._fetch_odds = fetch_event_odds_fn or _api.fetch_event_odds
+
+    def linhas(self, event: dict, market: MarketSpec) -> list[dict]:
+        from odd_analyzer.odds.the_odds_api import (
+            ODDSAPI_MATCH_MARKET, find_event, parse_totals, parse_h2h,
+        )
+        oddsapi_market = ODDSAPI_MATCH_MARKET.get(market.key)
+        if oddsapi_market is None:
+            return []
+        home = (event.get("home_team") or {}).get("name", "")
+        away = (event.get("away_team") or {}).get("name", "")
+        try:
+            events = self._fetch_events(self._sport)
+            matched = find_event(events, home, away)
+            if matched is None:
+                return []
+            ev_odds = self._fetch_odds(self._sport, matched["id"],
+                                       markets=oddsapi_market, regions=self._regions)
+        except Exception:
+            return []
+        if oddsapi_market == "totals":
+            return parse_totals(ev_odds)
+        return parse_h2h(ev_odds, home, away)
+
+
 class BSDMatchOdds:
     """Odds de partida via BSD /events/{id}/odds/. Implementação completa na Fase 1."""
 

@@ -86,11 +86,16 @@ def format_resultado(out: dict, market_label: str) -> str:
 
 
 def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
-                linha: float, odd_over: float, odd_under: float,
+                linha: float = 0.0, odd_over: float = 0.0, odd_under: float = 0.0,
                 usar_ia: bool = False, repo=None,
-                escopo_historico: str = "todos", league_id=None) -> dict:
-    """Orquestra um run real com odd manual. nivel=jogador exige `player_ref`
-    (restringe o elenco); nivel=partida usa as duas equipes via team_taxa."""
+                escopo_historico: str = "todos", league_id=None,
+                odds_provider=None) -> dict:
+    """Orquestra um run real. nivel=jogador exige `player_ref` (restringe o elenco);
+    nivel=partida usa as duas equipes via team_taxa.
+
+    Odds: por padrão usa a odd MANUAL (linha/odd_over/odd_under). Se `odds_provider`
+    for injetado (ex.: TheOddsApiMatchOdds p/ gols/1X2 da Copa), ele assume e os
+    args manuais são ignorados — a odd vem automática da fonte."""
     from odd_analyzer.providers.stats import BSDStatsProvider, CrosswalkStatsProvider
 
     if market_key not in MARKETS:
@@ -118,7 +123,7 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
         # filtro edge/EV revelar quem tem valor — sem adivinhar o jogador antes.
         stats = CrosswalkStatsProvider(base, client)
         entidade = "jogadores"
-    odds = ManualOdds([{
+    odds = odds_provider if odds_provider is not None else ManualOdds([{
         "entidade": entidade, "linha": linha,
         "odd_over": odd_over, "odd_under": odd_under, "book": "manual",
     }])

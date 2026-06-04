@@ -145,19 +145,22 @@ def test_analisar_repassa_escopo_historico(monkeypatch):
 
     def fake_run_analise(client, event_id, market_key, player_ref, linha, odd_over,
                          odd_under, usar_ia=False, repo=None, escopo_historico="todos",
-                         league_id=None):
+                         league_id=None, odds_provider=None):
         capturado["escopo"] = escopo_historico
         capturado["league_id"] = league_id
+        capturado["odds_provider"] = odds_provider
         return {"candidatos": [], "ia": {}}
 
     class _C:
         def get_event(self, eid): return {"home_team": "A", "away_team": "B"}
 
     monkeypatch.setattr(svc, "run_analise", fake_run_analise)
+    sentinel = object()
     out = svc.analisar(_C(), "900", "desarmes", 1.5, 1.8, 2.0,
-                       escopo_historico="selecao", league_id=64)
+                       escopo_historico="selecao", league_id=64, odds_provider=sentinel)
     assert capturado["escopo"] == "selecao"
     assert capturado["league_id"] == 64
+    assert capturado["odds_provider"] is sentinel  # service repassa o provider de odds
     assert out["em_validacao"] is False
 
 
@@ -291,7 +294,7 @@ def test_analisar_repassa_player_ref(monkeypatch):
 
     def fake_run_analise(client, event_id, market_key, player_ref, linha, odd_over,
                          odd_under, usar_ia=False, repo=None, escopo_historico="todos",
-                         league_id=None):
+                         league_id=None, odds_provider=None):
         capturado["player_ref"] = player_ref
         return {"candidatos": [], "ia": {}}
 

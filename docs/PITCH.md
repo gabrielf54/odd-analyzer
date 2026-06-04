@@ -91,6 +91,14 @@ O motor não entra no ar por fé — cada mercado passou (ou não) por uma calib
 
 > Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados, inclusive na população de seleção da Copa) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
+### De onde vêm as odds (2026-06-03)
+
+As odds da casa são metade da conta (comparamos o nosso número com o da casa). De onde elas chegam:
+
+- **Mercados de time (gols, resultado/1X2):** agora entram **sozinhas, de graça** — puxamos de um serviço gratuito (The Odds API) que cobre os jogos da Copa com dezenas de casas. Não precisa mais digitar.
+- **Mercados de jogador (chutes/finalizações/desarmes):** a odd ainda é **colocada à mão**. Pesquisamos fundo (junho/2026) e **nenhum serviço barato vende a odd desses mercados para a Copa** — e "desarmes" não é vendido por preço nenhum. Por enquanto eu pego a odd na casa (betano/bet365) e colo. **Achar um jeito automático para as odds de jogador é um objetivo em aberto** (no ROADMAP como `odds-prop-jogador`); só vale gastar nisso se aparecer fonte barata ou se o orçamento subir.
+- **Escanteios:** ainda sem fonte automática barata; fica à mão também.
+
 ---
 
 ## Em resumo

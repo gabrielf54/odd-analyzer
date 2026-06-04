@@ -107,3 +107,24 @@ def test_e2e_sem_player_escaneia_elenco_inteiro():
     nomes = {c["jogador"] for c in out["candidatos"]}
     assert len(out["candidatos"]) >= 2
     assert "M. Pereira" in nomes  # não restringe a 1 jogador
+
+
+# ---- wiring: run_analise aceita odds_provider injetado (auto-odds, ex.: The Odds API) ----
+
+class StubOdds:
+    """OddsProvider que ignora as odds manuais e devolve linhas próprias."""
+    def __init__(self, linhas): self._l = linhas
+    def linhas(self, event, market): return self._l
+
+
+def test_run_analise_usa_odds_provider_injetado_em_vez_de_manual():
+    # provider injetado manda odd_over=1.40 (não os 1.90 dos args manuais) → o candidato
+    # deve refletir a odd do provider, provando que o manual foi ignorado.
+    stub = StubOdds([{"entidade": "1867", "linha": 1.5,
+                      "odd_over": 1.95, "odd_under": 1.90, "book": "the_odds_api"}])
+    out = run_analise(FakeRealClient(), "7166", "desarmes", "1867",
+                      linha=9.9, odd_over=9.99, odd_under=9.99,
+                      odds_provider=stub)
+    cands = out["candidatos"]
+    assert len(cands) == 1
+    assert cands[0]["odd"] == 1.95  # veio do provider, não dos args manuais

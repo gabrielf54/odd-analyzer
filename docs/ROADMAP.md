@@ -1,8 +1,26 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 · **Suíte:** 375 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 · **Suíte:** 391 testes verdes · **Custo até aqui:** $0.
 >
 > **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Odds automáticas de PARTIDA via The Odds API (gols + 1X2 da Copa) — FEITO (2026-06-03)
+
+Até aqui **toda odd era manual** (`ManualOdds`, colada da casa). Agora os mercados de **PARTIDA
+(gols=totals, vitória=h2h)** da Copa puxam odd **automática** do **The Odds API** (tier FREE — o
+usuário já tem a key `THE_ODDS_API_KEY`). Pesquisa de fonte (deep-research 17 fontes + teste ao
+vivo da key, 2026-06-03) cravou: **odd de PROP DE JOGADOR (SOT/finalizações/desarmes) da Copa NÃO
+existe a ≤$20 em nenhuma fonte** (e desarme não existe a preço nenhum) → props de jogador **seguem
+manuais** (ver follow-up `odds-prop-jogador`). The Odds API free **cobre gols+1X2** da Copa (72
+jogos, 41 casas, com Betfair lay p/ de-vig); **não cobre escanteios** (vazio na Copa, confirmado).
+
+`TheOddsApiMatchOdds` (provider) casa o evento do BSD com o do The Odds API **por nome de time**
+(`find_event`/`_norm_team` — não há id compartilhado entre as fontes), busca `totals`/`h2h` e
+devolve linhas no shape do pipeline (`parse_totals`/`parse_h2h`; `odd_draw` guardado p/ de-vig
+3-way futuro). Wired via `run_analise(..., odds_provider=...)` + `service.analisar(..., odds_provider=...)`
++ CLI `analisar --odds-fonte the_odds_api`. **Sanity ao vivo OK:** Mexico×South Africa gols=19
+casas, 1X2=41 casas. Fetchers injetáveis → testado offline (15 testes novos). Mercados de partida
+seguem **EM VALIDAÇÃO** (não calibram) → a odd entra, mas o sinal é paper/observação, não dinheiro.
 
 ## Crosswalk lineup→stats-id (PRÉ-JOGO ao vivo destravado) — FEITO (2026-06-03)
 
@@ -234,7 +252,8 @@ Não quebram testes (fixtures), mas **bloqueiam dado REAL**:
 | # | Gap | Impacto | Quando resolver |
 |---|-----|---------|-----------------|
 | ~~#25~~ ✅ | **RESOLVIDO** — histórico de TIME p/ escanteios via `team_taxa` + `events(team_id, finished)` + `/events/{id}/stats/`; pipeline ramifica por `market.nivel`. Escanteios roda em dado real (odds via ManualOdds) | — | Feito (Slice 2) |
-| **odds-corners** | **CONFIRMADO 2026-06-03** (sonda real, ver `docs/apis/bsd-bzzoiro/examples/event_odds.json`): `/events/{id}/odds/` de jogo finalizado vem **flat consensus, só mercado de partida** (`home_win/draw/away_win/over_under_{15,25,35}_goals/btts`) — **sem corners, sem bookmakers, sem Pinnacle, sem movimento**. `BSDMatchOdds` ainda espera a forma idealizada (`bookmakers[].outcomes[].point/price`) | Sem odds automáticas de escanteios não há modo **automático/pré-jogo** (ManualOdds funciona p/ pós-jogo/validação) | **Pré-requisito do modo PRÉ-JOGO do front, não desta meta.** Testar `/odds/?event_id=&market=total_corners` ou `/odds/comparison/` num jogo **futuro** com odds populadas (corners só existem pré-kickoff), depois reconciliar `BSDMatchOdds.linhas` com a forma real |
+| **odds-prop-jogador** ⭐ | **WANT DO USUÁRIO (mapeado 2026-06-03):** achar fonte automática de odd de **prop de jogador** (SOT/finalizações/desarmes) pra parar de colar à mão. **VEREDITO da pesquisa (deep-research 17 fontes + teste ao vivo da key The Odds API):** não existe a ≤$20 — props de jogador só em ligas de CLUBE (EPL/La Liga/...), nunca seleção/Copa; **desarme não existe a preço nenhum** (nem está no catálogo de mercados de futebol de ninguém). The Odds API free retorna `player_shots_on_target`/`player_shots` **vazio** na Copa (live). Fontes com prop de clube: The Odds API Business $99, SGO Pro $299, OpticOdds enterprise. Detalhe na memória `apis-pesquisadas-odds-stats` (7a rodada) | Bloqueia automação das props; HOJE = `ManualOdds` por jogador (já funciona) | **Reavaliar quando:** (a) orçamento subir p/ $99+ (The Odds API Business cobre SOT/shots de clube — serve p/ validar motor offline, não p/ Copa); (b) surgir feed de prop de seleção barato (improvável). Até lá: **manual.** Provável caminho real = coletar prop à mão de betano/bet365 BR pré-jogo |
+| **odds-corners** | **CONFIRMADO 2026-06-03** (sonda real, ver `docs/apis/bsd-bzzoiro/examples/event_odds.json`): `/events/{id}/odds/` de jogo finalizado vem **flat consensus, só mercado de partida** (`home_win/draw/away_win/over_under_{15,25,35}_goals/btts`) — **sem corners, sem bookmakers, sem Pinnacle, sem movimento**. `BSDMatchOdds` ainda espera a forma idealizada (`bookmakers[].outcomes[].point/price`). **The Odds API tb NÃO cobre corners da Copa** (`alternate_totals_corners` voltou vazio na key free, live 2026-06-03) — única fonte com corners + Pinnacle/Betfair = TheStatsAPI $50/mês (fora do orçamento) | Sem odds automáticas de escanteios não há modo **automático/pré-jogo** p/ corners (ManualOdds funciona p/ pós-jogo/validação) | **Pré-requisito do modo PRÉ-JOGO de corners, não desta meta.** Opções: testar `/odds/?market=total_corners` do BSD num jogo futuro; ou TheStatsAPI $50 se orçamento subir |
 | ~~**matchup-neutro**~~ ✅ | **RESOLVIDO (2026-06-03)** — `_team_conceded` agrega a concessão do adversário no eixo (lado oposto do histórico dele) → `opponent_multiplier` clampado `[0.7,1.4]` entra no `mu`, em jogador (`entity_taxa`) e partida (`team_taxa`). Produção × concessão ligado | — | Feito (#1) |
 | ~~**concede-baseline-estatico**~~ ✅ | **RESOLVIDO p/ liga 9 (2026-06-03)** — `scripts/measure_concede_baseline.py` mediu a concessão média real no BSD e substituiu os priors chutados: sot 4.5→4.55 · finalizações 12→13.46 · desarmes 16→14.64 · escanteios 5→4.79 (80 jogos). Resta apenas re-validar cross-liga | Viés do matchup corrigido na liga medida | **Fase 4**: estender o league-sweep a outras ligas/Copa antes de operar nelas |
 | **matchup-desarmes-proxy** | P/ desarmes o eixo "desarmes concedidos" é **proxy fraco** (jogador desarma conforme o adversário ataca na zona dele, não conforme "tackles que o adversário cede"). SOT/escanteios/finalizações o eixo é limpo | Sinal de desarmes pode ler o matchup errado | Quando houver dado posicional/zonal (nível direcional da doutrina) |
@@ -253,7 +272,7 @@ Não quebram testes (fixtures), mas **bloqueiam dado REAL**:
 
 - **BSD = fonte oficial** de stats; **API-Football = fallback** (atrás de `StatsProvider`).
 - **Mercados de jogador** (SOT/finalizações/desarmes): **modelo-only + entrada manual de odd**; slot `PropOddsProvider` p/ feed futuro. **Nenhuma API de odds de prop é necessária** pra construir/usar.
-- **Mercados de partida** (gols/vitória/escanteios): odds do **próprio BSD** (Pinnacle/bet365/betano) p/ de-vig.
+- **Mercados de partida** (gols/vitória/escanteios): odds do **próprio BSD** (Pinnacle/bet365/betano) p/ de-vig **OU** do **The Odds API** (free, `TheOddsApiMatchOdds`, gols+1X2 da Copa — wired 2026-06-03; corners não cobertos). Fontes complementares, ambas atrás do `OddsProvider`.
 - **Odd de prop de jogador de casa BR NÃO existe < $99/mês** (4 ângulos confirmaram). Comprar feed só **DEPOIS** da Fase 4 (calibração+CLV), com **evidência** de que o modelo bate o mercado.
 - **EV decide no código** (filtro `edge≥0.04, ev≥0.05, xi_confirmado, amostra≥10`); **IA só explica** (guarda anti-alucinação).
 - Cadência de execução: **subagent-driven, fase a fase**, com checkpoint entre fases.

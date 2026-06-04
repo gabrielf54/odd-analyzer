@@ -64,16 +64,24 @@ def analisar(argv: list[str]) -> None:
     ap.add_argument("--event", required=True, help="event_id do BSD (ex.: 7166)")
     ap.add_argument("--market", required=True, help="mercado: desarmes/sot/finalizacoes (jogador) ou escanteios (partida)")
     ap.add_argument("--player", default=None, help="id ou parte do nome do jogador; OMITIR escaneia o elenco inteiro (só mercado de jogador)")
-    ap.add_argument("--linha", type=float, required=True, help="linha da casa (ex.: 1.5)")
-    ap.add_argument("--over", type=float, required=True, help="odd do over")
-    ap.add_argument("--under", type=float, required=True, help="odd do under")
+    ap.add_argument("--linha", type=float, default=0.0, help="linha da casa (odd manual; ex.: 1.5)")
+    ap.add_argument("--over", type=float, default=0.0, help="odd do over (odd manual)")
+    ap.add_argument("--under", type=float, default=0.0, help="odd do under (odd manual)")
+    ap.add_argument("--odds-fonte", default="manual", choices=["manual", "the_odds_api"],
+                    help="manual (cola --linha/--over/--under) ou the_odds_api "
+                         "(busca automática gols/1X2 da Copa via THE_ODDS_API_KEY)")
     ap.add_argument("--ia", action="store_true", help="liga a explicação da IA (usa OPENROUTER_API_KEY)")
     args = ap.parse_args(argv)
+
+    odds_provider = None
+    if args.odds_fonte == "the_odds_api":
+        from odd_analyzer.providers.odds import TheOddsApiMatchOdds
+        odds_provider = TheOddsApiMatchOdds()
 
     client = BSDClient(get_required("BZZOIRO_API_KEY"))
     out = run_analise(client, args.event, args.market, args.player,
                       linha=args.linha, odd_over=args.over, odd_under=args.under,
-                      usar_ia=args.ia)
+                      usar_ia=args.ia, odds_provider=odds_provider)
     label = MARKETS[args.market].label if args.market in MARKETS else args.market
     print(format_resultado(out, label))
 

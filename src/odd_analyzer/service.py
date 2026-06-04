@@ -146,10 +146,13 @@ def media_recente_jogador(client, event_id, market_key, player_id) -> dict:
 def analisar(client, event_id, market_key, linha, odd_over, odd_under,
              usar_ia: bool = False, repo=None,
              escopo_historico: str = "todos", league_id=None,
-             player_ref=None) -> dict:
+             player_ref=None, odds_provider=None) -> dict:
     """Roda a varredura do elenco (player_ref=None) p/ 1 jogo+mercado. Devolve
     {jogo, candidatos, ia, em_validacao}. em_validacao=True p/ mercados de partida
-    (gols/escanteios) que ainda não calibram → a UI sela ('não apostar')."""
+    (gols/escanteios) que ainda não calibram → a UI sela ('não apostar').
+
+    odds_provider: se injetado (ex.: TheOddsApiMatchOdds), a odd vem automática da
+    fonte e os args linha/odd_over/odd_under são ignorados (ver run_analise)."""
     if market_key not in MARKETS:
         raise ValueError(f"mercado desconhecido: {market_key}. Opções: {list(MARKETS)}")
     market = MARKETS[market_key]
@@ -162,7 +165,8 @@ def analisar(client, event_id, market_key, linha, odd_over, odd_under,
 
     out = run_analise(client, event_id, market_key, player_ref,
                       linha, odd_over, odd_under, usar_ia=usar_ia, repo=repo,
-                      escopo_historico=escopo_historico, league_id=league_id)
+                      escopo_historico=escopo_historico, league_id=league_id,
+                      odds_provider=odds_provider)
     return {
         "jogo": jogo,
         "candidatos": out.get("candidatos", []),
