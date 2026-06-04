@@ -3,6 +3,8 @@ nunca o motor direto. Rodar: streamlit run app/streamlit_app.py
 
 Modos: pós-jogo (jogos finalizados, mostra resultado real) e pré-jogo (jogos
 futuros, registra paper-bet). Mercados de jogador confiáveis; partida selado."""
+from datetime import datetime
+
 import streamlit as st
 
 from odd_analyzer.config import get_required
@@ -18,6 +20,48 @@ MERCADOS_PARTIDA = [("gols", "Gols"), ("escanteios", "Escanteios")]
 # "ready" = passou o crivo (ECE<0.08 + BrierSkill>0) com minutos estimados → dinheiro liberado;
 # "paper" = ainda não passou → paper/observação.
 COPA_STATUS = {"sot": "ready", "finalizacoes": "ready", "desarmes": "ready"}  # re-validado c/ minutos estimados (2026-06-03)
+
+_DIAS = ["seg", "ter", "qua", "qui", "sex", "sáb", "dom"]
+
+# Rótulo + cor por status cru do BSD (badge na lista de jogos).
+_STATUS_BADGE = {
+    "notstarted": ("Agendado", "#1e40af", "#dbeafe"),
+    "inplay": ("Ao vivo", "#7f1d1d", "#fee2e2"),
+    "finished": ("Encerrado", "#374151", "#e5e7eb"),
+}
+
+_CARD_CSS = """
+<style>
+.jogo-card{
+  border:1px solid rgba(128,128,128,.25); border-radius:14px;
+  padding:14px 18px; margin-bottom:10px; background:rgba(128,128,128,.04);
+}
+.jogo-card:hover{ border-color:rgba(99,102,241,.6); background:rgba(99,102,241,.06); }
+.jogo-times{ font-size:1.05rem; font-weight:600; line-height:1.3; }
+.jogo-placar{ font-weight:700; color:#6366f1; margin:0 8px; }
+.jogo-x{ color:#9ca3af; margin:0 8px; font-weight:500; }
+.jogo-meta{ margin-top:6px; font-size:.82rem; color:#9ca3af; display:flex; gap:10px; align-items:center; }
+.badge{ display:inline-block; padding:2px 9px; border-radius:999px; font-size:.72rem;
+  font-weight:600; letter-spacing:.02em; }
+</style>
+"""
+
+
+def _fmt_data(iso: str | None) -> str:
+    """ISO BSD (UTC) → 'sáb 31/05 · 23:30'. Falha → primeiros 16 chars."""
+    if not iso:
+        return "data ?"
+    try:
+        dt = datetime.fromisoformat(iso)
+        return f"{_DIAS[dt.weekday()]} {dt:%d/%m} · {dt:%H:%M}"
+    except (ValueError, TypeError):
+        return str(iso)[:16]
+
+
+def _badge(status: str | None) -> str:
+    rotulo, fg, bg = _STATUS_BADGE.get(
+        (status or "").lower(), (status or "?", "#374151", "#e5e7eb"))
+    return f'<span class="badge" style="color:{fg};background:{bg}">{rotulo}</span>'
 
 
 @st.cache_resource
@@ -64,11 +108,24 @@ def tela_lista():
     if not jogos:
         st.info("Nenhum jogo nesse filtro.")
         return
+
+    st.markdown(_CARD_CSS, unsafe_allow_html=True)
+    st.caption(f"{len(jogos)} jogo(s)")
     for j in jogos:
-        placar = f" {j['placar']} " if j["placar"] else " × "
-        col1, col2 = st.columns([4, 1])
-        col1.write(f"**{j['mandante']}**{placar}**{j['visitante']}** · {(j['data'] or '')[:10]} · {j['status']}")
-        if col2.button("Analisar →", key=f"go-{j['id']}"):
+        if j["placar"]:
+            confronto = (f'{j["mandante"]}<span class="jogo-placar">{j["placar"]}</span>'
+                         f'{j["visitante"]}')
+        else:
+            confronto = (f'{j["mandante"]}<span class="jogo-x">×</span>{j["visitante"]}')
+        col1, col2 = st.columns([5, 1], vertical_alignment="center")
+        col1.markdown(
+            f'<div class="jogo-card">'
+            f'<div class="jogo-times">{confronto}</div>'
+            f'<div class="jogo-meta">🗓 {_fmt_data(j["data"])} {_badge(j["status"])}</div>'
+            f'</div>',
+            unsafe_allow_html=True,
+        )
+        if col2.button("Analisar →", key=f"go-{j['id']}", use_container_width=True):
             st.session_state["evento"] = j
             st.rerun()
 
