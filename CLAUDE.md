@@ -102,8 +102,22 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 5. **Confirme antes de destrutivo.** `DROP`, `DELETE`, `TRUNCATE`, `reset_branch` — pare e confirme com o usuário antes. Prefira `create_branch` para mudanças arriscadas e só faça `merge_branch` após validar.
 6. **Não exponha segredos.** `.env` e `.mcp.json` estão no `.gitignore` — mantenha assim. Nunca cole PAT/service_role em commits, logs ou mensagens.
 
+## Backend — Node/TypeScript (substitui o Python)
+
+> **Migração em curso (2026-06-04):** o backend está sendo portado de Python para Node/TS — o motivo é manutenibilidade (o dono dá suporte em JS/TS, não em Python). Plano: [docs/superpowers/plans/2026-06-04-migracao-node-plano1-motor.md](docs/superpowers/plans/2026-06-04-migracao-node-plano1-motor.md). Durante a coexistência o TS vive em `ts/`; ao fim, o Python (`src/odd_analyzer/`) é removido e `ts/` sobe pra raiz. O front Next fica em repo separado (`odd-analyzer-frontend`).
+
+- Runtime Node LTS, TypeScript **strict** (ESM, NodeNext). Código em `ts/src/`, testes em `ts/test/`.
+- Rodar testes: `cd ts && npm test` (Vitest). Typecheck: `npm run typecheck`.
+- **Design pattern: Ports & Adapters.** O domínio (`model/`, `value/`, `candidates/`) **não importa** `express`, `supabase`, nem `fetch`. Dependências externas entram por interface (`StatsProvider`, `OddsProvider`, `Repo`, `Analista`); em teste, entram fakes (`InMemoryRepo`, `ManualOdds`, `OnlyPlayer`).
+- **Funções puras no motor** — sem I/O, sem estado global. Determinístico = testável.
+- **Convenção de nomes:** funções em camelCase (`probOverLine`, `fairProbOver`); **chaves de dados em snake_case PT** idênticas ao legado (`prob_devig`, `prob_modelo`, `amostra_jogos`, `market_type`) — fluem p/ API/DB/IA, não podem divergir.
+- **Validação de borda só com Zod** (na camada API), nunca checagem manual espalhada.
+- **`lib/mathx.ts`** tem o `lgamma` (Lanczos) que falta no `Math` do JS — base da NB2 (mercados de contagem).
+- **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`ts/test/parity/`, golden files geradas por `scripts/gen_golden_parity.py`). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
+- **Money-path:** toda probabilidade passa pelas funções de `model/`/`value/`; a IA nunca calcula número (princípio inegociável de Produto, acima).
+
 ## Geral
 
-- Python: ambiente em `.venv`. Código em `src/odd_analyzer/`, testes em `tests/`. Rode `.venv\Scripts\python.exe -m pytest`.
-- Config/segredos via `odd_analyzer.config.get_required(NOME)` (lê `.env` com `python-dotenv`); levanta erro se ausente.
-- O projeto tem `InMemoryRepo` para testes offline — não precisa de Supabase para a suíte de testes.
+- **Legado Python (em remoção):** ambiente em `.venv`, código em `src/odd_analyzer/`, testes em `tests/` (`.venv\Scripts\python.exe -m pytest`). Mantido apenas como fonte de verdade da tradução e gerador das golden files do gate de paridade até a migração concluir.
+- Config/segredos via `.env` (Python: `odd_analyzer.config.get_required(NOME)`; TS: variáveis de ambiente). Levanta erro se ausente.
+- Tanto o legado quanto o port TS têm `InMemoryRepo` para testes offline — não precisa de Supabase para a suíte de testes.
