@@ -34,6 +34,15 @@ export function createApp(deps: Deps): express.Express {
   const app = express();
   app.use(express.json());
 
+  // CORS permissivo (front Next em outra origem, ex.: localhost:3000).
+  app.use((_req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Headers", "Content-Type");
+    next();
+  });
+  app.options(/.*/, (_req, res) => { res.sendStatus(204); });
+
   const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
     (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
 
