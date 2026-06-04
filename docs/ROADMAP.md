@@ -1,8 +1,26 @@
 # Roadmap & Status — odd-analyzer
 
-> **Atualizado:** 2026-06-03 · **Suíte:** 364 testes verdes · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-03 · **Suíte:** 375 testes verdes · **Custo até aqui:** $0.
 >
-> **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+> **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Crosswalk lineup→stats-id (PRÉ-JOGO ao vivo destravado) — FEITO (2026-06-03)
+
+**O bug que entregava zero ao vivo.** O BSD usa **dois namespaces de player_id**: a escalação
+(`/events/{id}/lineups/`) traz o jogador com um id (ex.: Enzo = 974505) que **dá 404** em
+`/players/{id}/stats/`; o histórico de stats usa outro id (Enzo = 387). O picker e o motor
+mandavam o id do lineup pro endpoint de stats → **404 em todo jogo pré-jogo** (testado ao vivo
+em Argentina×Iceland, 10/06). A calibração nunca pegou isso porque rodou direto sobre
+player-stats de jogos finalizados (namespace de stats), sem passar pela escalação.
+
+**Fix (casamento por nome).** Os jogadores que atuaram nos últimos jogos finalizados do time já
+vêm com o stats-id certo; pega-se o nome de cada um em `/players/{id}/` e casa-se por nome
+(NFKD+difflib, `crosswalk/match.py`, fail-closed) com a escalação. Comprovado ao vivo: **11/11
+jogadores casados por lado, confiança 1.0**; Argentina×Iceland roda do picker ao candidato sem
+404 (mu coerentes: goleiro ~0.4 desarmes, zagueiros 2–3.8). Novo: `crosswalk/bsd_ids.py`
+(`construir_mapa_time`, `resolver`), `CrosswalkStatsProvider` (envolve o BSD; `elenco`/`xi_ids`
+saem em stats-id), `BSDClient.player()`. Wired em `runner.run_analise` e `service.escalacao_provavel`.
+`entity_taxa` agora degrada p/ None (sem histórico = sem sinal) em vez de quebrar. **375 testes.**
 
 ## Front: seletor de jogador (escalação provável) — FEITO (2026-06-03)
 
@@ -17,7 +35,8 @@ placeholder de elenco). Mercados de partida (gols/escanteios) seguem na varredur
 Lógica nova em `service.py` (puro, testado): `escalacao_provavel`, `media_recente_jogador`,
 `analisar(..., player_ref=...)`. Front (`streamlit_app.py`) continua fino. Spec/plano:
 [specs/2026-06-03-front-picker-jogador-design.md](superpowers/specs/2026-06-03-front-picker-jogador-design.md).
-Branch `feat/front-picker-jogador`, 364 testes verdes.
+Branch `feat/front-picker-jogador`, 364 testes verdes. (O picker entregava o id do lineup,
+que dava 404 no histórico — destravado pelo crosswalk acima, 2026-06-03.)
 
 ## 🎯 Meta crítica — dinheiro real em 11/06/2026 (Copa do Mundo)
 
@@ -159,7 +178,7 @@ Construindo o **motor multi-mercado** sobre o **BSD/Bzzoiro** (fonte oficial de 
 - ✅ **Slice 2 (escanteios) em dado REAL:** #25 resolvido (`team_taxa` agrega `corner_kicks` do histórico de cada time via `events(team_id, finished)` + `/events/{id}/stats/`); pipeline ramifica por `market.nivel` (total da partida = soma dos dois times). Odd colada via `ManualOdds`. **Automático (odds do BSD) = pendente** (só pré-jogo, ver follow-up `odds-corners`).
 - ✅ **MATCHUP REAL ligado (2026-06-03)** — o diferencial da doutrina entra no `mu`: `BSDStatsProvider._team_conceded` agrega o que o **adversário concede** no mesmo eixo (lado oposto em `/events/{id}/stats/` do histórico DELE) → `opponent_multiplier` (clampado `[0.7,1.4]`) multiplica a produção. Liga em jogador (`entity_taxa`) e partida (`team_taxa`). Baseline nível-TIME = `MarketSpec.concede_baseline` (prior estático, **pendente de league-sweep na Fase 4**). **Efeito real visível:** escanteios do 7166, que no número *ingênuo* dava over 8.5 (mu 10.13, "edge +0.069"), com o confronto cai p/ **mu 7.94** (Fluminense concede só 3.0 corners/jogo → mult 0.7; Cruzeiro 4.6 → 0.92) → **deixa de ser valor**. Produção × concessão, não média bruta.
 - ✅ **VARREDURA ligada (2026-06-03)** — `cli analisar` SEM `--player` escaneia o **elenco inteiro** e o filtro edge/EV revela quem tem valor (não precisa adivinhar o jogador). Ex. 7166 desarmes o1.5 @1.90: Kaiki (edge +0.205) e L. Romero (+0.164). Coluna `adv_concede` mostra o matchup na tabela.
-- ✅ **CALIBRAÇÃO DE JOGADOR FECHADA (2026-06-03):** re-validada na população de seleção (Copa) com minutos estimados → SOT/finalizações/desarmes money-ready (ver seções de Calibração no topo). 357 testes.
+- ✅ **CALIBRAÇÃO DE JOGADOR FECHADA (2026-06-03):** re-validada na população de seleção (Copa) com minutos estimados → SOT/finalizações/desarmes money-ready (ver seções de Calibração no topo). 375 testes (inclui o crosswalk lineup→stats-id que destravou o pré-jogo ao vivo).
 - ⬜ Falta: **harness de validação forward** (gate de dinheiro ao vivo), **Fase 3** (partida/gols — não calibra) e o resto da **Fase 4** (fallback provider, odds automáticas de corners) + follow-ups (abaixo).
 
 ### Formas REAIS do BSD (inspecione com `cli.py bsd-probe 7166` → dumpa em `.probe_dumps/`, descartável/gitignorado)

@@ -66,6 +66,11 @@ class BSDClient:
     def player_stats(self, player_id, **filtros) -> dict:
         return self._call(f"/players/{player_id}/stats/", filtros or None, ttl=_TTL_STATS)
 
+    def player(self, player_id) -> dict:
+        # Detalhe do jogador (/players/{id}/) — traz o NOME (o player-stats de jogo
+        # não traz). Usado pelo crosswalk lineup→stats-id. Nome é estável → TTL eterno.
+        return self._call(f"/players/{player_id}/", ttl=_TTL_ETERNAL)
+
     def lineups(self, event_id) -> dict:
         return self._call(f"/events/{event_id}/lineups/", ttl=_TTL_LINEUP)
 

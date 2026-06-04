@@ -91,7 +91,7 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
                 escopo_historico: str = "todos", league_id=None) -> dict:
     """Orquestra um run real com odd manual. nivel=jogador exige `player_ref`
     (restringe o elenco); nivel=partida usa as duas equipes via team_taxa."""
-    from odd_analyzer.providers.stats import BSDStatsProvider
+    from odd_analyzer.providers.stats import BSDStatsProvider, CrosswalkStatsProvider
 
     if market_key not in MARKETS:
         raise ValueError(f"mercado desconhecido: {market_key}. Opções: {list(MARKETS)}")
@@ -102,17 +102,21 @@ def run_analise(client, event_id: str, market_key: str, player_ref: str | None,
     if league_id is None:
         league_id = event.get("league_id")
 
+    base = BSDStatsProvider(client)
     if market.nivel == "partida":
-        stats = BSDStatsProvider(client)
+        # Partida (gols/escanteios) usa team_taxa/team_rates por team_id — sem elenco,
+        # sem crosswalk de jogador.
+        stats = base
         entidade = "partida"
     elif player_ref:
         # Jogador específico: restringe o elenco (mesma linha não vaza p/ os 22).
-        stats = OnlyPlayer(BSDStatsProvider(client), player_ref)
+        # Crosswalk resolve o id da escalação p/ o stats-id real antes do OnlyPlayer.
+        stats = OnlyPlayer(CrosswalkStatsProvider(base, client), player_ref)
         entidade = player_ref
     else:
         # Varredura (#2): sem --player, escaneia o elenco inteiro e deixa o
         # filtro edge/EV revelar quem tem valor — sem adivinhar o jogador antes.
-        stats = BSDStatsProvider(client)
+        stats = CrosswalkStatsProvider(base, client)
         entidade = "jogadores"
     odds = ManualOdds([{
         "entidade": entidade, "linha": linha,

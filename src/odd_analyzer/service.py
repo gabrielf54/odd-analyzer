@@ -37,6 +37,9 @@ def listar_jogos(client, league_id, status, limit: int = 50) -> list[dict]:
             "placar": placar,
             "league_id": ev.get("league_id", league_id),
         })
+    # pré-jogo: mais próximo primeiro (asc); pós-jogo: mais recente primeiro (desc)
+    jogos.sort(key=lambda j: (j["data"] is None, str(j["data"] or "")),
+               reverse=(status == "finished"))
     return jogos
 
 
@@ -80,10 +83,21 @@ def _players_ultimos3(client, team_id: str, n_jogos: int = 3) -> list[dict]:
     return list(vistos.values())
 
 
+def _resolver_lineup(client, jogadores: list[dict], team_id: str) -> list[dict]:
+    """Troca o player_id da escalação (namespace do lineup, que dá 404 em
+    /players/{id}/stats/) pelo stats-id real, casando por nome via o crosswalk.
+    Sem isso o picker entregaria ids que não acham histórico → análise quebra."""
+    from odd_analyzer.crosswalk.bsd_ids import construir_mapa_time, resolver
+    jogadores = [{**p, "team_id": str(team_id)} for p in jogadores]
+    return resolver(jogadores, construir_mapa_time(client, team_id))
+
+
 def escalacao_provavel(client, event_id) -> dict:
     """Lista de jogadores por time p/ a UI escolher 1. Usa o lineup do jogo
     (origem 'confirmada'/'provavel'); se vazio, cai p/ quem jogou nos últimos 3
-    (origem 'ultimos3'). Barato: nenhuma chamada de stats por jogador."""
+    (origem 'ultimos3'). Os ids saem como stats-ids (crosswalk por nome) — o picker
+    entrega um id que o motor/histórico aceitam. Barato: nenhuma chamada de stats
+    por jogador (o crosswalk usa só metadado de jogo + nome)."""
     raw = client.get_event(event_id)
     home_name = raw.get("home_team") or "?"
     away_name = raw.get("away_team") or "?"
@@ -99,8 +113,12 @@ def escalacao_provavel(client, event_id) -> dict:
         confirmado = data.get("lineup_status") == "confirmed" or any(
             v.get("confirmed") for v in lineups.values() if isinstance(v, dict))
         origem = "confirmada" if confirmado else "provavel"
+        # Escalação vem no namespace do lineup → resolve p/ stats-id antes de entregar.
+        home_players = _resolver_lineup(client, home_players, home_id)
+        away_players = _resolver_lineup(client, away_players, away_id)
     else:
         origem = "ultimos3"
+        # Fallback já vem do player-stats de jogo → ids já são stats-ids (sem crosswalk).
         home_players = _players_ultimos3(client, home_id)
         away_players = _players_ultimos3(client, away_id)
 
