@@ -1,5 +1,7 @@
 # CLAUDE.md — odd-analyzer
 
+> **Este é o BACKEND.** Fornece dados (API REST) para o frontend, que fica em: `C:\Users\gabri\Documents\projects\odd-analyzer-frontend`
+
 Guia para o Claude trabalhar neste projeto. **Leia a seção "Produto" primeiro** — ela define a mentalidade que todo trabalho aqui deve ter. Depois: boas práticas de banco (**MCP do Supabase**).
 
 ## Produto — o que é e como pensa
