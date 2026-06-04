@@ -2,22 +2,18 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "API: backend (tsx)",
-      "type": "node",
+      "name": "API: backend (npm run dev)",
+      "type": "node-terminal",
       "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["tsx", "src/api/server.ts"],
-      "console": "integratedTerminal"
+      "command": "npm run dev",
+      "cwd": "${workspaceFolder}"
     },
     {
       "name": "Vitest: arquivo atual",
-      "type": "node",
+      "type": "node-terminal",
       "request": "launch",
-      "cwd": "${workspaceFolder}",
-      "runtimeExecutable": "npx",
-      "runtimeArgs": ["vitest", "run", "${relativeFile}"],
-      "console": "integratedTerminal"
+      "command": "npx vitest run ${relativeFile}",
+      "cwd": "${workspaceFolder}"
     }
   ]
 }
