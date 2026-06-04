@@ -2,31 +2,21 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Streamlit: front",
-      "type": "debugpy",
+      "name": "API: backend (tsx)",
+      "type": "node",
       "request": "launch",
-      "module": "streamlit",
-      "args": ["run", "app/streamlit_app.py"],
-      "env": { "PYTHONPATH": "src" },
-      "justMyCode": false,
+      "cwd": "${workspaceFolder}/ts",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["tsx", "src/api/server.ts"],
       "console": "integratedTerminal"
     },
     {
-      "name": "Pytest: arquivo atual",
-      "type": "debugpy",
+      "name": "Vitest: arquivo atual",
+      "type": "node",
       "request": "launch",
-      "module": "pytest",
-      "args": ["${file}", "-v"],
-      "justMyCode": false,
-      "console": "integratedTerminal"
-    },
-    {
-      "name": "Python: arquivo atual",
-      "type": "debugpy",
-      "request": "launch",
-      "program": "${file}",
-      "env": { "PYTHONPATH": "src" },
-      "justMyCode": false,
+      "cwd": "${workspaceFolder}/ts",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["vitest", "run", "${relativeFile}"],
       "console": "integratedTerminal"
     }
   ]

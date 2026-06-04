@@ -28,7 +28,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - Mercados de contagem (SOT, finalizações, desarmes, escanteios) usam o modelo de contagem (NB2/Poisson sobre rate × multiplicadores de matchup). Gols/vitória usam um modelo de partida (Poisson de gols do time → deriva 1X2/totais).
 
 **Inteligência de matchup — dois níveis (não prometer o que o dado free não dá):**
-- **Por-mercado (base):** multiplicador de concessão do adversário por mercado (o `model/adjustments.py::opponent_multiplier` já faz isso para SOT; replicar para desarmes/escanteios/gols).
+- **Por-mercado (base):** multiplicador de concessão do adversário por mercado (o `ts/src/model/adjustments.ts::opponentMultiplier` já faz isso para SOT; replicar para desarmes/escanteios/gols).
 - **Direcional/zonal (alvo):** lado de ataque (esquerda/direita) × posição específica do defensor. Precisa de dado posicional rico (zonas Opta/StatsBomb/SofaScore). **Depende de um spike de viabilidade de dado free antes de implementar**; se o dado não existir de graça, cai para o nível por-mercado. Documentado como norte, condicionado a dado.
 
 **Arena & validação:**
@@ -113,7 +113,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - **Convenção de nomes:** funções em camelCase (`probOverLine`, `fairProbOver`); **chaves de dados em snake_case PT** idênticas ao legado (`prob_devig`, `prob_modelo`, `amostra_jogos`, `market_type`) — fluem p/ API/DB/IA, não podem divergir.
 - **Validação de borda só com Zod** (na camada API), nunca checagem manual espalhada.
 - **`lib/mathx.ts`** tem o `lgamma` (Lanczos) que falta no `Math` do JS — base da NB2 (mercados de contagem).
-- **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`ts/test/parity/`, golden files geradas por `scripts/gen_golden_parity.py`). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
+- **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`ts/test/parity/`). As golden files estão congeladas (o gerador Python original está no histórico do git). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
 - **Money-path:** toda probabilidade passa pelas funções de `model/`/`value/`; a IA nunca calcula número (princípio inegociável de Produto, acima).
 - **Subir a API:** `cd ts && npm run dev` (Express na porta 3001; usa `tsx`). Front Next consome via REST.
 - **Variáveis de ambiente** (`.env` na raiz): `BZZOIRO_API_KEY` (BSD), `THE_ODDS_API_KEY` (The Odds API), `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (IA), `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`. O `@supabase/supabase-js` **aceita a key nova** (`sb_secret_...`) — não precisa do JWT legado que o `supabase-py` exigia.
@@ -123,5 +123,5 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 ## Geral
 
 - **Python removido (2026-06-04):** o backend agora é exclusivamente Node/TS em `ts/`. As golden files do gate de paridade (`ts/test/parity/golden/`) ficam congeladas; o gerador Python original está no histórico do git se precisar re-derivar.
-- Config/segredos via `.env` (Python: `odd_analyzer.config.get_required(NOME)`; TS: variáveis de ambiente). Levanta erro se ausente.
+- Config/segredos via `.env` na raiz, lidos por `ts/src/config.ts::getRequired(NOME)` (levanta erro se ausente).
 - Tanto o legado quanto o port TS têm `InMemoryRepo` para testes offline — não precisa de Supabase para a suíte de testes.

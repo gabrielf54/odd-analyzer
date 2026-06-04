@@ -1,14 +1,6 @@
-.venv/
-__pycache__/
-*.pyc
 .env
 .mcp.json
-.pytest_cache/
 docs/superpowers/reports/
-tests/fixtures/*_REAL.json
-.cache_api/
-.cache_api_probe/
-.probe_dumps/
 .superpowers/
 ts/node_modules/
 ts/dist/

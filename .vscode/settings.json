@@ -1,8 +1,8 @@
 {
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
-  "python.testing.pytestEnabled": true,
-  "python.testing.unittestEnabled": false,
-  "python.testing.pytestArgs": ["tests"],
-  "python.analysis.extraPaths": ["src"],
-  "terminal.integrated.env.windows": { "PYTHONPATH": "src" }
+  "typescript.tsdk": "ts/node_modules/typescript/lib",
+  "eslint.workingDirectories": ["ts"],
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/dist": true
+  }
 }
