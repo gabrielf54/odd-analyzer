@@ -115,6 +115,10 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - **`lib/mathx.ts`** tem o `lgamma` (Lanczos) que falta no `Math` do JS — base da NB2 (mercados de contagem).
 - **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`ts/test/parity/`, golden files geradas por `scripts/gen_golden_parity.py`). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.
 - **Money-path:** toda probabilidade passa pelas funções de `model/`/`value/`; a IA nunca calcula número (princípio inegociável de Produto, acima).
+- **Subir a API:** `cd ts && npm run dev` (Express na porta 3001; usa `tsx`). Front Next consome via REST.
+- **Variáveis de ambiente** (`.env` na raiz): `BZZOIRO_API_KEY` (BSD), `THE_ODDS_API_KEY` (The Odds API), `OPENROUTER_API_KEY` + `OPENROUTER_MODEL` (IA), `SUPABASE_URL` + `SUPABASE_SERVICE_KEY`. O `@supabase/supabase-js` **aceita a key nova** (`sb_secret_...`) — não precisa do JWT legado que o `supabase-py` exigia.
+- **Crosswalk:** o port usa **coeficiente de Dice** (bigramas) no lugar do `difflib` do Python. Scores não são idênticos; como é **fail-closed** (descarta na dúvida), divergência = no máximo perder um jogador, nunca casar id errado. Threshold ajustável.
+- **HTTP/banco injetáveis:** todos os adapters (BSDClient, OpenRouter, The Odds API, SupabaseRepo) recebem `get`/`post`/`client` por injeção → testes rodam offline com fakes (`InMemoryRepo`, `ManualOdds`, `OnlyPlayer`).
 
 ## Geral
 
