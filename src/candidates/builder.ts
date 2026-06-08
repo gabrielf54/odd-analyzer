@@ -1,5 +1,6 @@
 import { fairProbOver } from "../value/devig.js";
 import { edgeEv } from "../value/ev.js";
+import { finalizeTrace, type RateTrace } from "../model/trace.js";
 
 export interface BuildCandidateArgs {
   jogador: unknown;
@@ -15,6 +16,7 @@ export interface BuildCandidateArgs {
   incerteza: unknown;
   market_type: string;
   player_id?: unknown;
+  trace?: RateTrace;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -22,7 +24,7 @@ export interface BuildCandidateArgs {
 export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
   const prob_devig = fairProbOver(a.odd_over, a.odd_under);
   const m = edgeEv(a.prob_modelo, prob_devig, a.odd_over);
-  return {
+  const out: Record<string, unknown> = {
     jogador: a.jogador,
     player_id: a.player_id ?? null,
     linha: a.linha,
@@ -39,4 +41,15 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     incerteza: a.incerteza,
     market_type: a.market_type,
   };
+  if (a.trace) {
+    out.trace = finalizeTrace(a.trace, {
+      alvo: String(a.jogador),
+      linha: a.linha,
+      probModelo: a.prob_modelo,
+      probDevig: prob_devig,
+      edge: m.edge,
+      ev: m.ev,
+    });
+  }
+  return out;
 }
