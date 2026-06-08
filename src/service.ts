@@ -14,10 +14,11 @@ export async function listarLigas(client: any, limit = 200): Promise<any[]> {
   return ligas;
 }
 
-export async function listarJogos(client: any, leagueId: unknown, status: string, limit = 50): Promise<any[]> {
+export async function listarJogos(client: any, leagueId: unknown, status: string, limit = 50, agora = new Date()): Promise<any[]> {
   const data = await client.events({ league_id: leagueId, status, limit });
   const results: any[] = Array.isArray(data?.results) ? data.results : [];
-  const jogos = results.slice(0, limit).map((ev) => {
+  const finished = status === "finished";
+  let jogos = results.slice(0, limit).map((ev) => {
     const hs = ev.home_score, as_ = ev.away_score;
     const placar = hs != null && as_ != null ? `${hs}×${as_}` : null;
     return {
@@ -25,7 +26,16 @@ export async function listarJogos(client: any, leagueId: unknown, status: string
       data: ev.event_date, status: ev.status, placar, league_id: ev.league_id ?? leagueId,
     };
   });
-  const finished = status === "finished";
+  // Pré-jogo: a BSD às vezes deixa o status preso em "notstarted" mesmo após o
+  // jogo ter começado. Descartamos os que já passaram do horário — jogo iniciado
+  // não é mais candidato a valor pré-jogo.
+  if (!finished) {
+    const cutoff = agora.getTime();
+    jogos = jogos.filter((j) => {
+      const t = j.data ? new Date(j.data).getTime() : NaN;
+      return isNaN(t) || t >= cutoff;
+    });
+  }
   jogos.sort((a, b) => {
     const av = String(a.data ?? ""), bv = String(b.data ?? "");
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;

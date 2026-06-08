@@ -23,6 +23,16 @@ describe("service", () => {
     expect(out[0]!.placar).toBe("2×2");
   });
 
+  it("listarJogos (notstarted) descarta jogo com horário já passado", async () => {
+    const client = { async events() { return { results: [
+      { id: "velho", home_team: "A", away_team: "B", event_date: "2026-03-31T11:30:00+00:00", status: "notstarted" },
+      { id: "futuro", home_team: "C", away_team: "D", event_date: "2026-06-10T20:00:00+00:00", status: "notstarted" },
+    ] }; } };
+    const agora = new Date("2026-06-07T12:00:00+00:00");
+    const out = await listarJogos(client, 31, "notstarted", 50, agora);
+    expect(out.map((j) => j.id)).toEqual(["futuro"]); // 31/mar caiu fora
+  });
+
   it("escalacaoProvavel usa lineup e resolve via crosswalk", async () => {
     const client = {
       async getEvent() { return { home_team: "A", away_team: "B", home_team_id: "H", away_team_id: "Aw" }; },
