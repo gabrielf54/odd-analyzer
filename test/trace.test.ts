@@ -27,7 +27,7 @@ describe("buildRateTrace", () => {
   });
 
   it("taxa_base soma o stat e os minutos da janela", () => {
-    const base = rt.passos[0];
+    const base = rt.passos[0]!;
     expect(base.entradas.stat_total).toBe(3);
     expect(base.entradas.minutos_total).toBe(270);
     expect(base.frase).toContain("3 chutes a gol");
