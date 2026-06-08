@@ -50,7 +50,16 @@ export async function analyzeMatch(
       }]);
     }
   }
-  return { candidatos: approved, reprovados: opts.diagnostics ? rejected : [], ia };
+  const hideTrace = (c: any) => {
+    if (opts.diagnostics || !c || c.trace === undefined) return c;
+    const { trace, ...rest } = c;
+    return rest;
+  };
+  return {
+    candidatos: approved.map(hideTrace),
+    reprovados: opts.diagnostics ? rejected : [],
+    ia,
+  };
 }
 
 async function runCount(event: any, market: MarketSpec, sp: any, op: any, scope: string, leagueId: unknown): Promise<any[]> {
@@ -124,6 +133,7 @@ async function playerCount(event: any, market: MarketSpec, sp: any, lines: any[]
         minutos_esperados: rate.minutos_esperados, xi_confirmado: rate.xi_confirmado,
         amostra_jogos: rate.amostra_jogos, concedido_adversario: rate.concedido_adversario,
         incerteza: rate.incerteza, market_type: market.key, player_id: entity.id,
+        trace: rate.trace,
       }));
     }
   }
