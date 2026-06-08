@@ -52,4 +52,25 @@ describe("match trace minimo", () => {
       expect.arrayContaining(["esperado_final", "comparacao"]),
     );
   });
+
+  it("gols (totais): candidato traz trace", async () => {
+    const sp = { async teamRates() { return { lambda_for: 1.5, lambda_against: 1.2 }; } };
+    const op = { lines() { return [{ entidade: "partida", linha: 2.5, odd_over: 1.9, odd_under: 1.9, book: "manual" }]; } };
+    const repo = { async saveAnalysis() {}, async saveLedger() {} };
+    const ev = { id: "e4", jogo: "A x B", home_team: { id: "H", name: "A" }, away_team: { id: "A2", name: "B" } };
+    const out = await analyzeMatch(ev, MARKETS.gols!, sp, op, repo, { analystFn: () => ({ melhor_aposta: null, outras: [], alertas: [] }), diagnostics: true });
+    const all = [...out.candidatos, ...out.reprovados] as any[];
+    expect(all.find((c) => c.trace)).toBeDefined();
+  });
+
+  it("vitoria (1x2): candidato NÃO traz trace — prob_modelo é vitória, não over de gols", async () => {
+    const sp = { async teamRates() { return { lambda_for: 1.5, lambda_against: 1.2 }; } };
+    const op = { lines() { return [{ entidade: "partida", linha: 2.5, odd_over: 2.0, odd_under: 1.8, book: "manual" }]; } };
+    const repo = { async saveAnalysis() {}, async saveLedger() {} };
+    const ev = { id: "e3", jogo: "A x B", home_team: { id: "H", name: "A" }, away_team: { id: "A2", name: "B" } };
+    const out = await analyzeMatch(ev, MARKETS.vitoria!, sp, op, repo, { analystFn: () => ({ melhor_aposta: null, outras: [], alertas: [] }), diagnostics: true });
+    const all = [...out.candidatos, ...out.reprovados] as any[];
+    expect(all.length).toBeGreaterThan(0);
+    expect(all.every((c) => c.trace === undefined)).toBe(true);
+  });
 });

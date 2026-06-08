@@ -114,15 +114,18 @@ async function runMatch(event: any, market: MarketSpec, sp: any, op: any): Promi
   const lambdaAway = ra.lambda_for * ((rh.lambda_against ?? league) / league);
   const matrix = scoreMatrix(lambdaHome, lambdaAway);
   const label = event.jogo || `${home.name ?? ""} x ${away.name ?? ""}`.trim();
+  const isTotals = market.kind === "partida_totais";
   return lines.map((li: any) => {
     let prob: number, jogador: string;
-    if (market.kind === "partida_totais") { prob = probTotalOver(matrix, li.linha); jogador = label; }
+    if (isTotals) { prob = probTotalOver(matrix, li.linha); jogador = label; }
     else { prob = probs1x2(matrix).home; jogador = `${label} (1)`; }
     return buildCandidate({
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
       prob_modelo: prob, mu: lambdaHome + lambdaAway, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
-      trace: matchRateTrace(market.stat_field, lambdaHome + lambdaAway),
+      // 1x2: prob_modelo é vitória do mandante, não "over de gols" — anexar o trace
+      // de gols contaria uma história falsa. Só totais (over genuíno) ganham trace.
+      trace: isTotals ? matchRateTrace(market.stat_field, lambdaHome + lambdaAway) : undefined,
     });
   });
 }
