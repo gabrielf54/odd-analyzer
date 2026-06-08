@@ -6,6 +6,7 @@ import { shrinkRate } from "../model/shrinkage.js";
 import { opponentMultiplier, homeAwayMultiplier } from "../model/adjustments.js";
 import { buildTeamMap, resolve } from "../crosswalk/bsdIds.js";
 import type { EntityRate } from "./types.js";
+import { buildRateTrace } from "../model/trace.js";
 
 // market.stat_field (de jogador) → campo no /events/{id}/stats/ (nível TIME).
 const TEAM_STAT_FIELD: Record<string, string> = {
@@ -107,11 +108,27 @@ export class BSDStatsProvider {
     if (calc === null) return null;
     const xiConfirmed = xiTeamIds.size > 0 ? xiTeamIds.has(String(entityId)) : true;
     const n = calc.n;
+    const trace = buildRateTrace({
+      statField: market.stat_field,
+      games,
+      rawRate: calc.raw_rate,
+      shrunk: calc.shrunk,
+      priorRate: market.prior_rate,
+      priorStrength: market.prior_strength,
+      n,
+      minutos: minutes,
+      oppMult,
+      haMult,
+      oppConceded,
+      isHome,
+      mu: calc.mu,
+    });
     return {
       mu: calc.mu, minutos_esperados: minutes,
       xi_confirmado: xiConfirmed, amostra_jogos: n,
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
       incerteza: uncertaintyFor(n),
+      trace,
     };
   }
 
