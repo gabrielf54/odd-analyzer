@@ -5,8 +5,8 @@
 
 const DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g"); // marcas combinantes (acentos pós-NFKD)
 
-export function normalize(nome: string): string {
-  const s = (nome ?? "").normalize("NFKD").replace(DIACRITICS, "");
+export function normalize(name: string): string {
+  const s = (name ?? "").normalize("NFKD").replace(DIACRITICS, "");
   return s.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
 }
 
@@ -37,7 +37,7 @@ export interface MatchResult { id: string; name: string; confianca: number; }
  * prioridade. Retorna o melhor match ou null se < threshold (fail-closed). */
 export function matchPlayer(
   oddName: string,
-  elenco: { id: string; name: string }[],
+  squad: { id: string; name: string }[],
   overrides: Record<string, string> | null = null,
   threshold = 0.9,
 ): MatchResult | null {
@@ -47,16 +47,16 @@ export function matchPlayer(
     for (const [k, v] of Object.entries(overrides)) normOv[normalize(k)] = v;
     if (n in normOv) {
       const oid = normOv[n]!;
-      const nome = elenco.find((p) => p.id === oid)?.name ?? oddName;
-      return { id: oid, name: nome, confianca: 1.0 };
+      const name = squad.find((p) => p.id === oid)?.name ?? oddName;
+      return { id: oid, name, confianca: 1.0 };
     }
   }
-  let melhor: { id: string; name: string } | null = null;
+  let best: { id: string; name: string } | null = null;
   let score = 0.0;
-  for (const p of elenco) {
+  for (const p of squad) {
     const s = sim(n, normalize(p.name));
-    if (s > score) { melhor = p; score = s; }
+    if (s > score) { best = p; score = s; }
   }
-  if (melhor === null || score < threshold) return null;
-  return { id: melhor.id, name: melhor.name, confianca: Math.round(score * 1000) / 1000 };
+  if (best === null || score < threshold) return null;
+  return { id: best.id, name: best.name, confianca: Math.round(score * 1000) / 1000 };
 }

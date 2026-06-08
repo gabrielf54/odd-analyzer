@@ -40,11 +40,11 @@ export function assembleMu(ratePer90: number, minutosEsperados: number, oppMult:
 }
 
 /** Filtra histórico por escopo comparando team_id de cada jogo com o time alvo. */
-export function filterGamesByScope(games: Game[], escopo: string, entityTeamId: unknown): Game[] {
-  if (escopo === "todos") return games;
-  const alvo = String(entityTeamId);
-  if (escopo === "selecao") return games.filter((g) => String(g["team_id"]) === alvo);
-  if (escopo === "clube") return games.filter((g) => String(g["team_id"]) !== alvo);
+export function filterGamesByScope(games: Game[], scope: string, entityTeamId: unknown): Game[] {
+  if (scope === "todos") return games;
+  const target = String(entityTeamId);
+  if (scope === "selecao") return games.filter((g) => String(g["team_id"]) === target);
+  if (scope === "clube") return games.filter((g) => String(g["team_id"]) !== target);
   return games;
 }
 

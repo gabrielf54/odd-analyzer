@@ -8,7 +8,7 @@ export interface Deps {
   repo: any;
 }
 
-const analisarSchema = z.object({
+const analyzeSchema = z.object({
   event_id: z.string(),
   market_key: z.string(),
   linha: z.number().default(0),
@@ -18,6 +18,7 @@ const analisarSchema = z.object({
   escopo_historico: z.string().optional(),
   league_id: z.union([z.string(), z.number()]).nullish(),
   player_ref: z.string().nullish(),
+  diagnostico: z.boolean().optional(),
 });
 
 const paperSchema = z.object({
@@ -26,8 +27,8 @@ const paperSchema = z.object({
   em_validacao: z.boolean().optional(),
 });
 
-const jogosQuery = z.object({ status: z.enum(["finished", "notstarted"]) });
-const resultadoQuery = z.object({ market: z.string(), linha: z.coerce.number() });
+const matchesQuery = z.object({ status: z.enum(["finished", "notstarted"]) });
+const resultQuery = z.object({ market: z.string(), linha: z.coerce.number() });
 
 /** Monta a app Express. `deps` injeta client/repo (reais no server, fakes no teste). */
 export function createApp(deps: Deps): express.Express {
@@ -47,26 +48,27 @@ export function createApp(deps: Deps): express.Express {
     (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
 
   app.get("/ligas", wrap(async (_req, res) => {
-    res.json(await service.listarLigas(deps.client));
+    res.json(await service.listLeagues(deps.client));
   }));
 
   app.get("/ligas/:id/jogos", wrap(async (req, res) => {
-    const q = jogosQuery.safeParse(req.query);
+    const q = matchesQuery.safeParse(req.query);
     if (!q.success) throw new AppError(400, "query_invalida", "status deve ser 'finished' ou 'notstarted'");
-    res.json(await service.listarJogos(deps.client, req.params.id, q.data.status));
+    res.json(await service.listMatches(deps.client, req.params.id, q.data.status));
   }));
 
   app.get("/jogos/:eventId/escalacao", wrap(async (req, res) => {
-    res.json(await service.escalacaoProvavel(deps.client, req.params.eventId));
+    res.json(await service.probableLineup(deps.client, req.params.eventId));
   }));
 
   app.post("/analisar", wrap(async (req, res) => {
-    const p = analisarSchema.safeParse(req.body);
+    const p = analyzeSchema.safeParse(req.body);
     if (!p.success) throw new AppError(400, "body_invalido", p.error.issues.map((i) => i.message).join("; "));
     const b = p.data;
-    const out = await service.analisar(deps.client, b.event_id, b.market_key, b.linha, b.odd_over, b.odd_under, {
-      usarIa: b.usar_ia, repo: deps.repo, escopoHistorico: b.escopo_historico,
+    const out = await service.analyze(deps.client, b.event_id, b.market_key, b.linha, b.odd_over, b.odd_under, {
+      useAi: b.usar_ia, repo: deps.repo, historyScope: b.escopo_historico,
       leagueId: b.league_id ?? null, playerRef: b.player_ref ?? null,
+      diagnostics: b.diagnostico ?? false,
     });
     res.json(out);
   }));
@@ -74,14 +76,14 @@ export function createApp(deps: Deps): express.Express {
   app.post("/paper", wrap(async (req, res) => {
     const p = paperSchema.safeParse(req.body);
     if (!p.success) throw new AppError(400, "body_invalido", p.error.issues.map((i) => i.message).join("; "));
-    await service.apostarPaper(deps.repo, p.data.event_id, p.data.candidato, p.data.em_validacao ?? false);
+    await service.paperBet(deps.repo, p.data.event_id, p.data.candidato, p.data.em_validacao ?? false);
     res.json({ ok: true });
   }));
 
   app.get("/jogos/:eventId/resultado", wrap(async (req, res) => {
-    const q = resultadoQuery.safeParse(req.query);
+    const q = resultQuery.safeParse(req.query);
     if (!q.success) throw new AppError(400, "query_invalida", "market e linha são obrigatórios");
-    res.json(await service.resultadoRealJogador(deps.client, req.params.eventId, q.data.market, q.data.linha));
+    res.json(await service.realPlayerResult(deps.client, req.params.eventId, q.data.market, q.data.linha));
   }));
 
   // Middleware de erro: AppError → status/codigo; erro de domínio → 400; senão 500.

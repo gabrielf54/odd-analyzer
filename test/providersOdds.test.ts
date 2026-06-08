@@ -4,12 +4,12 @@ import { MARKETS } from "../src/model/markets.js";
 
 describe("providers/odds", () => {
   it("NullOdds devolve []", () => {
-    expect(new NullOdds().linhas()).toEqual([]);
+    expect(new NullOdds().lines()).toEqual([]);
   });
 
   it("ManualOdds devolve as linhas dadas", () => {
-    const linhas = [{ entidade: "partida", linha: 2.5, odd_over: 1.9, odd_under: 1.95, book: "manual" }];
-    expect(new ManualOdds(linhas).linhas()).toEqual(linhas);
+    const lines = [{ entidade: "partida", linha: 2.5, odd_over: 1.9, odd_under: 1.95, book: "manual" }];
+    expect(new ManualOdds(lines).lines()).toEqual(lines);
   });
 
   it("TheOddsApiMatchOdds usa fetch injetado e parseTotals p/ gols", async () => {
@@ -22,13 +22,13 @@ describe("providers/odds", () => {
         ] }] }],
       }),
     });
-    const out = await provider.linhas(evento, MARKETS["gols"]!);
+    const out = await provider.lines(evento, MARKETS["gols"]!);
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ linha: 2.5, odd_over: 1.9 });
   });
 
   it("TheOddsApiMatchOdds: mercado sem mapping → []", async () => {
     const provider = new TheOddsApiMatchOdds();
-    expect(await provider.linhas({}, MARKETS["sot"]!)).toEqual([]);
+    expect(await provider.lines({}, MARKETS["sot"]!)).toEqual([]);
   });
 });

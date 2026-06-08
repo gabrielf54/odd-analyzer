@@ -10,10 +10,10 @@ export interface OddsLine {
 }
 
 export interface OddsProvider {
-  linhas(event: any, market: MarketSpec): OddsLine[] | Promise<OddsLine[]>;
+  lines(event: any, market: MarketSpec): OddsLine[] | Promise<OddsLine[]>;
 }
 
-export interface EntityTaxa {
+export interface EntityRate {
   mu: number;
   minutos_esperados: number;
   xi_confirmado: boolean;
@@ -23,7 +23,7 @@ export interface EntityTaxa {
 }
 
 export interface StatsProvider {
-  elenco(event: any): any[] | Promise<any[]>;
-  entity_taxa(id: unknown, market: MarketSpec, ctx: any): (EntityTaxa | null) | Promise<EntityTaxa | null>;
-  team_rates(teamId: unknown, ctx: any): any | Promise<any>;
+  squad(event: any): any[] | Promise<any[]>;
+  entityRate(id: unknown, market: MarketSpec, ctx: any): (EntityRate | null) | Promise<EntityRate | null>;
+  teamRates(teamId: unknown, ctx: any): any | Promise<any>;
 }

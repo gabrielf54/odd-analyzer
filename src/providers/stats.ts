@@ -4,8 +4,8 @@ import {
 } from "../model/assemble.js";
 import { shrinkRate } from "../model/shrinkage.js";
 import { opponentMultiplier, homeAwayMultiplier } from "../model/adjustments.js";
-import { construirMapaTime, resolver } from "../crosswalk/bsdIds.js";
-import type { EntityTaxa } from "./types.js";
+import { buildTeamMap, resolve } from "../crosswalk/bsdIds.js";
+import type { EntityRate } from "./types.js";
 
 // market.stat_field (de jogador) → campo no /events/{id}/stats/ (nível TIME).
 const TEAM_STAT_FIELD: Record<string, string> = {
@@ -15,7 +15,7 @@ const TEAM_STAT_FIELD: Record<string, string> = {
   total_shots: "total_shots",
 };
 
-const incertezaFor = (n: number): string => (n < 5 ? "alta" : n < 12 ? "media" : "baixa");
+const uncertaintyFor = (n: number): string => (n < 5 ? "alta" : n < 12 ? "media" : "baixa");
 
 /** Fonte primária: BSD/Bzzoiro. Métodos de I/O são async (client faz fetch). */
 export class BSDStatsProvider {
@@ -37,25 +37,25 @@ export class BSDStatsProvider {
     return other.id ? String(other.id) : null;
   }
 
-  private async teamConceded(oppTeamId: string | null, teamField: string, janela = 10): Promise<number | null> {
+  private async teamConceded(oppTeamId: string | null, teamField: string, window = 10): Promise<number | null> {
     if (!oppTeamId) return null;
     const tid = String(oppTeamId);
     let events: any;
-    try { events = await this.client.events({ team_id: tid, status: "finished", limit: janela }); }
+    try { events = await this.client.events({ team_id: tid, status: "finished", limit: window }); }
     catch { return null; }
     const results: any[] = Array.isArray(events?.results) ? events.results : [];
-    const valores: number[] = [];
-    for (const ev of results.slice(0, janela)) {
+    const values: number[] = [];
+    for (const ev of results.slice(0, window)) {
       const concededSide = String(ev.home_team_id) === tid ? "away" : "home";
-      let valor: any = null;
+      let value: any = null;
       try {
         const stats = (await this.client.eventStats(ev.id))?.stats ?? {};
-        valor = stats[concededSide]?.[teamField];
-      } catch { valor = null; }
-      if (valor != null) valores.push(Number(valor));
+        value = stats[concededSide]?.[teamField];
+      } catch { value = null; }
+      if (value != null) values.push(Number(value));
     }
-    if (valores.length === 0) return null;
-    return valores.reduce((a, b) => a + b, 0) / valores.length;
+    if (values.length === 0) return null;
+    return values.reduce((a, b) => a + b, 0) / values.length;
   }
 
   private oppMult(oppConceded: number | null, leagueAvg: number): number {
@@ -64,7 +64,7 @@ export class BSDStatsProvider {
     return Math.max(BSDStatsProvider.OPP_MULT_MIN, Math.min(BSDStatsProvider.OPP_MULT_MAX, mult));
   }
 
-  async elenco(event: any): Promise<any[]> {
+  async squad(event: any): Promise<any[]> {
     const data = await this.client.lineups(event.id);
     const lineups = data?.lineups ?? {};
     const players: any[] = [];
@@ -78,7 +78,7 @@ export class BSDStatsProvider {
     return players;
   }
 
-  async entity_taxa(entityId: unknown, market: MarketSpec, ctx: any): Promise<EntityTaxa | null> {
+  async entityRate(entityId: unknown, market: MarketSpec, ctx: any): Promise<EntityRate | null> {
     if (market.kind !== "contagem") return null;
     const isHome: boolean = ctx.is_home ?? false;
     const leagueAvg: number = ctx.league_avg_conceded ?? 1.0;
@@ -91,31 +91,31 @@ export class BSDStatsProvider {
     if (results.length === 0) return null;
     // BSD entrega recente-primeiro; a conta espera crescente (recente no fim).
     let games = [...results].reverse();
-    const escopo = ctx.escopo_historico ?? "todos";
-    games = filterGamesByScope(games, escopo, entityTeamId);
+    const scope = ctx.escopo_historico ?? "todos";
+    games = filterGamesByScope(games, scope, entityTeamId);
     if (games.length === 0) return null;
 
     const teamField = TEAM_STAT_FIELD[market.stat_field] ?? market.stat_field;
     const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField);
     const oppMult = this.oppMult(oppConceded, leagueAvg);
     const haMult = homeAwayMultiplier(isHome, BSDStatsProvider.HOME_FACTOR, BSDStatsProvider.AWAY_FACTOR);
-    const minutos = expectedMinutes(games) ?? 90.0;
+    const minutes = expectedMinutes(games) ?? 90.0;
 
     const calc = playerMuFromGames(
-      games, market.stat_field, market.prior_rate, market.prior_strength, oppMult, haMult, minutos,
+      games, market.stat_field, market.prior_rate, market.prior_strength, oppMult, haMult, minutes,
     );
     if (calc === null) return null;
-    const xiConfirmado = xiTeamIds.size > 0 ? xiTeamIds.has(String(entityId)) : true;
+    const xiConfirmed = xiTeamIds.size > 0 ? xiTeamIds.has(String(entityId)) : true;
     const n = calc.n;
     return {
-      mu: calc.mu, minutos_esperados: minutos,
-      xi_confirmado: xiConfirmado, amostra_jogos: n,
+      mu: calc.mu, minutos_esperados: minutes,
+      xi_confirmado: xiConfirmed, amostra_jogos: n,
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
-      incerteza: incertezaFor(n),
+      incerteza: uncertaintyFor(n),
     };
   }
 
-  async xi_ids(event: any): Promise<Set<string>> {
+  async xiIds(event: any): Promise<Set<string>> {
     let data: any;
     try { data = await this.client.lineups(event.id); } catch { return new Set(); }
     const lineups = data?.lineups ?? {};
@@ -129,21 +129,21 @@ export class BSDStatsProvider {
     return ids;
   }
 
-  async team_taxa(teamId: unknown, market: MarketSpec, ctx: any, janela = 10): Promise<EntityTaxa | null> {
+  async teamRate(teamId: unknown, market: MarketSpec, ctx: any, window = 10): Promise<EntityRate | null> {
     if (market.kind !== "contagem") return null;
     const tid = String(teamId);
     const teamField = TEAM_STAT_FIELD[market.stat_field] ?? market.stat_field;
-    const events = await this.client.events({ team_id: tid, status: "finished", limit: janela });
+    const events = await this.client.events({ team_id: tid, status: "finished", limit: window });
     const results: any[] = Array.isArray(events?.results) ? events.results : [];
     let games: any[] = [];
-    for (const ev of results.slice(0, janela)) {
+    for (const ev of results.slice(0, window)) {
       const side = String(ev.home_team_id) === tid ? "home" : "away";
-      let valor: any = null;
+      let value: any = null;
       try {
         const stats = (await this.client.eventStats(ev.id))?.stats ?? {};
-        valor = stats[side]?.[teamField];
-      } catch { valor = null; }
-      if (valor != null) games.push({ [teamField]: valor });
+        value = stats[side]?.[teamField];
+      } catch { value = null; }
+      if (value != null) games.push({ [teamField]: value });
     }
     if (games.length === 0) return null;
     games = games.reverse();
@@ -155,36 +155,36 @@ export class BSDStatsProvider {
     const isHome: boolean = ctx.is_home ?? false;
     const haMult = homeAwayMultiplier(isHome, BSDStatsProvider.HOME_FACTOR, BSDStatsProvider.AWAY_FACTOR);
     const leagueAvg = ctx.league_avg_conceded ?? market.concede_baseline;
-    const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, janela);
+    const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, window);
     const oppMult = this.oppMult(oppConceded, leagueAvg);
     const mu = assembleMu(shrunk, 90.0, oppMult, haMult);
     const n = games.length;
     return {
       mu, minutos_esperados: 90.0, xi_confirmado: true, amostra_jogos: n,
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
-      incerteza: incertezaFor(n),
+      incerteza: uncertaintyFor(n),
     };
   }
 
-  async team_rates(teamId: unknown, _ctx: any, janela = 10): Promise<{ lambda_for: number; lambda_against: number } | null> {
+  async teamRates(teamId: unknown, _ctx: any, window = 10): Promise<{ lambda_for: number; lambda_against: number } | null> {
     const tid = String(teamId);
     let evs: any;
-    try { evs = await this.client.events({ team_id: tid, status: "finished", limit: janela }); }
+    try { evs = await this.client.events({ team_id: tid, status: "finished", limit: window }); }
     catch { return null; }
     const results: any[] = Array.isArray(evs?.results) ? evs.results : [];
-    const golsFor: number[] = [], golsAgainst: number[] = [];
-    for (const ev of results.slice(0, janela)) {
+    const goalsFor: number[] = [], goalsAgainst: number[] = [];
+    for (const ev of results.slice(0, window)) {
       let g: any, c: any;
       if (String(ev.home_team_id) === tid) { g = ev.home_score; c = ev.away_score; }
       else { g = ev.away_score; c = ev.home_score; }
-      if (g != null) golsFor.push(Number(g));
-      if (c != null) golsAgainst.push(Number(c));
+      if (g != null) goalsFor.push(Number(g));
+      if (c != null) goalsAgainst.push(Number(c));
     }
-    if (golsFor.length === 0) return null;
+    if (goalsFor.length === 0) return null;
     const avg = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     return {
-      lambda_for: avg(golsFor),
-      lambda_against: golsAgainst.length > 0 ? avg(golsAgainst) : avg(golsFor),
+      lambda_for: avg(goalsFor),
+      lambda_against: goalsAgainst.length > 0 ? avg(goalsAgainst) : avg(goalsFor),
     };
   }
 }
@@ -196,27 +196,27 @@ export class CrosswalkStatsProvider {
     if (inner == null || client == null) throw new Error("CrosswalkStatsProvider requer inner e client não-nulos");
   }
 
-  async elenco(event: any): Promise<any[]> {
-    const brutos: any[] = await this.inner.elenco(event);
+  async squad(event: any): Promise<any[]> {
+    const raw: any[] = await this.inner.squad(event);
     const out: any[] = [];
-    const teamIds = [...new Set(brutos.map((p) => p.team_id ?? ""))];
+    const teamIds = [...new Set(raw.map((p) => p.team_id ?? ""))];
     for (const teamId of teamIds) {
-      const grupo = brutos.filter((p) => (p.team_id ?? "") === teamId);
-      const mapa = await construirMapaTime(this.client, teamId, this.n);
-      out.push(...resolver(grupo, mapa, this.threshold));
+      const group = raw.filter((p) => (p.team_id ?? "") === teamId);
+      const map = await buildTeamMap(this.client, teamId, this.n);
+      out.push(...resolve(group, map, this.threshold));
     }
     return out;
   }
 
-  async xi_ids(event: any): Promise<Set<string>> {
-    const innerXi = typeof this.inner.xi_ids === "function" ? await this.inner.xi_ids(event) : new Set();
+  async xiIds(event: any): Promise<Set<string>> {
+    const innerXi = typeof this.inner.xiIds === "function" ? await this.inner.xiIds(event) : new Set();
     if (!innerXi || innerXi.size === 0) return new Set();
-    return new Set((await this.elenco(event)).map((p) => p.id));
+    return new Set((await this.squad(event)).map((p) => p.id));
   }
 
-  entity_taxa(id: unknown, market: MarketSpec, ctx: any) { return this.inner.entity_taxa(id, market, ctx); }
-  team_taxa(...args: any[]) { return this.inner.team_taxa(...args); }
-  team_rates(...args: any[]) { return this.inner.team_rates(...args); }
+  entityRate(id: unknown, market: MarketSpec, ctx: any) { return this.inner.entityRate(id, market, ctx); }
+  teamRate(...args: any[]) { return this.inner.teamRate(...args); }
+  teamRates(...args: any[]) { return this.inner.teamRates(...args); }
 }
 
 /** Restringe elenco() a UM jogador (id exato ou substring de nome). Delega o resto. */
@@ -224,19 +224,19 @@ export class OnlyPlayer {
   private ref: string;
   constructor(private p: any, playerRef: string) { this.ref = String(playerRef); }
 
-  async elenco(event: any): Promise<any[]> {
-    const todos: any[] = await this.p.elenco(event);
+  async squad(event: any): Promise<any[]> {
+    const all: any[] = await this.p.squad(event);
     const ref = this.ref.toLowerCase();
-    const filtrados = todos.filter((p) => String(p.id) === this.ref || p.name.toLowerCase().includes(ref));
-    if (filtrados.length === 0) {
-      const disponiveis = todos.map((p) => `${p.name} (id=${p.id})`).join(", ");
-      throw new Error(`jogador '${this.ref}' não encontrado no elenco. Disponíveis: ${disponiveis}`);
+    const filtered = all.filter((p) => String(p.id) === this.ref || p.name.toLowerCase().includes(ref));
+    if (filtered.length === 0) {
+      const available = all.map((p) => `${p.name} (id=${p.id})`).join(", ");
+      throw new Error(`jogador '${this.ref}' não encontrado no elenco. Disponíveis: ${available}`);
     }
-    return filtrados;
+    return filtered;
   }
 
-  entity_taxa(id: unknown, market: MarketSpec, ctx: any) { return this.p.entity_taxa(id, market, ctx); }
-  team_taxa(...args: any[]) { return this.p.team_taxa(...args); }
-  team_rates(...args: any[]) { return this.p.team_rates(...args); }
-  xi_ids(event: any) { return typeof this.p.xi_ids === "function" ? this.p.xi_ids(event) : new Set<string>(); }
+  entityRate(id: unknown, market: MarketSpec, ctx: any) { return this.p.entityRate(id, market, ctx); }
+  teamRate(...args: any[]) { return this.p.teamRate(...args); }
+  teamRates(...args: any[]) { return this.p.teamRates(...args); }
+  xiIds(event: any) { return typeof this.p.xiIds === "function" ? this.p.xiIds(event) : new Set<string>(); }
 }

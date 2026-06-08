@@ -1,52 +1,52 @@
 /** Closing Line Value: positivo = peguei preço melhor que o fechamento. */
-export function clv(oddFlag: number, oddFechamento: number): number {
-  return oddFlag / oddFechamento - 1.0;
+export function clv(oddFlag: number, closingOdd: number): number {
+  return oddFlag / closingOdd - 1.0;
 }
 
 export interface Repo {
-  saveAnalise(eventId: string, payload: any): Promise<void> | void;
-  getAnalise(eventId: string): Promise<any | null> | (any | null);
+  saveAnalysis(eventId: string, payload: any): Promise<void> | void;
+  getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
-  updateFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number, resultado: number): Promise<void> | void;
-  saveCrosswalk(idCanonico: number, nomeNormalizado: string, fontesIds: any, confianca: number, verificadoManual?: boolean): Promise<void> | void;
-  getCrosswalk(idCanonico: number): Promise<any | null> | (any | null);
-  snapshotFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number): Promise<void> | void;
+  updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number): Promise<void> | void;
+  saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified?: boolean): Promise<void> | void;
+  getCrosswalk(canonicalId: number): Promise<any | null> | (any | null);
+  snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number): Promise<void> | void;
 }
 
 export class InMemoryRepo implements Repo {
-  analises = new Map<string, any>();
+  analyses = new Map<string, any>();
   ledger: any[] = [];
   crosswalk = new Map<number, any>();
 
-  saveAnalise(eventId: string, payload: any) { this.analises.set(eventId, payload); }
-  getAnalise(eventId: string) { return this.analises.get(eventId) ?? null; }
+  saveAnalysis(eventId: string, payload: any) { this.analyses.set(eventId, payload); }
+  getAnalysis(eventId: string) { return this.analyses.get(eventId) ?? null; }
   saveLedger(rows: any[]) { this.ledger.push(...rows); }
 
-  updateFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number, resultado: number) {
+  updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number) {
     for (const row of this.ledger) {
       if (!(row.event_id === eventId && row.jogador === jogador && row.linha === linha)) continue;
       if (marketType != null && row.market_type !== marketType) continue;
-      row.odd_fechamento = oddFechamento;
+      row.odd_fechamento = closingOdd;
       row.resultado = resultado;
-      row.clv = clv(row.odd_flag, oddFechamento);
+      row.clv = clv(row.odd_flag, closingOdd);
       break;
     }
   }
 
-  saveCrosswalk(idCanonico: number, nomeNormalizado: string, fontesIds: any, confianca: number, verificadoManual = false) {
-    this.crosswalk.set(idCanonico, {
-      id_canonico: idCanonico, nome_normalizado: nomeNormalizado,
-      fontes_ids: fontesIds, confianca, verificado_manual: verificadoManual,
+  saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified = false) {
+    this.crosswalk.set(canonicalId, {
+      id_canonico: canonicalId, nome_normalizado: normalizedName,
+      fontes_ids: sourceIds, confianca: confidence, verificado_manual: manuallyVerified,
     });
   }
-  getCrosswalk(idCanonico: number) { return this.crosswalk.get(idCanonico) ?? null; }
+  getCrosswalk(canonicalId: number) { return this.crosswalk.get(canonicalId) ?? null; }
 
-  snapshotFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number) {
+  snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number) {
     for (const row of this.ledger) {
       if (!(row.event_id === eventId && row.jogador === jogador && row.linha === linha)) continue;
       if (marketType != null && row.market_type !== marketType) continue;
-      row.odd_fechamento = oddFechamento;
-      row.clv = clv(row.odd_flag, oddFechamento);
+      row.odd_fechamento = closingOdd;
+      row.clv = clv(row.odd_flag, closingOdd);
       break;
     }
   }
@@ -63,45 +63,45 @@ export class SupabaseRepo implements Repo {
     this.client = client;
   }
 
-  async saveAnalise(eventId: string, payload: any) {
+  async saveAnalysis(eventId: string, payload: any) {
     await this.client.from("analises").upsert({ event_id: eventId, ...payload });
   }
-  async getAnalise(eventId: string) {
+  async getAnalysis(eventId: string) {
     const { data } = await this.client.from("analises").select("*").eq("event_id", eventId);
     return data && data.length ? data[0] : null;
   }
   async saveLedger(rows: any[]) {
     if (rows.length) await this.client.from("paper_ledger").insert(rows);
   }
-  async updateFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number, resultado: number) {
+  async updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number) {
     let q = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) q = q.eq("market_type", marketType);
     const { data } = await q;
     if (!data || !data.length) return;
     if (data.length > 1) throw new Error(`paper_ledger duplicado (${eventId}, ${jogador}, ${linha}, ${marketType})`);
-    const c = clv(data[0].odd_flag, oddFechamento);
-    let upd = this.client.from("paper_ledger").update({ odd_fechamento: oddFechamento, resultado, clv: c })
+    const c = clv(data[0].odd_flag, closingOdd);
+    let upd = this.client.from("paper_ledger").update({ odd_fechamento: closingOdd, resultado, clv: c })
       .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) upd = upd.eq("market_type", marketType);
     await upd;
   }
-  async saveCrosswalk(idCanonico: number, nomeNormalizado: string, fontesIds: any, confianca: number, verificadoManual = false) {
+  async saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified = false) {
     await this.client.from("jogadores_crosswalk").upsert({
-      id_canonico: idCanonico, nome_normalizado: nomeNormalizado,
-      fontes_ids: fontesIds, confianca, verificado_manual: verificadoManual,
+      id_canonico: canonicalId, nome_normalizado: normalizedName,
+      fontes_ids: sourceIds, confianca: confidence, verificado_manual: manuallyVerified,
     });
   }
-  async getCrosswalk(idCanonico: number) {
-    const { data } = await this.client.from("jogadores_crosswalk").select("*").eq("id_canonico", idCanonico);
+  async getCrosswalk(canonicalId: number) {
+    const { data } = await this.client.from("jogadores_crosswalk").select("*").eq("id_canonico", canonicalId);
     return data && data.length ? data[0] : null;
   }
-  async snapshotFechamento(eventId: string, jogador: string, linha: number, marketType: string | null, oddFechamento: number) {
+  async snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number) {
     let sel = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) sel = sel.eq("market_type", marketType);
     const { data } = await sel;
     if (!data || !data.length) return;
-    const c = clv(data[0].odd_flag, oddFechamento);
-    let upd = this.client.from("paper_ledger").update({ odd_fechamento: oddFechamento, clv: c })
+    const c = clv(data[0].odd_flag, closingOdd);
+    let upd = this.client.from("paper_ledger").update({ odd_fechamento: closingOdd, clv: c })
       .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) upd = upd.eq("market_type", marketType);
     await upd;

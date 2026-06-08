@@ -10,13 +10,13 @@ const BSD_MARKET_KEY: Record<string, string> = {
 
 /** Sem odds externas — modo modelo-only. */
 export class NullOdds implements OddsProvider {
-  linhas(): OddsLine[] { return []; }
+  lines(): OddsLine[] { return []; }
 }
 
 /** Odds fornecidas manualmente (colar da casa). */
 export class ManualOdds implements OddsProvider {
-  constructor(private _linhas: OddsLine[]) {}
-  linhas(): OddsLine[] { return this._linhas; }
+  constructor(private _lines: OddsLine[]) {}
+  lines(): OddsLine[] { return this._lines; }
 }
 
 /** Odds de PARTIDA via The Odds API (gols=totals, vitoria=h2h). fetch* injetáveis p/ teste. */
@@ -32,7 +32,7 @@ export class TheOddsApiMatchOdds implements OddsProvider {
     this.fetchOdds = opts.fetchEventOddsFn ?? ((s, id, m, r) => fetchEventOdds(s, id, m, r));
   }
 
-  async linhas(event: any, market: MarketSpec): Promise<OddsLine[]> {
+  async lines(event: any, market: MarketSpec): Promise<OddsLine[]> {
     const oddsapiMarket = ODDSAPI_MATCH_MARKET[market.key];
     if (oddsapiMarket == null) return [];
     const home = event?.home_team?.name ?? "";
@@ -52,7 +52,7 @@ export class TheOddsApiMatchOdds implements OddsProvider {
 /** Odds de partida via BSD /events/{id}/odds/. */
 export class BSDMatchOdds implements OddsProvider {
   constructor(private client: any = null) {}
-  async linhas(event: any, market: MarketSpec): Promise<OddsLine[]> {
+  async lines(event: any, market: MarketSpec): Promise<OddsLine[]> {
     const key = BSD_MARKET_KEY[market.key];
     if (key == null) return [];
     let data: any;

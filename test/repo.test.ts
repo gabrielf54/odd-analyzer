@@ -10,23 +10,23 @@ describe("clv", () => {
 describe("InMemoryRepo", () => {
   it("salva e lê análise", () => {
     const r = new InMemoryRepo();
-    r.saveAnalise("e1", { jogo: "A x B" });
-    expect(r.getAnalise("e1")).toEqual({ jogo: "A x B" });
-    expect(r.getAnalise("zzz")).toBeNull();
+    r.saveAnalysis("e1", { jogo: "A x B" });
+    expect(r.getAnalysis("e1")).toEqual({ jogo: "A x B" });
+    expect(r.getAnalysis("zzz")).toBeNull();
   });
 
-  it("ledger + updateFechamento calcula clv e resultado", () => {
+  it("ledger + updateClosing calcula clv e resultado", () => {
     const r = new InMemoryRepo();
     r.saveLedger([{ event_id: "e1", jogador: "Kaiki", linha: 1.5, market_type: "sot", odd_flag: 2.0 }]);
-    r.updateFechamento("e1", "Kaiki", 1.5, "sot", 1.8, 1);
+    r.updateClosing("e1", "Kaiki", 1.5, "sot", 1.8, 1);
     expect(r.ledger[0]!.resultado).toBe(1);
     expect(r.ledger[0]!.clv).toBeCloseTo(2.0 / 1.8 - 1, 9);
   });
 
-  it("snapshotFechamento grava clv sem resultado", () => {
+  it("snapshotClosing grava clv sem resultado", () => {
     const r = new InMemoryRepo();
     r.saveLedger([{ event_id: "e1", jogador: "Kaiki", linha: 1.5, market_type: "sot", odd_flag: 2.0 }]);
-    r.snapshotFechamento("e1", "Kaiki", 1.5, "sot", 1.9);
+    r.snapshotClosing("e1", "Kaiki", 1.5, "sot", 1.9);
     expect(r.ledger[0]!.clv).toBeCloseTo(2.0 / 1.9 - 1, 9);
     expect(r.ledger[0]!.resultado).toBeUndefined();
   });

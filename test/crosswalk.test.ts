@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { normalize, matchPlayer } from "../src/crosswalk/match.js";
-import { construirMapaTime, resolver } from "../src/crosswalk/bsdIds.js";
+import { buildTeamMap, resolve } from "../src/crosswalk/bsdIds.js";
 
 describe("crosswalk/match", () => {
   it("normalize remove acento e caixa", () => {
@@ -37,26 +37,26 @@ describe("crosswalk/bsdIds", () => {
     async player(pid: unknown) { return { name: pid === 100 ? "Kaiki Fernandes" : "Joao Silva" }; },
   };
 
-  it("construirMapaTime monta [{id,name}] dedup", async () => {
-    const mapa = await construirMapaTime(client, "T", 5);
+  it("buildTeamMap monta [{id,name}] dedup", async () => {
+    const mapa = await buildTeamMap(client, "T", 5);
     expect(mapa).toEqual([
       { id: "100", name: "Kaiki Fernandes" },
       { id: "101", name: "Joao Silva" },
     ]);
   });
 
-  it("resolver troca id da escalação pelo stats-id casado", async () => {
-    const mapa = await construirMapaTime(client, "T", 5);
+  it("resolve troca id da escalação pelo stats-id casado", async () => {
+    const mapa = await buildTeamMap(client, "T", 5);
     const escalacao = [{ id: "999", name: "Kaiki Fernandes", team_id: "T", posicao: "DF" }];
-    const out = resolver(escalacao, mapa, 0.8);
+    const out = resolve(escalacao, mapa, 0.8);
     expect(out).toHaveLength(1);
     expect(out[0]!.id).toBe("100");
     expect(out[0]!.posicao).toBe("DF");
   });
 
-  it("resolver descarta quem não casa (fail-closed)", async () => {
-    const mapa = await construirMapaTime(client, "T", 5);
+  it("resolve descarta quem não casa (fail-closed)", async () => {
+    const mapa = await buildTeamMap(client, "T", 5);
     const escalacao = [{ id: "999", name: "Zinedine Zidane", team_id: "T" }];
-    expect(resolver(escalacao, mapa, 0.9)).toEqual([]);
+    expect(resolve(escalacao, mapa, 0.9)).toEqual([]);
   });
 });

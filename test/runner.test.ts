@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { normalizeEvent, runAnalise } from "../src/runner.js";
+import { normalizeEvent, runAnalyze } from "../src/runner.js";
 import { ManualOdds } from "../src/providers/odds.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 
@@ -10,9 +10,9 @@ describe("normalizeEvent", () => {
   });
 });
 
-describe("runAnalise", () => {
+describe("runAnalyze", () => {
   it("mercado desconhecido lança", async () => {
-    await expect(runAnalise({}, "ev1", "xyz", null)).rejects.toThrow(/mercado desconhecido/);
+    await expect(runAnalyze({}, "ev1", "xyz", null)).rejects.toThrow(/mercado desconhecido/);
   });
 
   it("roda um mercado de jogador com client fake (player_ref)", async () => {
@@ -27,7 +27,7 @@ describe("runAnalise", () => {
     };
     const repo = new InMemoryRepo();
     const odds = new ManualOdds([{ entidade: "partida", linha: 0.5, odd_over: 1.8, odd_under: 2.0, book: "m" }]);
-    const out = await runAnalise(client, "ev1", "sot", "Kaiki", { repo, oddsProvider: odds });
+    const out = await runAnalyze(client, "ev1", "sot", "Kaiki", { repo, oddsProvider: odds });
     expect(out).toHaveProperty("candidatos");
     expect(out).toHaveProperty("ia");
   });

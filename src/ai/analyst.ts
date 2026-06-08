@@ -1,5 +1,5 @@
 import { chat as defaultChat, type Msg } from "./openrouter.js";
-import { validateIaOutput } from "./schema.js";
+import { validateAiOutput } from "./schema.js";
 
 export const PROMPT_SISTEMA =
   "Você é um analista de apostas conservador. Recebe um JSON com candidatos já " +
@@ -20,7 +20,7 @@ function parse(texto: string): any {
 export type ChatFn = (messages: Msg[], opts?: { temperature?: number }) => Promise<string>;
 
 /** Lê o dossiê pronto e recomenda a melhor aposta. 1 tentativa + 1 retry; inválido → fail-closed. */
-export async function analisar(
+export async function analyze(
   candidatos: any[],
   contexto: any,
   chatFn: ChatFn = defaultChat,
@@ -34,13 +34,13 @@ export async function analisar(
     let raw: string;
     try { raw = await chatFn(messages, { temperature: 0.0 }); } catch { continue; }
     const obj = parse(raw);
-    if (obj != null && validateIaOutput(obj, candidatos)) return obj;
+    if (obj != null && validateAiOutput(obj, candidatos)) return obj;
   }
   return { melhor_aposta: null, outras: [], alertas: ["IA não produziu saída válida (fail-closed)."] };
 }
 
 /** IA desligada (offline/sem custo): não opina, deixa os candidatos passarem. */
-export function fakeAnalista(_candidatos: any[], _contexto: any): any {
+export function fakeAnalyst(_candidates: any[], _context: any): any {
   return {
     melhor_aposta: null,
     outras: [],

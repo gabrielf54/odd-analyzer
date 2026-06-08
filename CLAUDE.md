@@ -112,7 +112,9 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - Rodar testes: `npm test` (Vitest). Typecheck: `npm run typecheck`. (rodar da raiz do repo)
 - **Design pattern: Ports & Adapters.** O domínio (`model/`, `value/`, `candidates/`) **não importa** `express`, `supabase`, nem `fetch`. Dependências externas entram por interface (`StatsProvider`, `OddsProvider`, `Repo`, `Analista`); em teste, entram fakes (`InMemoryRepo`, `ManualOdds`, `OnlyPlayer`).
 - **Funções puras no motor** — sem I/O, sem estado global. Determinístico = testável.
-- **Convenção de nomes:** funções em camelCase (`probOverLine`, `fairProbOver`); **chaves de dados em snake_case PT** idênticas ao legado (`prob_devig`, `prob_modelo`, `amostra_jogos`, `market_type`) — fluem p/ API/DB/IA, não podem divergir.
+- **Convenção de nomes (INEGOCIÁVEL):**
+  - **Identificadores de código em INGLÊS** — funções/variáveis camelCase (`probOverLine`, `fairProbOver`, `evaluateCandidates`), tipos/classes PascalCase (`RejectedCandidate`, `CutReason`), arquivos. **Nada de PT-BR em identificador.**
+  - **Exceção única — chaves de DADOS no fio (JSON req/resp) em snake_case PT**, idênticas ao legado (`prob_devig`, `prob_modelo`, `amostra_jogos`, `market_type`, `candidatos`, `event_id`, `reprovados`, `motivos`). Fluem p/ API/DB/IA e o front espelha — não podem divergir. Valores de enum no fio seguem o mesmo estilo (`incerteza: "baixa"`, `motivos: ["titular"]`).
 - **Validação de borda só com Zod** (na camada API), nunca checagem manual espalhada.
 - **`lib/mathx.ts`** tem o `lgamma` (Lanczos) que falta no `Math` do JS — base da NB2 (mercados de contagem).
 - **GATE DE PARIDADE (inegociável):** o motor TS tem que reproduzir os números do Python em 1e-9 (`test/parity/`). As golden files estão congeladas (o gerador Python original está no histórico do git). Enquanto SOT/finalizações/desarmes não baterem, **nenhum dinheiro real**. Gols não calibra → segue selado em validação.

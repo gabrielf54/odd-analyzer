@@ -38,7 +38,7 @@ const evento = { id: "ev1", home_team: { id: "H", name: "Home FC" }, away_team: 
 describe("BSDStatsProvider", () => {
   it("elenco extrai titulares dos dois lados normalizados", async () => {
     const p = new BSDStatsProvider(makeClient());
-    const el = await p.elenco(evento);
+    const el = await p.squad(evento);
     expect(el).toHaveLength(2);
     expect(el[0]).toEqual({ id: "1", name: "Kaiki", team_id: "H", posicao: "DF" });
   });
@@ -46,7 +46,7 @@ describe("BSDStatsProvider", () => {
   it("entity_taxa devolve mu>0 e campos esperados", async () => {
     const p = new BSDStatsProvider(makeClient());
     const ctx = { event: evento, is_home: true, opp_team_id: "A", league_avg_conceded: 4.55, entity_team_id: "H" };
-    const t = await p.entity_taxa(1, MARKETS["sot"]!, ctx);
+    const t = await p.entityRate(1, MARKETS["sot"]!, ctx);
     expect(t).not.toBeNull();
     expect(t!.mu).toBeGreaterThan(0);
     expect(t!.amostra_jogos).toBe(3);
@@ -58,20 +58,20 @@ describe("BSDStatsProvider", () => {
     client.playerStats = async () => ({ results: [] });
     const p = new BSDStatsProvider(client);
     const ctx = { event: evento, is_home: true, opp_team_id: "A", league_avg_conceded: 4.55, entity_team_id: "H" };
-    expect(await p.entity_taxa(1, MARKETS["sot"]!, ctx)).toBeNull();
+    expect(await p.entityRate(1, MARKETS["sot"]!, ctx)).toBeNull();
   });
 
   it("team_taxa agrega corner_kicks via eventStats", async () => {
     const p = new BSDStatsProvider(makeClient());
     const ctx = { event: evento, is_home: false, opp_team_id: "H" };
-    const t = await p.team_taxa("A", MARKETS["escanteios"]!, ctx);
+    const t = await p.teamRate("A", MARKETS["escanteios"]!, ctx);
     expect(t).not.toBeNull();
     expect(t!.mu).toBeGreaterThan(0);
   });
 
   it("team_rates devolve lambda_for/against", async () => {
     const p = new BSDStatsProvider(makeClient());
-    const r = await p.team_rates("A", {});
+    const r = await p.teamRates("A", {});
     expect(r).not.toBeNull();
     expect(r!.lambda_for).toBeGreaterThan(0);
   });
@@ -80,13 +80,13 @@ describe("BSDStatsProvider", () => {
 describe("OnlyPlayer", () => {
   it("filtra elenco ao ref por substring de nome", async () => {
     const p = new OnlyPlayer(new BSDStatsProvider(makeClient()), "kaiki");
-    const el = await p.elenco(evento);
+    const el = await p.squad(evento);
     expect(el).toHaveLength(1);
     expect(el[0]!.name).toBe("Kaiki");
   });
 
   it("ref inexistente lança com lista de disponíveis", async () => {
     const p = new OnlyPlayer(new BSDStatsProvider(makeClient()), "zidane");
-    await expect(p.elenco(evento)).rejects.toThrow(/não encontrado/);
+    await expect(p.squad(evento)).rejects.toThrow(/não encontrado/);
   });
 });

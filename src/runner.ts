@@ -1,9 +1,9 @@
 import { MARKETS, type MarketSpec } from "./model/markets.js";
-import { analisarJogo } from "./pipeline.js";
+import { analyzeMatch } from "./pipeline.js";
 import { ManualOdds } from "./providers/odds.js";
 import { BSDStatsProvider, CrosswalkStatsProvider, OnlyPlayer } from "./providers/stats.js";
 import { InMemoryRepo } from "./store/repo.js";
-import { analisar as aiAnalista, fakeAnalista } from "./ai/analista.js";
+import { analyze as aiAnalyst, fakeAnalyst } from "./ai/analyst.js";
 
 /** Forma real flat de /events/{id}/ → forma aninhada que o pipeline espera. */
 export function normalizeEvent(raw: any): any {
@@ -18,22 +18,23 @@ export function normalizeEvent(raw: any): any {
   };
 }
 
-export interface RunAnaliseOpts {
+export interface RunAnalyzeOpts {
   linha?: number;
   oddOver?: number;
   oddUnder?: number;
-  usarIa?: boolean;
+  useAi?: boolean;
   repo?: any;
-  escopoHistorico?: string;
+  historyScope?: string;
   leagueId?: unknown;
   oddsProvider?: any;
+  diagnostics?: boolean;
 }
 
 /** Orquestra um run real. nivel=jogador exige playerRef; nivel=partida usa as 2 equipes. */
-export async function runAnalise(
+export async function runAnalyze(
   client: any, eventId: string, marketKey: string, playerRef: string | null,
-  opts: RunAnaliseOpts = {},
-): Promise<{ candidatos: any[]; ia: any }> {
+  opts: RunAnalyzeOpts = {},
+): Promise<{ candidatos: any[]; reprovados: any[]; ia: any }> {
   if (!(marketKey in MARKETS)) throw new Error(`mercado desconhecido: ${marketKey}. Opções: ${Object.keys(MARKETS).join(", ")}`);
   const market: MarketSpec = MARKETS[marketKey]!;
 
@@ -53,9 +54,10 @@ export async function runAnalise(
     odd_over: opts.oddOver ?? 0.0, odd_under: opts.oddUnder ?? 0.0, book: "manual",
   }]);
 
-  const analistaFn = opts.usarIa ? aiAnalista : fakeAnalista;
+  const analystFn = opts.useAi ? aiAnalyst : fakeAnalyst;
 
-  return analisarJogo(event, market, stats, odds, opts.repo ?? new InMemoryRepo(), {
-    analistaFn, escopoHistorico: opts.escopoHistorico ?? "todos", leagueId,
+  return analyzeMatch(event, market, stats, odds, opts.repo ?? new InMemoryRepo(), {
+    analystFn, historyScope: opts.historyScope ?? "todos", leagueId,
+    diagnostics: opts.diagnostics ?? false,
   });
 }
