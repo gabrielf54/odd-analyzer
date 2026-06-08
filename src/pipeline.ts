@@ -4,6 +4,7 @@ import { probOverLine } from "./model/sotModel.js";
 import { scoreMatrix, probs1x2, probTotalOver } from "./model/matchModel.js";
 import { baselineFor, type MarketSpec } from "./model/markets.js";
 import { analyze as defaultAnalyst } from "./ai/analyst.js";
+import { type RateTrace } from "./model/trace.js";
 
 const UNCERTAINTY_ORDER: Record<string, number> = { baixa: 0, media: 1, alta: 2 };
 
@@ -69,6 +70,21 @@ async function runCount(event: any, market: MarketSpec, sp: any, op: any, scope:
   return playerCount(event, market, sp, lines, scope, leagueId);
 }
 
+/** Trace mínimo de partida: só o esperado final (sem evidência por-jogo). */
+function matchRateTrace(statField: string, mu: number): RateTrace {
+  return {
+    statField, mu,
+    passos: [{
+      passo: "esperado_final",
+      titulo: "Total esperado na partida",
+      formula: "soma dos esperados dos dois times",
+      entradas: { esperado: Math.round(mu * 100) / 100 },
+      saida: Math.round(mu * 100) / 100,
+      frase: `No total, esperamos ${Math.round(mu * 100) / 100} nesta partida.`,
+    }],
+  };
+}
+
 async function matchCount(event: any, market: MarketSpec, sp: any, lines: any[]): Promise<any[]> {
   const home = event.home_team ?? {}, away = event.away_team ?? {};
   const th = await sp.teamRate(home.id, market, { event, is_home: true, opp_team_id: away.id, league_avg_conceded: market.concede_baseline });
@@ -82,7 +98,7 @@ async function matchCount(event: any, market: MarketSpec, sp: any, lines: any[])
     jogador: label, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
     prob_modelo: probOverLine(muTotal, li.linha, market.nb_dispersion), mu: muTotal, minutos_esperados: 90.0,
     xi_confirmado: true, amostra_jogos: sample, concedido_adversario: "n/d", incerteza: uncertainty ?? "media",
-    market_type: market.key,
+    market_type: market.key, trace: matchRateTrace(market.stat_field, muTotal),
   }));
 }
 
@@ -106,6 +122,7 @@ async function runMatch(event: any, market: MarketSpec, sp: any, op: any): Promi
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
       prob_modelo: prob, mu: lambdaHome + lambdaAway, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
+      trace: matchRateTrace(market.stat_field, lambdaHome + lambdaAway),
     });
   });
 }

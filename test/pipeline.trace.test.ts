@@ -34,3 +34,22 @@ describe("analyzeMatch trace", () => {
     expect(out.reprovados).toEqual([]);
   });
 });
+
+describe("match trace minimo", () => {
+  it("escanteios: candidato traz trace com esperado_final e comparacao", async () => {
+    const sp = {
+      async teamRate() { return { mu: 5.2, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media" }; },
+    };
+    const op = { lines() { return [{ entidade: "partida", linha: 9.5, odd_over: 1.9, odd_under: 1.9, book: "manual" }]; } };
+    const repo = { async saveAnalysis() {}, async saveLedger() {} };
+    const ev = { id: "e2", jogo: "A x B", home_team: { id: "H", name: "A" }, away_team: { id: "A2", name: "B" } };
+    const out = await analyzeMatch(ev, MARKETS.escanteios!, sp, op, repo, { analystFn: () => ({ melhor_aposta: null, outras: [], alertas: [] }), diagnostics: true });
+    const all = [...out.candidatos, ...out.reprovados] as any[];
+    expect(all.length).toBeGreaterThan(0);
+    const withTrace = all.find((c) => c.trace);
+    expect(withTrace).toBeDefined();
+    expect(withTrace.trace.passos.map((p: any) => p.passo)).toEqual(
+      expect.arrayContaining(["esperado_final", "comparacao"]),
+    );
+  });
+});
