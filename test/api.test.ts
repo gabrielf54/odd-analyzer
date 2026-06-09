@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/api/app.js";
 import { InMemoryRepo } from "../src/store/repo.js";
+import { fakeClient as manualClient } from "./manualFixtures.js";
 
 function makeClient(): any {
   return {
@@ -61,5 +62,41 @@ describe("API", () => {
     const r = await request(app()).get("/jogos/ev1/resultado?market=sot&linha=1.5");
     expect(r.status).toBe(200);
     expect(r.body["1"]).toEqual({ valor_real: 3, bateu: true });
+  });
+});
+
+describe("API — fluxo manual de odds", () => {
+  const manualApp = () => createApp({ client: manualClient(), repo: new InMemoryRepo() });
+
+  it("GET /prompt → 200 com string do prompt e lista de jogadores", async () => {
+    const r = await request(manualApp()).get("/prompt").query({ event_id: "e1", market: "sot" });
+    expect(r.status).toBe(200);
+    expect(r.body.prompt).toContain("Kai Havertz");
+  });
+
+  it("GET /prompt sem market → 400", async () => {
+    const r = await request(manualApp()).get("/prompt").query({ event_id: "e1" });
+    expect(r.status).toBe(400);
+  });
+
+  it("POST /analise/manual → 200 com candidatos", async () => {
+    const r = await request(manualApp()).post("/analise/manual").send({
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.candidatos).toBeDefined();
+    expect(r.body.jogadores_sem_match).toBeDefined();
+  });
+
+  it("POST /analise/manual sem coletado_em → 400", async () => {
+    const r = await request(manualApp()).post("/analise/manual").send({ event_id: "e1", odds: [] });
+    expect(r.status).toBe(400);
+  });
+
+  it("POST /crosswalk → 200 e persiste", async () => {
+    const r = await request(manualApp()).post("/crosswalk").send({ nome_casa: "CR7", player_id: "20" });
+    expect(r.status).toBe(200);
+    expect(r.body.ok).toBe(true);
   });
 });
