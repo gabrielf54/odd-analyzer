@@ -3,6 +3,11 @@
 import { MARKETS } from "./model/markets.js";
 import { runAnalyze } from "./runner.js";
 import { buildTeamMap, resolve } from "./crosswalk/bsdIds.js";
+import { parseManualOdds } from "./manual/schema.js";
+import { analyzeManual } from "./manual/analyze.js";
+import { buildOddsPrompt } from "./manual/prompt.js";
+import { normalize } from "./crosswalk/match.js";
+import { analyze as aiAnalyst, fakeAnalyst } from "./ai/analyst.js";
 
 export async function listLeagues(client: any, limit = 200): Promise<any[]> {
   const data = await client.leagues({ limit });
@@ -146,6 +151,32 @@ export async function analyze(
     jogo, candidatos: out.candidatos ?? [], reprovados: out.reprovados ?? [],
     ia: out.ia ?? {}, em_validacao: inValidation,
   };
+}
+
+/** Gera o prompt de coleta de odds p/ um mercado (busca o lineup do jogo). */
+export async function generateOddsPrompt(client: any, eventId: string, marketKey: string): Promise<string> {
+  const raw = await client.getEvent(eventId);
+  const event = {
+    jogo: `${raw.home_team ?? "?"} x ${raw.away_team ?? "?"}`,
+    home_team: raw.home_team, away_team: raw.away_team,
+  };
+  const lineup = await probableLineup(client, eventId);
+  return buildOddsPrompt(event, marketKey, lineup);
+}
+
+export interface AnalyzeManualServiceOpts { repo?: any; useAi?: boolean; diagnostics?: boolean; }
+
+/** Valida o JSON colado e roda a análise geral de todos os mercados. */
+export async function analyzeManualService(client: any, body: unknown, opts: AnalyzeManualServiceOpts = {}): Promise<any> {
+  const input = parseManualOdds(body); // lança em erro estrutural (→ 400 na API)
+  return analyzeManual(client, input, {
+    repo: opts.repo, analystFn: opts.useAi ? aiAnalyst : fakeAnalyst, diagnostics: opts.diagnostics ?? false,
+  });
+}
+
+/** Liga um nome da casa a um player_id (stats-id) e persiste no crosswalk. */
+export async function confirmCrosswalk(repo: any, nomeCasa: string, playerId: string): Promise<void> {
+  await repo.saveCrosswalk(Number(playerId), normalize(nomeCasa), { casa: nomeCasa }, 1.0, true);
 }
 
 export async function paperBet(repo: any, eventId: string, candidate: any, inValidation = false): Promise<void> {

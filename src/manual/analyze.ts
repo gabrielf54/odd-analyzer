@@ -3,7 +3,7 @@ import { probOverLine } from "../model/sotModel.js";
 import { matchCount, runMatch } from "../pipeline.js";
 import { buildCandidate } from "../candidates/builder.js";
 import { evaluateCandidates } from "../candidates/filter.js";
-import { BSDStatsProvider } from "../providers/stats.js";
+import { BSDStatsProvider, CrosswalkStatsProvider } from "../providers/stats.js";
 import { ManualOdds } from "../providers/odds.js";
 import { InMemoryRepo } from "../store/repo.js";
 import { fakeAnalyst as defaultFake } from "../ai/analyst.js";
@@ -41,7 +41,10 @@ export async function analyzeManual(
 
   const event = normalizeEvent(await client.getEvent(input.event_id));
   const leagueId = event.league_id ?? null;
-  const stats = new BSDStatsProvider(client);
+  // Mercados de jogador exigem stats-ids: a escalação vem em lineup-namespace
+  // (que dá 404 no playerStats). CrosswalkStatsProvider resolve por nome — mesma
+  // estratégia do fluxo ao vivo provado. Mercados de partida não usam squad.
+  const stats = new CrosswalkStatsProvider(new BSDStatsProvider(client), client);
   const overrides = await repo.listCrosswalk();
 
   const byMarket = groupByMarket(input.odds);

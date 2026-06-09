@@ -34,7 +34,7 @@ describe("analyzeManual", () => {
 
   it("auto-casa jogador via override salvo no crosswalk", async () => {
     const repo = new InMemoryRepo();
-    repo.saveCrosswalk(10, "cr7", { casa: "CR7" }, 1.0, true); // "cr7" -> id 10 (Havertz)
+    repo.saveCrosswalk(1000, "cr7", { casa: "CR7" }, 1.0, true); // "cr7" -> stats-id 1000 (Havertz)
     const out = await analyzeManual(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "CR7", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],

@@ -2,9 +2,11 @@ import { describe, it, expect } from "vitest";
 import {
   listLeagues, listMatches, probableLineup, recentPlayerAverage,
   analyze, paperBet, realPlayerResult,
+  generateOddsPrompt, analyzeManualService, confirmCrosswalk,
 } from "../src/service.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 import { ManualOdds } from "../src/providers/odds.js";
+import { fakeClient } from "./manualFixtures.js";
 
 describe("service", () => {
   it("listLeagues ordena por nome", async () => {
@@ -83,5 +85,33 @@ describe("service", () => {
     const out = await realPlayerResult(client, "ev1", "sot", 1.5);
     expect(out["1"]).toEqual({ valor_real: 3, bateu: true });
     expect(out["2"]).toEqual({ valor_real: 0, bateu: false });
+  });
+});
+
+describe("service manual (coleta de odds via IA externa)", () => {
+  it("generateOddsPrompt monta prompt com lineup do jogo", async () => {
+    const p = await generateOddsPrompt(fakeClient(), "e1", "sot");
+    expect(p).toContain("Kai Havertz");
+  });
+
+  it("analyzeManualService valida body e roda análise", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManualService(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    }, { repo });
+    expect(out.candidatos).toBeDefined();
+    expect(out.linhas_rejeitadas).toHaveLength(0);
+  });
+
+  it("analyzeManualService sem coletado_em lança", async () => {
+    await expect(analyzeManualService(fakeClient(), { event_id: "e1", odds: [] }))
+      .rejects.toThrow();
+  });
+
+  it("confirmCrosswalk persiste nome->id no repo", async () => {
+    const repo = new InMemoryRepo();
+    await confirmCrosswalk(repo, "CR7", "20");
+    expect(repo.listCrosswalk()["cr7"]).toBe("20");
   });
 });
