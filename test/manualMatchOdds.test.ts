@@ -47,4 +47,18 @@ describe("matchPlayerOdds", () => {
     expect(r.sem_match).toHaveLength(1);
     expect(r.sem_match[0]!.candidatos.length).toBe(2);
   });
+
+  it("sobrenome compartilhado mas nome completo dado: desambigua pelo 1º nome e casa", () => {
+    // Argentina tem Emiliano E Lautaro Martínez. Sobrenome igual não pode empatar
+    // quando a casa manda o nome completo "Lautaro Martínez".
+    const argentinos = [
+      { id: "1629", name: "Emiliano Martínez" },
+      { id: "1687", name: "Lautaro Martínez" },
+      { id: "2826", name: "Máximo Perrone" },
+    ];
+    const r = matchPlayerOdds([line("Lautaro Martínez")], argentinos, {});
+    expect(r.sem_match).toHaveLength(0);
+    expect(r.casados).toHaveLength(1);
+    expect(r.casados[0]!.player_id).toBe("1687");
+  });
 });
