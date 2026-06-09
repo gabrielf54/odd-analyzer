@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { analyzeMatch } from "../src/pipeline.js";
+import { analyzeMatch, matchCount, runMatch } from "../src/pipeline.js";
 import { ManualOdds } from "../src/providers/odds.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 import { fakeAnalyst } from "../src/ai/analyst.js";
@@ -34,5 +34,12 @@ describe("analyzeMatch", () => {
     const repo = new InMemoryRepo();
     const out = await analyzeMatch(event, MARKETS["sot"]!, fakeStats, new ManualOdds([]), repo, { analystFn: fakeAnalyst });
     expect(out.candidatos).toEqual([]);
+  });
+});
+
+describe("pipeline exports p/ reuso manual", () => {
+  it("matchCount e runMatch estão exportados", () => {
+    expect(typeof matchCount).toBe("function");
+    expect(typeof runMatch).toBe("function");
   });
 });

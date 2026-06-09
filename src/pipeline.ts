@@ -85,7 +85,7 @@ function matchRateTrace(statField: string, mu: number): RateTrace {
   };
 }
 
-async function matchCount(event: any, market: MarketSpec, sp: any, lines: any[]): Promise<any[]> {
+export async function matchCount(event: any, market: MarketSpec, sp: any, lines: any[]): Promise<any[]> {
   const home = event.home_team ?? {}, away = event.away_team ?? {};
   const th = await sp.teamRate(home.id, market, { event, is_home: true, opp_team_id: away.id, league_avg_conceded: market.concede_baseline });
   const ta = await sp.teamRate(away.id, market, { event, is_home: false, opp_team_id: home.id, league_avg_conceded: market.concede_baseline });
@@ -102,7 +102,7 @@ async function matchCount(event: any, market: MarketSpec, sp: any, lines: any[])
   }));
 }
 
-async function runMatch(event: any, market: MarketSpec, sp: any, op: any): Promise<any[]> {
+export async function runMatch(event: any, market: MarketSpec, sp: any, op: any): Promise<any[]> {
   const lines = await op.lines(event, market);
   if (!lines || lines.length === 0) return [];
   const home = event.home_team ?? {}, away = event.away_team ?? {};
