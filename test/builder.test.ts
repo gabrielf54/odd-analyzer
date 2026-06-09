@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { buildCandidate } from "../src/candidates/builder.js";
+import { impliedProb } from "../src/value/devig.js";
 
 describe("buildCandidate", () => {
   it("calcula prob_devig/edge/ev e monta o dossiê (a IA nunca calcula)", () => {
@@ -14,5 +15,29 @@ describe("buildCandidate", () => {
     expect(c["prob_devig"]).toBeGreaterThan(0);
     expect(c["edge"]).toBeCloseTo(0.6 - (c["prob_devig"] as number), 12);
     expect(c["ev"]).toBeCloseTo(0.6 * 1.9 - 1.0, 12);
+    expect(c["sem_devig"]).toBe(false);
+  });
+
+  it("só over (sem odd_under): prob_devig = implícita crua e marca sem_devig", () => {
+    const c = buildCandidate({
+      jogador: "K. Havertz", linha: 0.5, odd_over: 2.0, odd_under: null,
+      prob_modelo: 0.6, mu: 1.0, minutos_esperados: 90, xi_confirmado: true,
+      amostra_jogos: 12, concedido_adversario: "n/d", incerteza: "baixa", market_type: "sot",
+    });
+    expect(c["sem_devig"]).toBe(true);
+    expect(c["prob_devig"]).toBeCloseTo(impliedProb(2.0), 9); // 0.5 cru, sem normalizar margem
+    expect(c["odd"]).toBe(2.0);
+    expect(c["edge"]).toBeCloseTo(0.6 - 0.5, 9);
+    expect(c["ev"]).toBeCloseTo(0.6 * 2.0 - 1.0, 9);
+  });
+
+  it("com os dois lados simétricos: de-vig dá 0.5 e sem_devig=false", () => {
+    const c = buildCandidate({
+      jogador: "partida", linha: 9.5, odd_over: 1.9, odd_under: 1.9,
+      prob_modelo: 0.55, mu: 10, minutos_esperados: 90, xi_confirmado: true,
+      amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: "escanteios",
+    });
+    expect(c["sem_devig"]).toBe(false);
+    expect(c["prob_devig"]).toBeCloseTo(0.5, 9);
   });
 });
