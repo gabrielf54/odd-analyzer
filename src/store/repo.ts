@@ -10,6 +10,7 @@ export interface Repo {
   updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number): Promise<void> | void;
   saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified?: boolean): Promise<void> | void;
   getCrosswalk(canonicalId: number): Promise<any | null> | (any | null);
+  listCrosswalk(): Promise<Record<string, string>> | Record<string, string>;
   snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number): Promise<void> | void;
 }
 
@@ -40,6 +41,12 @@ export class InMemoryRepo implements Repo {
     });
   }
   getCrosswalk(canonicalId: number) { return this.crosswalk.get(canonicalId) ?? null; }
+
+  listCrosswalk(): Record<string, string> {
+    const out: Record<string, string> = {};
+    for (const row of this.crosswalk.values()) out[row.nome_normalizado] = String(row.id_canonico);
+    return out;
+  }
 
   snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number) {
     for (const row of this.ledger) {
@@ -94,6 +101,12 @@ export class SupabaseRepo implements Repo {
   async getCrosswalk(canonicalId: number) {
     const { data } = await this.client.from("jogadores_crosswalk").select("*").eq("id_canonico", canonicalId);
     return data && data.length ? data[0] : null;
+  }
+  async listCrosswalk(): Promise<Record<string, string>> {
+    const { data } = await this.client.from("jogadores_crosswalk").select("nome_normalizado,id_canonico");
+    const out: Record<string, string> = {};
+    for (const row of data ?? []) out[row.nome_normalizado] = String(row.id_canonico);
+    return out;
   }
   async snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number) {
     let sel = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
