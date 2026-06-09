@@ -33,4 +33,23 @@ describe("buildOddsPrompt", () => {
   it("mercado desconhecido lança", () => {
     expect(() => buildOddsPrompt({ jogo: "x" }, "cartoes", lineup)).toThrow(/desconhecido/);
   });
+
+  it("grupo 'jogador': UM prompt com lista + os 3 mercados de jogador", () => {
+    const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, "jogador", lineup);
+    expect(p).toContain("Kai Havertz");
+    expect(p).toContain("Joshua Kimmich");
+    expect(p).toContain('"sot"');
+    expect(p).toContain('"finalizacoes"');
+    expect(p).toContain('"desarmes"');
+    expect(p).toMatch(/OVER|Mais de/i);
+  });
+
+  it("grupo 'partida': UM prompt com gols + escanteios + vitoria, 2 lados nos totais", () => {
+    const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, "partida", lineup);
+    expect(p).toContain('"gols"');
+    expect(p).toContain('"escanteios"');
+    expect(p).toContain('"vitoria"');
+    expect(p).toContain('"odd_under"');
+    expect(p).not.toContain("Kai Havertz");
+  });
 });

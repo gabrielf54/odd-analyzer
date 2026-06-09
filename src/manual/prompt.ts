@@ -10,13 +10,63 @@ function playerNames(lineup: any): string[] {
   return out;
 }
 
-/** Monta o prompt pronto pra colar no Claude-extensão, fatiado por mercado.
- * Jogador: embute a lista de jogadores (ancla a IA nos nomes da base) e pede só
- * over. Partida: pede os dois lados (totais) ou um por resultado (1x2). */
+function gameLabel(event: any): string {
+  return event.jogo ?? `${event.home_team ?? "?"} x ${event.away_team ?? "?"}`;
+}
+
+/** UM prompt cobrindo TODOS os mercados de jogador (SOT + finalizações +
+ * desarmes) de uma vez — mais intuitivo que mercado a mercado. Só over. */
+export function buildPlayerGroupPrompt(event: any, lineup: any): string {
+  const jogo = gameLabel(event);
+  const lista = playerNames(lineup).map((n) => `- ${n}`).join("\n");
+  return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
+Colete as odds dos MERCADOS DE JOGADOR destes jogadores:
+${lista}
+
+Para CADA jogador, colete os TRÊS mercados abaixo (quando existirem), SOMENTE o
+lado OVER ("Mais de"), para cada linha visível:
+- Chutes a Gol / Finalizações no Gol (SOT) → use "market_type": "sot"
+- Finalizações Totais → use "market_type": "finalizacoes"
+- Desarmes → use "market_type": "desarmes"
+
+Expanda TODAS as seções/abas/acordeões antes de ler. Se um jogador da lista não
+aparecer num mercado, OMITA — não invente. Não chute odd que você não viu.
+
+Devolva APENAS JSON, um único array com TODAS as linhas, nada mais:
+[ { "market_type": "sot", "entidade": "<nome exato da lista>",
+    "linha": <number>, "odd_over": <number>, "book": "<nome da casa>" } ]`;
+}
+
+/** UM prompt cobrindo TODOS os mercados de partida (gols + escanteios + 1X2). */
+export function buildMatchGroupPrompt(event: any): string {
+  const jogo = gameLabel(event);
+  return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
+Colete as odds dos MERCADOS DE PARTIDA abaixo, para cada linha visível:
+- Gols (Total): Over/Under, OS DOIS LADOS → "market_type": "gols", "entidade": "partida"
+- Escanteios (Total): Over/Under, OS DOIS LADOS → "market_type": "escanteios", "entidade": "partida"
+- Resultado (1X2): uma entrada por resultado → "market_type": "vitoria", "entidade": "<nome do time ou \\"empate\\">"
+
+Expanda TODAS as seções/abas/acordeões antes de ler. Não invente. Não chute odd
+que você não viu. Nos totais (gols/escanteios) sempre traga os dois lados.
+
+Devolva APENAS JSON, um único array com TODAS as linhas, nada mais:
+[
+  { "market_type": "gols", "entidade": "partida", "linha": <number>, "odd_over": <number>, "odd_under": <number>, "book": "<nome da casa>" },
+  { "market_type": "escanteios", "entidade": "partida", "linha": <number>, "odd_over": <number>, "odd_under": <number>, "book": "<nome da casa>" },
+  { "market_type": "vitoria", "entidade": "<time ou empate>", "odd_over": <number>, "book": "<nome da casa>" }
+]`;
+}
+
+/** Monta o prompt pronto pra colar na IA externa. `marketKey` aceita os grupos
+ * "jogador" e "partida" (1 prompt cobrindo todos os mercados do grupo — o caminho
+ * intuitivo) ou uma chave de mercado individual (mantido p/ compatibilidade). */
 export function buildOddsPrompt(event: any, marketKey: string, lineup: any): string {
+  if (marketKey === "jogador") return buildPlayerGroupPrompt(event, lineup);
+  if (marketKey === "partida") return buildMatchGroupPrompt(event);
+
   const market = MARKETS[marketKey];
   if (!market) throw new Error(`mercado desconhecido: ${marketKey}`);
-  const jogo = event.jogo ?? `${event.home_team ?? "?"} x ${event.away_team ?? "?"}`;
+  const jogo = gameLabel(event);
 
   if (PLAYER_MARKETS.has(marketKey)) {
     const lista = playerNames(lineup).map((n) => `- ${n}`).join("\n");
