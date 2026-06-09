@@ -15,26 +15,62 @@ function gameLabel(event: any): string {
 }
 
 /** UM prompt cobrindo TODOS os mercados de jogador (SOT + finalizações +
- * desarmes) de uma vez — mais intuitivo que mercado a mercado. Só over. */
+ * desarmes) de uma vez. Calibrado pela realidade da bet365 (auditoria
+ * 2026-06-09): linhas são colunas-limiar "N+" (não "Mais de X.5"), não há lado
+ * Under, nomes vêm sem acento/islandês, e cada mercado é opcional por jogo. */
 export function buildPlayerGroupPrompt(event: any, lineup: any): string {
   const jogo = gameLabel(event);
   const lista = playerNames(lineup).map((n) => `- ${n}`).join("\n");
-  return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
-Colete as odds dos MERCADOS DE JOGADOR destes jogadores:
+  return `Você está na página de apostas do jogo ${jogo} numa casa de apostas (ex.: bet365),
+na aba de mercados de JOGADOR ("Player"/"Jogador"). Colete odds destes jogadores:
 ${lista}
 
-Para CADA jogador, colete os TRÊS mercados abaixo (quando existirem), SOMENTE o
-lado OVER ("Mais de"), para cada linha visível:
-- Chutes a Gol / Finalizações no Gol (SOT) → use "market_type": "sot"
-- Finalizações Totais → use "market_type": "finalizacoes"
-- Desarmes → use "market_type": "desarmes"
+MERCADOS-ALVO (todos OPCIONAIS — se a casa não tiver um NESTE jogo, simplesmente
+não gere linhas dele; outros jogos podem ter):
+- Chutes a Gol / "Player Shots On Target"  → "market_type": "sot"
+- Finalizações Totais / "Player Shots"     → "market_type": "finalizacoes"
+- Desarmes / "Tackles"                     → "market_type": "desarmes"
+ATENÇÃO: "Player Shots On Target" (sot) e "Player Shots" (finalizacoes) têm rótulos
+quase idênticos — NÃO troque um pelo outro. Sempre grave o rótulo cru da casa em
+"market_label_casa" para conferência.
 
-Expanda TODAS as seções/abas/acordeões antes de ler. Se um jogador da lista não
-aparecer num mercado, OMITA — não invente. Não chute odd que você não viu.
+COMO LER AS LINHAS: nesta casa NÃO existe botão "Mais de"/"Over"/"Under". As linhas
+são COLUNAS-LIMIAR acumulativas "1+", "2+", "3+"… — cada célula com odd já é, por
+definição, um over ("aquele número OU MAIS"). Para cada célula com odd:
+  - "linha"       = (número da coluna) − 0.5   → "2+" vira 1.5, "3+" vira 2.5
+  - "linha_label" = o rótulo cru da coluna ("2+")
+  - "odd_over"    = a odd da célula
+Só se a casa usar o estilo clássico "Mais de X.5", use esse X.5 direto como "linha".
+IGNORE células com cadeado/suspensas (sem odd). NÃO confunda colunas de desfecho
+("Score"/"Assist"/"Score or Assist") com linhas — não são mercado de contagem.
 
-Devolva APENAS JSON, um único array com TODAS as linhas, nada mais:
-[ { "market_type": "sot", "entidade": "<nome exato da lista>",
-    "linha": <number>, "odd_over": <number>, "book": "<nome da casa>" } ]`;
+NOMES — case com a MINHA lista, não com o texto cru da casa. A casa remove acentos e
+caracteres islandeses e às vezes muda o nome do meio. Para casar: tire acentos;
+þ→th, ð→d, æ→ae, ö/ø→o; ignore caixa; case por sobrenome + primeiro nome aceitando
+nome do meio ausente OU extra ("Mikael Egill Ellertsson" = "Mikael Ellertsson").
+Em "entidade" devolva o nome EXATAMENTE como está na minha lista acima; em
+"entidade_casa", o nome como exibido na casa. Sem match seguro → OMITA, não invente.
+Cuidado: em mercados de goleiro a casa pode exibir outro goleiro (reserva) — só
+inclua se casar com a lista.
+
+EXECUÇÃO: garanta a aba "Player". Em cada mercado-alvo, abra o acordeão se fechado e
+clique "Mostrar Mais"/"Show more" REPETIDAMENTE até sumir — ele revela mais JOGADORES
+em uns mercados e mais COLUNAS em outros. Ignore blocos "Outras por Pedido"/sob
+demanda. Não chute nenhuma odd que você não viu.
+
+Devolva APENAS JSON, um único array com TODAS as linhas, nada mais. Um exemplo por
+market_type:
+[
+  { "market_type": "sot", "market_label_casa": "Player Shots On Target",
+    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
+    "linha": 1.5, "linha_label": "2+", "odd_over": 1.72, "book": "<nome da casa>" },
+  { "market_type": "finalizacoes", "market_label_casa": "Player Shots",
+    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
+    "linha": 2.5, "linha_label": "3+", "odd_over": 2.10, "book": "<nome da casa>" },
+  { "market_type": "desarmes", "market_label_casa": "Tackles",
+    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
+    "linha": 1.5, "linha_label": "2+", "odd_over": 1.90, "book": "<nome da casa>" }
+]`;
 }
 
 /** UM prompt cobrindo TODOS os mercados de partida (gols + escanteios + 1X2). */

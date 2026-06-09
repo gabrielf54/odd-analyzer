@@ -34,14 +34,21 @@ describe("buildOddsPrompt", () => {
     expect(() => buildOddsPrompt({ jogo: "x" }, "cartoes", lineup)).toThrow(/desconhecido/);
   });
 
-  it("grupo 'jogador': UM prompt com lista + os 3 mercados de jogador", () => {
+  it("grupo 'jogador': lista + 3 mercados, modelo coluna N+ e matching normalizado", () => {
     const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, "jogador", lineup);
     expect(p).toContain("Kai Havertz");
     expect(p).toContain("Joshua Kimmich");
     expect(p).toContain('"sot"');
     expect(p).toContain('"finalizacoes"');
     expect(p).toContain('"desarmes"');
-    expect(p).toMatch(/OVER|Mais de/i);
+    // bet365: linhas são colunas-limiar "N+", não "Mais de X.5"
+    expect(p).toMatch(/2\+/);
+    expect(p).toContain('"linha_label"');
+    // nome cru da casa preservado + normalização de acento/islandês
+    expect(p).toContain('"entidade_casa"');
+    expect(p).toMatch(/þ→th|acento/i);
+    // mercados opcionais (desarmes pode não existir no jogo)
+    expect(p).toMatch(/OPCIONAIS|não tiver|OMITA/);
   });
 
   it("grupo 'partida': UM prompt com gols + escanteios + vitoria, 2 lados nos totais", () => {
