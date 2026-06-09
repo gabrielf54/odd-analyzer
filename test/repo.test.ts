@@ -36,4 +36,11 @@ describe("InMemoryRepo", () => {
     r.saveCrosswalk(7, "kaiki", { bsd: "100" }, 0.95);
     expect(r.getCrosswalk(7)!.nome_normalizado).toBe("kaiki");
   });
+
+  it("listCrosswalk devolve overrides {nome_normalizado -> id_canonico}", () => {
+    const r = new InMemoryRepo();
+    r.saveCrosswalk(20, "cr7", { bet365: "CR7" }, 1.0, true);
+    const ov = r.listCrosswalk();
+    expect(ov["cr7"]).toBe("20");
+  });
 });

@@ -1,0 +1,47 @@
+import { describe, it, expect } from "vitest";
+import { analyzeManual } from "../src/manual/analyze.js";
+import { InMemoryRepo } from "../src/store/repo.js";
+import { fakeClient, fakeAnalyst } from "./manualFixtures.js";
+
+describe("analyzeManual", () => {
+  it("roda mercado de jogador com odd por-jogador e marca sem_devig", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [],
+    }, { repo, analystFn: fakeAnalyst, diagnostics: true });
+
+    const all = [...out.candidatos, ...out.reprovados];
+    const havertz = all.find((c: any) => String(c.jogador).includes("Havertz"));
+    expect(havertz).toBeDefined();
+    expect(havertz.sem_devig).toBe(true);
+    expect(havertz.odd).toBe(3.0);
+    expect(out.jogadores_sem_match).toHaveLength(0);
+  });
+
+  it("propaga linhas_rejeitadas e jogadores_sem_match na resposta", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "Lionel Messi", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [{ linha_crua: { x: 1 }, motivo: "teste" }],
+    }, { repo, analystFn: fakeAnalyst });
+    expect(out.jogadores_sem_match.length).toBe(1);
+    expect(out.jogadores_sem_match[0].market_type).toBe("sot");
+    expect(out.linhas_rejeitadas.length).toBe(1);
+  });
+
+  it("auto-casa jogador via override salvo no crosswalk", async () => {
+    const repo = new InMemoryRepo();
+    repo.saveCrosswalk(1000, "cr7", { casa: "CR7" }, 1.0, true); // "cr7" -> stats-id 1000 (Havertz)
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "CR7", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [],
+    }, { repo, analystFn: fakeAnalyst, diagnostics: true });
+    expect(out.jogadores_sem_match).toHaveLength(0);
+    const all = [...out.candidatos, ...out.reprovados];
+    expect(all.find((c: any) => String(c.jogador).includes("Havertz"))).toBeDefined();
+  });
+});

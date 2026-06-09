@@ -29,6 +29,8 @@ const paperSchema = z.object({
 
 const matchesQuery = z.object({ status: z.enum(["finished", "notstarted"]) });
 const resultQuery = z.object({ market: z.string(), linha: z.coerce.number() });
+const promptQuery = z.object({ event_id: z.string(), market: z.string() });
+const crosswalkSchema = z.object({ nome_casa: z.string(), player_id: z.string() });
 
 /** Monta a app Express. `deps` injeta client/repo (reais no server, fakes no teste). */
 export function createApp(deps: Deps): express.Express {
@@ -77,6 +79,24 @@ export function createApp(deps: Deps): express.Express {
     const p = paperSchema.safeParse(req.body);
     if (!p.success) throw new AppError(400, "body_invalido", p.error.issues.map((i) => i.message).join("; "));
     await service.paperBet(deps.repo, p.data.event_id, p.data.candidato, p.data.em_validacao ?? false);
+    res.json({ ok: true });
+  }));
+
+  app.get("/prompt", wrap(async (req, res) => {
+    const q = promptQuery.safeParse(req.query);
+    if (!q.success) throw new AppError(400, "query_invalida", "event_id e market são obrigatórios");
+    res.json({ prompt: await service.generateOddsPrompt(deps.client, q.data.event_id, q.data.market) });
+  }));
+
+  app.post("/analise/manual", wrap(async (req, res) => {
+    // A validação fina do JSON é do parseManualOdds (lança → 400 no middleware).
+    res.json(await service.analyzeManualService(deps.client, req.body, { repo: deps.repo }));
+  }));
+
+  app.post("/crosswalk", wrap(async (req, res) => {
+    const p = crosswalkSchema.safeParse(req.body);
+    if (!p.success) throw new AppError(400, "body_invalido", p.error.issues.map((i) => i.message).join("; "));
+    await service.confirmCrosswalk(deps.repo, p.data.nome_casa, p.data.player_id);
     res.json({ ok: true });
   }));
 
