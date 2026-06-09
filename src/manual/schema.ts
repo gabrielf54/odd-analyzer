@@ -1,0 +1,78 @@
+import { z } from "zod";
+
+const MARKET_TYPES = ["gols", "vitoria", "escanteios", "sot", "finalizacoes", "desarmes"] as const;
+const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes"]);
+
+/** Linha crua do JSON (pré-validação semântica). */
+const rawLineSchema = z.object({
+  market_type: z.string(),
+  entidade: z.string(),
+  linha: z.number().optional(),
+  odd_over: z.number(),
+  odd_under: z.number().nullish(),
+  book: z.string().default("manual"),
+});
+
+const bodySchema = z.object({
+  event_id: z.string(),
+  coletado_em: z.string(),
+  odds: z.array(z.unknown()),
+});
+
+export interface ManualOddsLine {
+  market_type: string;
+  entidade: string;
+  linha: number;
+  odd_over: number;
+  odd_under: number | null;
+  book: string;
+}
+
+export interface LinhaRejeitada { linha_crua: unknown; motivo: string; }
+
+export interface ManualOddsInput {
+  event_id: string;
+  coletado_em: string;
+  odds: ManualOddsLine[];
+  linhas_rejeitadas: LinhaRejeitada[];
+}
+
+/** Valida o JSON colado. Lança em erro estrutural (body). Erros por-linha NÃO
+ * lançam — vão para linhas_rejeitadas, para o operador inspecionar o que a
+ * IA/casa mandou torto. O que não passa nunca entra no money-path. */
+export function parseManualOdds(body: unknown): ManualOddsInput {
+  const b = bodySchema.parse(body); // lança se faltar event_id/coletado_em/odds
+  const odds: ManualOddsLine[] = [];
+  const linhas_rejeitadas: LinhaRejeitada[] = [];
+
+  for (const raw of b.odds) {
+    const p = rawLineSchema.safeParse(raw);
+    if (!p.success) { linhas_rejeitadas.push({ linha_crua: raw, motivo: "formato inválido da linha" }); continue; }
+    const l = p.data;
+    if (!(MARKET_TYPES as readonly string[]).includes(l.market_type)) {
+      linhas_rejeitadas.push({ linha_crua: raw, motivo: `market_type desconhecido: ${l.market_type}` }); continue;
+    }
+    if (l.odd_over <= 1.01) {
+      linhas_rejeitadas.push({ linha_crua: raw, motivo: "odd_over deve ser > 1.01" }); continue;
+    }
+    if (l.odd_under != null && l.odd_under <= 1.01) {
+      linhas_rejeitadas.push({ linha_crua: raw, motivo: "odd_under deve ser > 1.01" }); continue;
+    }
+    const isPlayer = PLAYER_MARKETS.has(l.market_type);
+    if (isPlayer) {
+      if (l.entidade === "partida" || l.linha == null) {
+        linhas_rejeitadas.push({ linha_crua: raw, motivo: "mercado de jogador exige entidade (nome) e linha" }); continue;
+      }
+    } else if (l.market_type !== "vitoria") {
+      // gols/escanteios: totais precisam dos dois lados p/ de-vig
+      if (l.odd_under == null || l.linha == null) {
+        linhas_rejeitadas.push({ linha_crua: raw, motivo: "mercado de partida (totais) exige os dois lados e linha" }); continue;
+      }
+    }
+    odds.push({
+      market_type: l.market_type, entidade: l.entidade, linha: l.linha ?? 0,
+      odd_over: l.odd_over, odd_under: l.odd_under ?? null, book: l.book,
+    });
+  }
+  return { event_id: b.event_id, coletado_em: b.coletado_em, odds, linhas_rejeitadas };
+}
