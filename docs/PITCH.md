@@ -91,13 +91,14 @@ O motor não entra no ar por fé — cada mercado passou (ou não) por uma calib
 
 > Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados, inclusive na população de seleção da Copa) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
-### De onde vêm as odds (2026-06-03)
+### De onde vêm as odds (2026-06-09)
 
 As odds da casa são metade da conta (comparamos o nosso número com o da casa). De onde elas chegam:
 
-- **Mercados de time (gols, resultado/1X2):** agora entram **sozinhas, de graça** — puxamos de um serviço gratuito (The Odds API) que cobre os jogos da Copa com dezenas de casas. Não precisa mais digitar.
-- **Mercados de jogador (chutes/finalizações/desarmes):** a odd ainda é **colocada à mão**. Pesquisamos fundo (junho/2026) e **nenhum serviço barato vende a odd desses mercados para a Copa** — e "desarmes" não é vendido por preço nenhum. Por enquanto eu pego a odd na casa (betano/bet365) e colo. **Achar um jeito automático para as odds de jogador é um objetivo em aberto** (no ROADMAP como `odds-prop-jogador`); só vale gastar nisso se aparecer fonte barata ou se o orçamento subir.
-- **Escanteios:** ainda sem fonte automática barata; fica à mão também.
+- **Mercados de time (gols, resultado/1X2):** entram **sozinhas, de graça** — puxamos de um serviço gratuito (The Odds API) que cobre os jogos da Copa com dezenas de casas. Não precisa digitar.
+- **Mercados de jogador (chutes/finalizações/desarmes) e escanteios:** não existe serviço barato que venda essas odds da Copa (pesquisa de junho/2026; "desarmes" não é vendido por preço nenhum). Então criamos um **atalho esperto pra coletar à mão sem digitar uma por uma:** o app me dá um **texto pronto pra copiar** (um por aba/mercado, já com a lista de jogadores do jogo); eu colo numa IA externa (o Claude na extensão do navegador), ela lê o site da casa e me devolve as odds num **bloco organizado (JSON)**; eu colo esse bloco no app e ele **analisa todos os mercados do jogo de uma vez**. Achar um jeito 100% automático segue como objetivo em aberto (`odds-prop-jogador`), mas isso já destrava a validação **de graça**.
+
+> **Duas observações honestas deste atalho:** (1) nas props de jogador a casa quase sempre só mostra o lado "mais de" (over), sem o "menos de" — sem os dois lados não dá pra "limpar a margem" como nos mercados de time, então aí o app usa o preço cru e faz uma conta **mais exigente** (passa menos aposta, mas nunca aponta valor falso). (2) Quando o nome do jogador no site da casa não bate na hora com a nossa base, o app **não chuta** — ele me mostra os parecidos pra eu confirmar com um clique, e guarda pra acertar sozinho da próxima.
 
 ---
 

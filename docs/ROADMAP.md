@@ -2,9 +2,41 @@
 
 > **✅ MIGRAÇÃO DE STACK CONCLUÍDA (2026-06-04):** projeto portado de **Python → Node/TypeScript** (motivo: manutenibilidade — o dono dá suporte em JS, não em Python). Backend Node na **raiz do repo** (`src/`+`test/`, Express+REST+Zod) e front **Next** no repo separado `odd-analyzer-frontend`. **Motor + adapters + API portados, 111 testes Vitest verdes, com GATE DE PARIDADE** provando que o TS reproduz os números do Python em 1e-9 (protege a calibração). **E2E ao vivo validado** (análise real via BSD → value bet coerente). **Python legado removido**; golden files do gate ficam congeladas. A doutrina de Produto e os vereditos de calibração abaixo **continuam valendo** (não dependem de linguagem). Detalhe: `docs/superpowers/specs/2026-06-04-migracao-node-design.md` + planos 1/2/3. Meta de dinheiro real 11/06 **flexível** (só após validação forward).
 
-> **Atualizado:** 2026-06-04 · **Suíte:** 111 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-09 · **Suíte:** 163 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
 >
 > **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Coleta manual de odds via IA externa + análise geral de TODOS os mercados — FEITO (2026-06-09)
+
+**O problema:** não existe API de odds de prop de jogador (SOT/finalizações/desarmes) da Copa a
+≤$20 (cravado pela deep-research). Sem isso, validar o produto travava. **Solução MVP $0:** o
+operador usa uma IA externa (Claude na extensão do Chrome) pra ler o site da casa e devolver as
+odds em JSON; cola na plataforma; o backend roda a análise de **todos os mercados do jogo de uma vez**.
+
+Backend stateless, novo módulo `src/manual/` + 3 endpoints:
+- **`GET /prompt?event_id&market`** — gera o prompt pronto pra colar na IA externa, **fatiado por
+  mercado/aba**. Mercado de jogador **embute a lista de jogadores** (do lineup BSD) pra ancorar a IA
+  nos nomes da base e pede **só over**; mercado de partida pede **os dois lados**.
+- **`POST /analise/manual`** — valida o JSON (Zod; o que falha vai pra `linhas_rejeitadas`, nunca
+  entra no money-path), casa cada odd de jogador ao seu jogador e roda todos os mercados. Devolve
+  `candidatos`, `jogadores_sem_match` e `linhas_rejeitadas`.
+- **`POST /crosswalk`** — liga um nome da casa a um `player_id` e persiste (`jogadores_crosswalk`);
+  próximas análises auto-casam.
+
+**Decisões de produto travadas:**
+- **Jogador = só over, sem de-vig** (casa raramente cota o under de prop). Compara `prob_modelo`
+  contra a **implícita CRUA** do over → teste **conservador** (margem inflada = mais difícil
+  passar, nunca sinaliza valor-fantasma vindo só da margem); EV calculado na odd crua é o EV real.
+  Candidato sai marcado **`sem_devig: true`**. Partida segue com de-vig dos dois lados.
+- **Matching fail-closed com escotilha humana:** auto-casa por **sobrenome** (nome da casa vem
+  abreviado, "K. Havertz" — Dice da string inteira não auto-casava nada) **+ guarda anti-ambiguidade**
+  (dois sobrenomes iguais → não casa, vai pro operador). Confirmado → salvo → auto-casa nas próximas.
+- **Motor e GATE DE PARIDADE intocados:** única mudança no motor é aditiva em `buildCandidate`
+  (de-vig single-side), que só dispara quando falta o under — os goldens sempre mandam os dois lados.
+
+Spec: `docs/superpowers/specs/2026-06-09-odds-manual-coleta-ia-externa-design.md` ·
+Plano: `docs/superpowers/plans/2026-06-09-odds-manual-coleta-ia-externa.md`. Front (campos "copiar
+prompt" + "colar JSON" + lista de `jogadores_sem_match` pra ligar) fica no repo `odd-analyzer-frontend`.
 
 ## Odds automáticas de PARTIDA via The Odds API (gols + 1X2 da Copa) — FEITO (2026-06-03)
 
