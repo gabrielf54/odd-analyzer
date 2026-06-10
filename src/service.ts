@@ -7,6 +7,8 @@ import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
+import { InMemoryRepo, type OddsRow } from "./store/repo.js";
+import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
 
 export async function listLeagues(client: any, limit = 200): Promise<any[]> {
@@ -19,11 +21,26 @@ export async function listLeagues(client: any, limit = 200): Promise<any[]> {
   return leagues;
 }
 
+// A BSD não ordena /events por data — devolve por id DESC e respeita o `limit`.
+// Em ligas grandes (ex.: Copa, liga 27) os ids altos são jogos de chave/knockout
+// (data tarde, times placeholder), então pedir só `limit` deixa o opener e a fase
+// de grupos (ids baixos) fora da janela. Puxamos largo e ordenamos/cortamos aqui.
+const WIDE_FETCH = 200;
+
+// Jogo de chave ainda sem time definido vem com nome placeholder ("W101", "L101",
+// "1K", "H1", "3D/3E/3I"). Sem time real não há stats → não é candidato a análise.
+function isPlaceholderTeam(name: unknown): boolean {
+  const s = String(name ?? "").trim();
+  if (!s) return true;
+  if (s.includes("/")) return true; // combinações de grupo: "3D/3E/3I"
+  return /^([WL]\d+|\d[A-Za-z]|[A-Za-z]\d)$/.test(s); // W101, L101, 1K, 2J, H1, G1
+}
+
 export async function listMatches(client: any, leagueId: unknown, status: string, limit = 50, now = new Date()): Promise<any[]> {
-  const data = await client.events({ league_id: leagueId, status, limit });
+  const data = await client.events({ league_id: leagueId, status, limit: Math.max(limit, WIDE_FETCH) });
   const results: any[] = Array.isArray(data?.results) ? data.results : [];
   const finished = status === "finished";
-  let matches = results.slice(0, limit).map((ev) => {
+  let matches = results.map((ev) => {
     const hs = ev.home_score, as_ = ev.away_score;
     const placar = hs != null && as_ != null ? `${hs}×${as_}` : null;
     return {
@@ -31,6 +48,8 @@ export async function listMatches(client: any, leagueId: unknown, status: string
       data: ev.event_date, status: ev.status, placar, league_id: ev.league_id ?? leagueId,
     };
   });
+  // Jogos de chave sem time definido (placeholder) não têm stats → fora.
+  matches = matches.filter((j) => !isPlaceholderTeam(j.mandante) && !isPlaceholderTeam(j.visitante));
   // Pré-jogo: a BSD às vezes deixa o status preso em "notstarted" mesmo após o
   // jogo ter começado. Descartamos os que já passaram do horário — jogo iniciado
   // não é mais candidato a valor pré-jogo.
@@ -46,7 +65,7 @@ export async function listMatches(client: any, leagueId: unknown, status: string
     const cmp = av < bv ? -1 : av > bv ? 1 : 0;
     return finished ? -cmp : cmp;
   });
-  return matches;
+  return matches.slice(0, limit); // corta só depois de ordenar por data
 }
 
 function playersFromLineup(side: any): any[] {
@@ -166,12 +185,59 @@ export async function generateOddsPrompt(client: any, eventId: string, marketKey
 
 export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: ReviewerFn; diagnostics?: boolean; }
 
-/** Valida o JSON colado e roda a análise geral de todos os mercados (com IA revisora). */
+/** Salva odds coladas na tabela (upsert por PK). Valida via parseManualOdds. */
+export async function saveOddsService(repo: any, body: unknown): Promise<{ salvas: number; linhas_rejeitadas: any[] }> {
+  const input = parseManualOdds(body);
+  const rows: OddsRow[] = input.odds.map((o) => ({
+    event_id: input.event_id, entidade: o.entidade, market_type: o.market_type,
+    linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, book: o.book,
+    coletado_em: input.coletado_em,
+  }));
+  await repo.saveOdds(input.event_id, rows);
+  return { salvas: rows.length, linhas_rejeitadas: input.linhas_rejeitadas };
+}
+
+export async function getOddsService(repo: any, eventId: string): Promise<OddsRow[]> {
+  return repo.getOdds(eventId);
+}
+
+export async function deleteOddsService(repo: any, eventId: string, filter?: Partial<OddsRow>): Promise<{ ok: true }> {
+  await repo.deleteOdds(eventId, filter);
+  return { ok: true };
+}
+
+/** Persiste odds do corpo (se houver) e SEMPRE analisa as odds do repo por event_id.
+ * `odds[]` no corpo é opcional: retrocompatível (corpo antigo persiste e re-lê) e
+ * fonte-de-verdade (front novo manda só event_id; a tabela alimenta a análise). */
 export async function analyzeManualService(client: any, body: unknown, opts: AnalyzeManualServiceOpts = {}): Promise<any> {
-  const input = parseManualOdds(body); // lança em erro estrutural (→ 400 na API)
-  return analyzeManual(client, input, {
-    repo: opts.repo, reviewerFn: opts.reviewerFn, diagnostics: opts.diagnostics ?? false,
-  });
+  const repo = opts.repo ?? new InMemoryRepo();
+  const b: any = body ?? {};
+  let linhas_rejeitadas: any[] = [];
+
+  if (Array.isArray(b.odds)) {
+    const parsed = parseManualOdds(b); // lança em erro estrutural (→ 400); separa rejeitadas por-linha
+    linhas_rejeitadas = parsed.linhas_rejeitadas;
+    const rows: OddsRow[] = parsed.odds.map((o) => ({
+      event_id: parsed.event_id, entidade: o.entidade, market_type: o.market_type,
+      linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, book: o.book,
+      coletado_em: parsed.coletado_em,
+    }));
+    await repo.saveOdds(parsed.event_id, rows);
+  }
+
+  const eventId = String(b.event_id ?? "");
+  const stored: OddsRow[] = await repo.getOdds(eventId);
+  const input: ManualOddsInput = {
+    event_id: eventId,
+    coletado_em: String(b.coletado_em ?? ""),
+    odds: stored.map((r) => ({
+      market_type: r.market_type, entidade: r.entidade, linha: Number(r.linha),
+      odd_over: Number(r.odd_over), odd_under: r.odd_under == null ? null : Number(r.odd_under), book: r.book,
+    })),
+    linhas_rejeitadas,
+    escopo_historico: String(b.escopo_historico ?? "todos"),
+  };
+  return analyzeManual(client, input, { repo, reviewerFn: opts.reviewerFn, diagnostics: opts.diagnostics ?? false });
 }
 
 /** Liga um nome da casa a um player_id (stats-id) e persiste no crosswalk. */

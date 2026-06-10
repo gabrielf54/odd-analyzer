@@ -3,6 +3,7 @@ import {
   listLeagues, listMatches, probableLineup, recentPlayerAverage,
   analyze, paperBet, realPlayerResult,
   generateOddsPrompt, analyzeManualService, confirmCrosswalk,
+  saveOddsService, getOddsService, deleteOddsService,
 } from "../src/service.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 import { ManualOdds } from "../src/providers/odds.js";
@@ -33,6 +34,35 @@ describe("service", () => {
     const now = new Date("2026-06-07T12:00:00+00:00");
     const out = await listMatches(client, 31, "notstarted", 50, now);
     expect(out.map((j) => j.id)).toEqual(["futuro"]); // 31/mar caiu fora
+  });
+
+  it("listMatches puxa janela ampla — não perde jogo de data cedo com id baixo (BSD ordena id desc)", async () => {
+    // BSD devolve eventos ordenados por id DESC e respeita o limit pedido.
+    // O opener (id baixo, data cedo) só aparece se pedirmos janela larga.
+    const pool: any[] = [];
+    for (let i = 0; i < 60; i++) {
+      const id = 8390 - i; // ids altos = knockout, data tarde
+      pool.push({ id, home_team: "TimeA" + id, away_team: "TimeB" + id, event_date: "2026-07-01T00:00:00+00:00", status: "notstarted" });
+    }
+    pool.push({ id: 8287, home_team: "Mexico", away_team: "South Africa", event_date: "2026-06-11T19:00:00+00:00", status: "notstarted" });
+    pool.sort((a, b) => b.id - a.id); // id desc, como o BSD
+    const client = { async events({ limit }: any) { return { results: pool.slice(0, limit) }; } };
+    const now = new Date("2026-06-10T00:00:00+00:00");
+    const out = await listMatches(client, 27, "notstarted", 50, now);
+    const ids = out.map((j) => j.id);
+    expect(ids).toContain(8287); // opener aparece apesar do id baixo
+    expect(out[0]!.id).toBe(8287); // ordenado por data asc → opener primeiro
+  });
+
+  it("listMatches descarta times placeholder de chave (sem time real → sem stats)", async () => {
+    const client = { async events() { return { results: [
+      { id: 1, home_team: "W101", away_team: "L101", event_date: "2026-07-18T00:00:00+00:00", status: "notstarted" },
+      { id: 2, home_team: "1K", away_team: "3D/3E/3I", event_date: "2026-07-01T00:00:00+00:00", status: "notstarted" },
+      { id: 3, home_team: "Mexico", away_team: "South Africa", event_date: "2026-06-11T19:00:00+00:00", status: "notstarted" },
+    ] }; } };
+    const now = new Date("2026-06-10T00:00:00+00:00");
+    const out = await listMatches(client, 27, "notstarted", 50, now);
+    expect(out.map((j) => j.id)).toEqual([3]); // só o jogo com times reais
   });
 
   it("probableLineup usa lineup e resolve via crosswalk", async () => {
@@ -113,5 +143,50 @@ describe("service manual (coleta de odds via IA externa)", () => {
     const repo = new InMemoryRepo();
     await confirmCrosswalk(repo, "CR7", "20");
     expect(repo.listCrosswalk()["cr7"]).toBe("20");
+  });
+});
+
+describe("service — odds persistidas", () => {
+  const body = (odds: any[]) => ({ event_id: "e1", coletado_em: "2026-06-10T00:00:00Z", odds });
+
+  it("saveOddsService persiste linhas válidas e devolve rejeitadas", async () => {
+    const repo = new InMemoryRepo();
+    const out = await saveOddsService(repo, body([
+      { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" },
+      { market_type: "zzz", entidade: "X", linha: 0.5, odd_over: 2.0, book: "b" },
+    ]));
+    expect(out.salvas).toBe(1);
+    expect(out.linhas_rejeitadas).toHaveLength(1);
+    expect(repo.getOdds("e1")).toHaveLength(1);
+  });
+
+  it("getOddsService lê o que foi salvo", async () => {
+    const repo = new InMemoryRepo();
+    await saveOddsService(repo, body([{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }]));
+    expect(await getOddsService(repo, "e1")).toHaveLength(1);
+  });
+
+  it("deleteOddsService limpa o jogo", async () => {
+    const repo = new InMemoryRepo();
+    await saveOddsService(repo, body([{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }]));
+    await deleteOddsService(repo, "e1");
+    expect(await getOddsService(repo, "e1")).toEqual([]);
+  });
+
+  it("analyzeManualService persiste odds do corpo e analisa do repo", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManualService(fakeClient(), body([
+      { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" },
+    ]), { repo, reviewerFn: fakeReviewer });
+    expect(out.candidatos).toBeDefined();
+    expect(repo.getOdds("e1")).toHaveLength(1);
+  });
+
+  it("analyzeManualService sem odds no corpo analisa o que já está no repo", async () => {
+    const repo = new InMemoryRepo();
+    await saveOddsService(repo, body([{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }]));
+    const out = await analyzeManualService(fakeClient(), { event_id: "e1" }, { repo, reviewerFn: fakeReviewer });
+    expect(out.candidatos).toBeDefined();
+    expect(out.jogadores_sem_match).toBeDefined();
   });
 });
