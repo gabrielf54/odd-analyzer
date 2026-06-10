@@ -22,6 +22,8 @@ export interface ReviewResult {
   ia: { topo_explicacao: string | null; alertas: string[] };
 }
 
+export type ReviewerFn = (candidatos: any[], contexto: any) => ReviewResult | Promise<ReviewResult>;
+
 function parse(texto: string): any {
   try { return JSON.parse(texto); } catch { return null; }
 }

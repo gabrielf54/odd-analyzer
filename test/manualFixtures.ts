@@ -1,3 +1,5 @@
+import type { ReviewResult } from "../src/ai/reviewer.js";
+
 /** Client fake p/ os testes do fluxo manual. Modela honestamente os DOIS
  * namespaces de id da BSD: a escalação (lineups) vem em lineup-id ("10","20"),
  * que dá 404 no playerStats; os stats reais usam stats-id ("1000","2000"). O
@@ -54,10 +56,8 @@ export function fakeClient(): any {
   };
 }
 
-export const fakeAnalyst = (cands: any[]) => ({ melhor_aposta: null, candidatos_vistos: cands.length });
-
 // Revisor fake: não chama IA, anexa ia_revisao=null e devolve no shape do reviewer.
-export function fakeReviewer(candidatos: any[], _contexto: any) {
+export function fakeReviewer(candidatos: any[], _contexto: any): ReviewResult {
   return {
     candidatos: candidatos.map((c) => ({ ...c, ia_revisao: null })),
     ia: { topo_explicacao: null, alertas: ["IA desligada (teste)"] },

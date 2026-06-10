@@ -7,14 +7,14 @@ import { BSDStatsProvider, CrosswalkStatsProvider } from "../providers/stats.js"
 import { ManualOdds } from "../providers/odds.js";
 import { InMemoryRepo } from "../store/repo.js";
 import { rankCandidates } from "../candidates/rank.js";
-import { reviewCandidates, type ReviewResult } from "../ai/reviewer.js";
+import { reviewCandidates, type ReviewerFn } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
 import { matchPlayerOdds } from "./matchOdds.js";
 import type { ManualOddsInput, ManualOddsLine } from "./schema.js";
 
 export interface AnalyzeManualOpts {
   repo?: any;
-  reviewerFn?: (cands: any[], ctx: any) => ReviewResult | Promise<ReviewResult>;
+  reviewerFn?: ReviewerFn;
   diagnostics?: boolean;
 }
 

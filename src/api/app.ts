@@ -2,11 +2,12 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { z } from "zod";
 import { AppError } from "./errors.js";
 import * as service from "../service.js";
+import type { ReviewerFn } from "../ai/reviewer.js";
 
 export interface Deps {
   client: any;
   repo: any;
-  reviewerFn?: any;
+  reviewerFn?: ReviewerFn;
 }
 
 const analyzeSchema = z.object({

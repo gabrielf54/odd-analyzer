@@ -7,6 +7,7 @@ import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
+import type { ReviewerFn } from "./ai/reviewer.js";
 
 export async function listLeagues(client: any, limit = 200): Promise<any[]> {
   const data = await client.leagues({ limit });
@@ -163,7 +164,7 @@ export async function generateOddsPrompt(client: any, eventId: string, marketKey
   return buildOddsPrompt(event, marketKey, lineup);
 }
 
-export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: any; diagnostics?: boolean; }
+export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: ReviewerFn; diagnostics?: boolean; }
 
 /** Valida o JSON colado e roda a análise geral de todos os mercados (com IA revisora). */
 export async function analyzeManualService(client: any, body: unknown, opts: AnalyzeManualServiceOpts = {}): Promise<any> {
