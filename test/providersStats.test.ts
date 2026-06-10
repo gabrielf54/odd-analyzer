@@ -132,6 +132,45 @@ describe("tilt posicional no entityRate", () => {
       .toBeCloseTo((await off.entityRate("p1", MARKETS["desarmes"]!, noPos))!.mu, 12);
   });
 
+  it("denominador do share ignora posições fora de D/M/F (G não dilui)", async () => {
+    // Constrói um fake LOCAL com linha extra de goleiro (pid 34, posição G, 9 desarmes).
+    // OLD code: total += v fora do if → total = 6+2+1+9 = 18, shareAdv M = 6/18 ≈ 0.333 → tilt < 1.
+    // FIXED code: total += v só para D/M/F → total = 6+2+1 = 9, shareAdv M = 6/9 ≈ 0.667 → tilt ≥ 1.
+    function makeClientWithGK() {
+      const evs = [1, 2, 3, 4, 5].map((i) => ({ id: i, home_team_id: "200", away_team_id: "300" }));
+      return {
+        events: async (f: any) => {
+          if (String(f.team_id) === "200") return { results: evs };
+          return { results: [{ id: 90, home_team_id: "100", away_team_id: "200" }] };
+        },
+        eventStats: async (_id: any) => ({ stats: { home: { total_tackles: 9 }, away: { total_tackles: 9 } } }),
+        eventPlayerStats: async (_id: any) => ({
+          player_stats: [
+            { player_id: 31, team_id: "300", total_tackle: 6 },
+            { player_id: 32, team_id: "300", total_tackle: 2 },
+            { player_id: 33, team_id: "300", total_tackle: 1 },
+            { player_id: 34, team_id: "300", total_tackle: 9 }, // goalkeeper — must NOT dilute
+            { player_id: 41, team_id: "200", total_tackle: 3 },
+          ],
+        }),
+        player: async (pid: any) =>
+          ({ 31: { position: "M" }, 32: { position: "D" }, 33: { position: "F" }, 34: { position: "G" } } as any)[pid] ?? { position: "?" },
+        playerStats: async (_pid: any) => ({
+          results: Array.from({ length: 12 }, (_, i) => ({
+            event_id: i, team_id: "100", total_tackle: 3, minutes_played: 90,
+          })),
+        }),
+        lineups: async (_id: any) => ({ lineups: {} }),
+      };
+    }
+    const on  = new BSDStatsProvider(makeClientWithGK(), { positionalTilt: true });
+    const off = new BSDStatsProvider(makeClientWithGK(), { positionalTilt: false });
+    const rOn  = await on.entityRate("p1",  MARKETS["desarmes"]!, ctx);
+    const rOff = await off.entityRate("p1", MARKETS["desarmes"]!, ctx);
+    // Fixed code: shareAdv M = 6/9 = 0.667 > shareBase M → tilt > 1 → mu(on) > mu(off)
+    expect(rOn!.mu).toBeGreaterThan(rOff!.mu);
+  });
+
   it("fail-closed: menos de POSITIONAL_MIN_GAMES jogos com player-stats → neutro", async () => {
     const c = fakePositionalClient();
     c.events = async (f: any) =>

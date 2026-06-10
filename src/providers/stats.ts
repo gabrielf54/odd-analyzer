@@ -100,8 +100,7 @@ export class BSDStatsProvider {
         const v = Number(r[statField] ?? 0);
         if (!(v > 0)) continue;
         const pos = await this.playerPosition(r.player_id);
-        if (pos in byPos) byPos[pos] = byPos[pos]! + v;
-        total += v;
+        if (pos in byPos) { byPos[pos] = byPos[pos]! + v; total += v; }
       }
     }
     if (games === 0 || total <= 0) return null;
