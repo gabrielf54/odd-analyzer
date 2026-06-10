@@ -22,9 +22,10 @@
 
 ### 1. Titularidade (meio-termo, ninguém some)
 
-- Novo campo no fio (candidato): `titularidade: "confirmado" | "provavel" | "desconhecido"`.
+- Novo campo no fio (candidato): `titularidade: "confirmado" | "provavel" | "fora_do_xi" | "desconhecido"`.
   - `confirmado` = lineup confirmado e jogador no XI.
   - `provavel` = lineup `predicted` e jogador na lista prevista.
+  - `fora_do_xi` = lineup confirmado exclui o jogador (o corte "titular" já o reprova; o valor existe pro dossiê dos reprovados).
   - `desconhecido` = sem lineup utilizável (squad veio de últimos-3-jogos etc.).
 - Novo campo: `alerta_minutos: boolean` = `minutos_esperados < 60`.
 - `xi_confirmado` **permanece** (compat com front/DB). Corte "titular" do filtro **não muda** (segue cortando só quando lineup confirmado exclui o jogador).

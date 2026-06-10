@@ -113,16 +113,26 @@ Depois de colar o JSON das odds, o app não devolve mais uma lista solta. Ele:
 
 Ninguém desaparece: mesmo o tiro-longo fica visível, porque passou no filtro de valor. A organização é só pra eu saber em qual depositar mais confiança — o produto **nunca** esconde uma aposta de valor só porque a probabilidade é baixa.
 
+**A estrela agora desvia de quem pode ficar no banco (2026-06-10).** Antes do time anunciar a escalação oficial (~1h antes do jogo), tudo é "provável" — e um jogador que costuma entrar só no fim do jogo podia receber a ⭐. Agora a estrela **pula quem tem risco de jogar pouco** (a previsão diz menos de 60 minutos em campo) e vai pra melhor aposta sem esse risco. Ninguém é escondido: o jogador de risco continua na lista, com um selo visível **"escalação prevista — pode começar no banco"**, e o cartão da aposta recomendada avisa quantos minutos esperamos que ele jogue. Se TODAS as apostas aprovadas tiverem esse risco, a melhor delas fica com a estrela — mas com o aviso na cara.
+
 **2. Traz uma segunda opinião da IA.** Para cada oportunidade aprovada, o sistema pede à IA que dê um de três veredictos:
 - **Concorda** — a IA confirma a lógica do confronto.
-- **Ressalva** — concorda com valor, mas aponta algo para eu avaliar (ex.: jogador em fase ruim, jogo sem importância).
+- **Ressalva** — concorda com valor, mas aponta algo para eu avaliar (ex.: escalação ainda não confirmada, pouco tempo esperado em campo).
 - **Barra** — a IA enxerga algo que torna aquela aposta arriscada além do que o número mostra.
 
 > A IA **nunca inventa número**. Ela só olha o que o código calculou e dá a opinião como se fosse um analista lendo a análise. Se ela barrar algo que o código aprovou, eu vejo o conflito na tela e decido — o poder de veto é meu.
 
+**A segunda opinião agora enxerga a posição do jogador — e é proibida de "saber das coisas" (2026-06-10).** Cada aposta chega pra IA dizendo se o jogador é goleiro, defensor, meio-campista ou atacante — antes ela adivinhava, e adivinhar funciona com jogador famoso e erra com jogador obscuro. E ficou **proibida de usar qualquer informação de fora**: nada de "o time está em má fase" ou "esse jogo não vale nada" — toda afirmação dela tem que vir dos números que estão na tela. Pegamos a IA inventando um alerta desses num teste real; agora a regra é dura e o teste mais recente confirmou que os alertas batem com os números.
+
 **3. Se a IA estiver fora do ar** (sem chave ou conexão), o app não trava — ele mostra só o veredito do código com um aviso "segunda opinião indisponível". A análise segue funcionando.
 
 **Os números viram linguagem do dia a dia.** Em vez de "EV +0.275", a tela traduz: "+R$ 2,75 a cada R$ 10 apostados, no longo prazo". Em vez de "prob_modelo 0.58", aparece "o modelo diz que isso acontece em 58 de 100 jogos similares".
+
+---
+
+## O experimento da posição — testado e, por enquanto, fora (2026-06-10)
+
+Testamos uma ideia promissora: refinar o confronto perguntando "esse adversário concede mais ações justamente pra POSIÇÃO desse jogador (defensor, meio-campista, atacante)?". Antes de ligar, fizemos a prova honesta: rodamos o modelo com e sem o refinamento em centenas de jogos passados e comparamos os acertos. Resultado: em dois dos três mercados (desarmes e chutes a gol) a previsão ficou **pior**, não melhor — então o refinamento **fica desligado** (o produto nunca liga o que não se provou). Em finalizações ele melhorou, e pode voltar só pra esse mercado depois de um re-teste com mais jogos.
 
 ---
 
