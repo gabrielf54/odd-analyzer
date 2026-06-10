@@ -77,6 +77,74 @@ describe("BSDStatsProvider", () => {
   });
 });
 
+function fakePositionalClient() {
+  // 5 jogos do adversário 200; em cada, o time 300 (contra) fez:
+  // jogador 31 (M): 6 desarmes · jogador 32 (D): 2 · jogador 33 (F): 1.
+  const evs = [1, 2, 3, 4, 5].map((i) => ({ id: i, home_team_id: "200", away_team_id: "300" }));
+  return {
+    events: async (f: any) => {
+      if (String(f.team_id) === "200") return { results: evs };
+      return { results: [{ id: 90, home_team_id: "100", away_team_id: "200" }] };
+    },
+    eventStats: async (_id: any) => ({ stats: { home: { total_tackles: 9 }, away: { total_tackles: 9 } } }),
+    eventPlayerStats: async (_id: any) => ({
+      player_stats: [
+        { player_id: 31, team_id: "300", total_tackle: 6 },
+        { player_id: 32, team_id: "300", total_tackle: 2 },
+        { player_id: 33, team_id: "300", total_tackle: 1 },
+        { player_id: 41, team_id: "200", total_tackle: 3 },
+      ],
+    }),
+    player: async (pid: any) =>
+      ({ 31: { position: "M" }, 32: { position: "D" }, 33: { position: "F" } } as any)[pid] ?? { position: "?" },
+    playerStats: async (_pid: any) => ({
+      results: Array.from({ length: 12 }, (_, i) => ({
+        event_id: i, team_id: "100", total_tackle: 3, minutes_played: 90,
+      })),
+    }),
+    lineups: async (_id: any) => ({ lineups: {} }),
+  };
+}
+
+describe("tilt posicional no entityRate", () => {
+  const ctx = {
+    event: { id: 90 }, entity_team_id: "100", is_home: true,
+    opp_team_id: "200", league_avg_conceded: 13.97, xi_team_ids: new Set<string>(),
+    escopo_historico: "todos", posicao: "M",
+  };
+
+  it("aplica tilt quando habilitado e adversário concede mais à posição", async () => {
+    const on = new BSDStatsProvider(fakePositionalClient(), { positionalTilt: true });
+    const off = new BSDStatsProvider(fakePositionalClient(), { positionalTilt: false });
+    const rOn = await on.entityRate("p1", MARKETS["desarmes"]!, ctx);
+    const rOff = await off.entityRate("p1", MARKETS["desarmes"]!, ctx);
+    // share_adv M = 6/9 = 0.667 > share_base M (0.491) → tilt clampa em 1.20 → mu maior
+    expect(rOn!.mu).toBeGreaterThan(rOff!.mu);
+    expect(rOn!.concedido_posicao).toMatch(/meio-campistas/);
+    expect(rOff!.concedido_posicao ?? null).toBeNull();
+  });
+
+  it("fail-closed: sem posicao no ctx, tilt neutro (mu igual ao atual)", async () => {
+    const on = new BSDStatsProvider(fakePositionalClient(), { positionalTilt: true });
+    const off = new BSDStatsProvider(fakePositionalClient(), { positionalTilt: false });
+    const noPos = { ...ctx, posicao: undefined };
+    expect((await on.entityRate("p1", MARKETS["desarmes"]!, noPos))!.mu)
+      .toBeCloseTo((await off.entityRate("p1", MARKETS["desarmes"]!, noPos))!.mu, 12);
+  });
+
+  it("fail-closed: menos de POSITIONAL_MIN_GAMES jogos com player-stats → neutro", async () => {
+    const c = fakePositionalClient();
+    c.events = async (f: any) =>
+      String(f.team_id) === "200"
+        ? { results: [{ id: 1, home_team_id: "200", away_team_id: "300" }] }
+        : { results: [{ id: 90, home_team_id: "100", away_team_id: "200" }] };
+    const on = new BSDStatsProvider(c, { positionalTilt: true });
+    const off = new BSDStatsProvider(c, { positionalTilt: false });
+    expect((await on.entityRate("p1", MARKETS["desarmes"]!, ctx))!.mu)
+      .toBeCloseTo((await off.entityRate("p1", MARKETS["desarmes"]!, ctx))!.mu, 12);
+  });
+});
+
 describe("OnlyPlayer", () => {
   it("filtra elenco ao ref por substring de nome", async () => {
     const p = new OnlyPlayer(new BSDStatsProvider(makeClient()), "kaiki");

@@ -22,6 +22,7 @@ export interface EntityRate {
   concedido_adversario: string;
   incerteza: string;
   trace?: RateTrace;
+  concedido_posicao?: string | null;
 }
 
 export interface StatsProvider {

@@ -3,7 +3,8 @@ import {
   windowedRate, assembleMu, filterGamesByScope, playerMuFromGames, expectedMinutes,
 } from "../model/assemble.js";
 import { shrinkRate } from "../model/shrinkage.js";
-import { opponentMultiplier, homeAwayMultiplier } from "../model/adjustments.js";
+import { opponentMultiplier, homeAwayMultiplier, positionalTilt } from "../model/adjustments.js";
+import { POSITIONAL_SHARE_NACIONAL, POSITIONAL_TILT_ENABLED, POSITIONAL_MIN_GAMES } from "../model/params.js";
 import { buildTeamMap, resolve } from "../crosswalk/bsdIds.js";
 import type { EntityRate } from "./types.js";
 import { buildRateTrace } from "../model/trace.js";
@@ -18,6 +19,8 @@ const TEAM_STAT_FIELD: Record<string, string> = {
 
 const uncertaintyFor = (n: number): string => (n < 5 ? "alta" : n < 12 ? "media" : "baixa");
 
+const POS_LABEL: Record<string, string> = { D: "defensores", M: "meio-campistas", F: "atacantes" };
+
 /** Fonte primária: BSD/Bzzoiro. Métodos de I/O são async (client faz fetch). */
 export class BSDStatsProvider {
   static HOME_FACTOR = 1.08;
@@ -25,8 +28,12 @@ export class BSDStatsProvider {
   static OPP_MULT_MIN = 0.7;
   static OPP_MULT_MAX = 1.4;
 
-  constructor(private client: any) {
+  private positionalTiltOn: boolean;
+  private posCache = new Map<string, string>();
+
+  constructor(private client: any, opts: { positionalTilt?: boolean } = {}) {
     if (client == null) throw new Error("BSDStatsProvider requer um BSDClient");
+    this.positionalTiltOn = opts.positionalTilt ?? POSITIONAL_TILT_ENABLED;
   }
 
   private oppTeamId(ctx: any): string | null {
@@ -57,6 +64,48 @@ export class BSDStatsProvider {
     }
     if (values.length === 0) return null;
     return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+
+  private async playerPosition(pid: unknown): Promise<string> {
+    const key = String(pid);
+    const hit = this.posCache.get(key);
+    if (hit) return hit;
+    let pos = "?";
+    try { pos = String((await this.client.player(pid))?.position ?? "?"); } catch { /* neutro */ }
+    this.posCache.set(key, pos);
+    return pos;
+  }
+
+  /** Concessão do adversário POR POSIÇÃO (D/M/F) no statField de jogador, nos
+   * últimos `window` jogos. null se sem dado — quem chama cai pro neutro. */
+  private async teamConcededByPosition(
+    oppTeamId: string | null, statField: string, window = 10,
+  ): Promise<{ byPos: Record<string, number>; total: number; games: number } | null> {
+    if (!oppTeamId) return null;
+    const tid = String(oppTeamId);
+    let events: any;
+    try { events = await this.client.events({ team_id: tid, status: "finished", limit: window }); }
+    catch { return null; }
+    const results: any[] = Array.isArray(events?.results) ? events.results : [];
+    const byPos: Record<string, number> = { D: 0, M: 0, F: 0 };
+    let total = 0, games = 0;
+    for (const ev of results.slice(0, window)) {
+      let rows: any[];
+      try { rows = (await this.client.eventPlayerStats(ev.id))?.player_stats ?? []; }
+      catch { continue; }
+      const against = rows.filter((r) => r.player_id != null && String(r.team_id) !== tid);
+      if (against.length === 0) continue;
+      games++;
+      for (const r of against) {
+        const v = Number(r[statField] ?? 0);
+        if (!(v > 0)) continue;
+        const pos = await this.playerPosition(r.player_id);
+        if (pos in byPos) byPos[pos] = byPos[pos]! + v;
+        total += v;
+      }
+    }
+    if (games === 0 || total <= 0) return null;
+    return { byPos, total, games };
   }
 
   private oppMult(oppConceded: number | null, leagueAvg: number): number {
@@ -99,11 +148,30 @@ export class BSDStatsProvider {
     const teamField = TEAM_STAT_FIELD[market.stat_field] ?? market.stat_field;
     const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField);
     const oppMult = this.oppMult(oppConceded, leagueAvg);
+
+    let tilt = 1.0;
+    let concedidoPosicao: string | null = null;
+    const pos = String(ctx.posicao ?? "");
+    const shareBase = POSITIONAL_SHARE_NACIONAL[market.stat_field]?.[pos] ?? null;
+    if (this.positionalTiltOn && shareBase != null && shareBase > 0) {
+      const byPos = await this.teamConcededByPosition(this.oppTeamId(ctx), market.stat_field);
+      if (byPos != null && byPos.games >= POSITIONAL_MIN_GAMES) {
+        const shareAdv = (byPos.byPos[pos] ?? 0) / byPos.total;
+        tilt = positionalTilt(shareAdv, shareBase);
+        const perGame = (byPos.byPos[pos] ?? 0) / byPos.games;
+        concedidoPosicao = `${perGame.toFixed(1)}/jogo a ${POS_LABEL[pos] ?? pos} (${tilt.toFixed(2)}× o típico)`;
+      }
+    }
+    const oppMultFinal = Math.max(
+      BSDStatsProvider.OPP_MULT_MIN,
+      Math.min(BSDStatsProvider.OPP_MULT_MAX, oppMult * tilt),
+    );
+
     const haMult = homeAwayMultiplier(isHome, BSDStatsProvider.HOME_FACTOR, BSDStatsProvider.AWAY_FACTOR);
     const minutes = expectedMinutes(games) ?? 90.0;
 
     const calc = playerMuFromGames(
-      games, market.stat_field, market.prior_rate, market.prior_strength, oppMult, haMult, minutes,
+      games, market.stat_field, market.prior_rate, market.prior_strength, oppMultFinal, haMult, minutes,
     );
     if (calc === null) return null;
     const xiConfirmed = xiTeamIds.size > 0 ? xiTeamIds.has(String(entityId)) : true;
@@ -117,7 +185,7 @@ export class BSDStatsProvider {
       priorStrength: market.prior_strength,
       n,
       minutos: minutes,
-      oppMult,
+      oppMult: oppMultFinal,
       haMult,
       oppConceded,
       isHome,
@@ -129,6 +197,7 @@ export class BSDStatsProvider {
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
       incerteza: uncertaintyFor(n),
       trace,
+      concedido_posicao: concedidoPosicao,
     };
   }
 
