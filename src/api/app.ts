@@ -33,6 +33,12 @@ const matchesQuery = z.object({ status: z.enum(["finished", "notstarted"]) });
 const resultQuery = z.object({ market: z.string(), linha: z.coerce.number() });
 const promptQuery = z.object({ event_id: z.string(), market: z.string() });
 const crosswalkSchema = z.object({ nome_casa: z.string(), player_id: z.string() });
+const oddsFilterQuery = z.object({
+  entidade: z.string().optional(),
+  market_type: z.string().optional(),
+  linha: z.coerce.number().optional(),
+  book: z.string().optional(),
+});
 
 /** Monta a app Express. `deps` injeta client/repo (reais no server, fakes no teste). */
 export function createApp(deps: Deps): express.Express {
@@ -42,7 +48,7 @@ export function createApp(deps: Deps): express.Express {
   // CORS permissivo (front Next em outra origem, ex.: localhost:3000).
   app.use((_req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+    res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
     res.header("Access-Control-Allow-Headers", "Content-Type");
     next();
   });
@@ -93,6 +99,21 @@ export function createApp(deps: Deps): express.Express {
   app.post("/analise/manual", wrap(async (req, res) => {
     // A validação fina do JSON é do parseManualOdds (lança → 400 no middleware).
     res.json(await service.analyzeManualService(deps.client, req.body, { repo: deps.repo, reviewerFn: deps.reviewerFn }));
+  }));
+
+  app.post("/odds", wrap(async (req, res) => {
+    // parseManualOdds dentro do serviço lança em erro estrutural → 400 no middleware.
+    res.json(await service.saveOddsService(deps.repo, req.body));
+  }));
+
+  app.get("/jogos/:eventId/odds", wrap(async (req, res) => {
+    res.json(await service.getOddsService(deps.repo, String(req.params.eventId)));
+  }));
+
+  app.delete("/jogos/:eventId/odds", wrap(async (req, res) => {
+    const q = oddsFilterQuery.safeParse(req.query);
+    const filter = q.success ? q.data : {};
+    res.json(await service.deleteOddsService(deps.repo, String(req.params.eventId), filter));
   }));
 
   app.post("/crosswalk", wrap(async (req, res) => {

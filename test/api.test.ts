@@ -115,3 +115,38 @@ describe("API — fluxo manual de odds", () => {
     expect(r.body.ok).toBe(true);
   });
 });
+
+describe("API — odds persistidas", () => {
+  const manualApp = () => createApp({ client: manualClient(), repo: new InMemoryRepo(), reviewerFn: fakeReviewer });
+
+  it("POST /odds salva e GET /jogos/:id/odds devolve", async () => {
+    const a = manualApp();
+    const post = await request(a).post("/odds").send({
+      event_id: "e1", coletado_em: "2026-06-10T00:00:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    expect(post.status).toBe(200);
+    expect(post.body.salvas).toBe(1);
+    const get = await request(a).get("/jogos/e1/odds");
+    expect(get.status).toBe(200);
+    expect(get.body).toHaveLength(1);
+    expect(get.body[0].odd_over).toBe(3.0);
+  });
+
+  it("POST /odds sem coletado_em → 400", async () => {
+    const r = await request(manualApp()).post("/odds").send({ event_id: "e1", odds: [] });
+    expect(r.status).toBe(400);
+  });
+
+  it("DELETE /jogos/:id/odds limpa o jogo", async () => {
+    const a = manualApp();
+    await request(a).post("/odds").send({
+      event_id: "e1", coletado_em: "2026-06-10T00:00:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    const del = await request(a).delete("/jogos/e1/odds");
+    expect(del.status).toBe(200);
+    const get = await request(a).get("/jogos/e1/odds");
+    expect(get.body).toEqual([]);
+  });
+});
