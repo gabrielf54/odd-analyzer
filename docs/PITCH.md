@@ -138,11 +138,11 @@ Testamos uma ideia promissora: refinar o confronto perguntando "esse adversário
 
 ## Agora dá pra ver de onde veio o número (2026-06-10)
 
-Para cada oportunidade aprovada, a tela agora mostra o **histórico real do jogador** por trás da probabilidade: a média dele nos últimos 5 e 10 jogos, os resultados jogo a jogo, quanto tempo em média ele jogou, e como ele se sai em casa versus fora.
+O sistema **calcula e entrega** o histórico real de cada jogador: a média dele nos últimos 5 e 10 jogos, os resultados jogo a jogo, quanto tempo em média ele jogou, e como ele se sai em casa versus fora. A **IA explica com esses dados reais** — nunca inventa o número.
 
-Isso serve para duas coisas:
-1. **Você entende a conta.** Em vez de só ver "prob 64%", você vê "nos últimos 5 jogos ele deu 3, 2, 4, 3, 3 chutes — a média é 3 por jogo, e a aposta é em 0.5+". O número não cai do céu.
-2. **A IA explica com esses dados.** A segunda opinião usa exatamente esses números para montar a explicação — e continua proibida de inventar algo que não esteja na tela. Se o histórico estiver fraco, ela diz; se estiver forte, ela confirma.
+**A tela está sendo atualizada agora** (hoje 2026-06-10) para mostrar esse histórico num painel de detalhes, mas o sistema **já faz a conta com esses números de verdade**:
+1. **A probabilidade é feita a partir do histórico real.** Em vez de uma média genérica da temporada, o modelo usa os últimos 5 e 10 jogos: "nos últimos 5 jogos ele deu 3, 2, 4, 3, 3 chutes — a média é 3 por jogo". Esse número virou 64% no modelo, que comparamos com a odd da casa.
+2. **A segunda opinião usa os mesmos números.** A IA não inventa — ela pega o histórico que o código calculou e explica por quê aquilo vale (ou não vale). Se o histórico estiver fraco, ela diz; se estiver forte, ela confirma. Continua proibida de "saber das coisas" de fora — tudo que ela afirma tem que estar nos dados reais do jogador na tela.
 
 ---
 
