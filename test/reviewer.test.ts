@@ -59,6 +59,14 @@ describe("PROMPT_REVISOR (userfriendly)", () => {
   });
 });
 
+describe("PROMPT_REVISOR ancorado", () => {
+  it("proíbe conhecimento externo e ancora posição no campo posicao", () => {
+    expect(PROMPT_REVISOR).toMatch(/posicao/);
+    expect(PROMPT_REVISOR).toMatch(/conhecimento externo/i);
+    expect(PROMPT_REVISOR).toMatch(/titularidade/);
+  });
+});
+
 describe("reviewCandidates", () => {
   it("mescla ia_revisao por chave (jogador|linha|market_type) e devolve topo_explicacao", async () => {
     const fakeChat = async () => JSON.stringify(validOut);
