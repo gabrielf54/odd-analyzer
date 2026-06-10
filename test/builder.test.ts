@@ -40,4 +40,29 @@ describe("buildCandidate", () => {
     expect(c["sem_devig"]).toBe(false);
     expect(c["prob_devig"]).toBeCloseTo(0.5, 9);
   });
+
+  it("carrega posicao/titularidade/concedido_posicao e deriva alerta_minutos (<60)", () => {
+    const c = buildCandidate({
+      jogador: "X", linha: 0.5, odd_over: 2.0, odd_under: null, prob_modelo: 0.5, mu: 1.0,
+      minutos_esperados: 31, xi_confirmado: true, amostra_jogos: 20,
+      concedido_adversario: "n/d", incerteza: "baixa", market_type: "sot",
+      posicao: "M", titularidade: "provavel", concedido_posicao: "2.1/jogo a meio-campistas (1.10× o típico)",
+    });
+    expect(c["posicao"]).toBe("M");
+    expect(c["titularidade"]).toBe("provavel");
+    expect(c["alerta_minutos"]).toBe(true);
+    expect(c["concedido_posicao"]).toMatch(/meio-campistas/);
+  });
+
+  it("alerta_minutos=false com 60+ e defaults null quando ausentes", () => {
+    const c = buildCandidate({
+      jogador: "X", linha: 0.5, odd_over: 2.0, odd_under: null, prob_modelo: 0.5, mu: 1.0,
+      minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 20,
+      concedido_adversario: "n/d", incerteza: "baixa", market_type: "gols",
+    });
+    expect(c["alerta_minutos"]).toBe(false);
+    expect(c["posicao"]).toBeNull();
+    expect(c["titularidade"]).toBeNull();
+    expect(c["concedido_posicao"]).toBeNull();
+  });
 });

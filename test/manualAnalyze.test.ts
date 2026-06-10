@@ -3,6 +3,25 @@ import { analyzeManual } from "../src/manual/analyze.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 import { fakeClient, fakeReviewer } from "./manualFixtures.js";
 
+/** Versão do fakeClient sem escalação confirmada (lineup_status=pending, confirmed=false).
+ * Mantém os jogadores na escalação (para squad() funcionar) mas marca como não confirmada,
+ * fazendo xiTeamIds ficar vazio → titularidade = "provavel". */
+function fakeClientNoXi(): any {
+  const base = fakeClient();
+  return {
+    ...base,
+    async lineups() {
+      return {
+        lineup_status: "pending",
+        lineups: {
+          home: { team_id: "100", confirmed: false, players: [{ id: "10", name: "Kai Havertz", position: "FW" }] },
+          away: { team_id: "200", confirmed: false, players: [{ id: "20", name: "Joshua Kimmich", position: "MF" }] },
+        },
+      };
+    },
+  };
+}
+
 describe("analyzeManual", () => {
   it("roda mercado de jogador com odd por-jogador e marca sem_devig", async () => {
     const repo = new InMemoryRepo();
@@ -59,5 +78,19 @@ describe("analyzeManual", () => {
     }
     expect(out.ia).toHaveProperty("topo_explicacao");
     expect(Array.isArray(out.ia.alertas)).toBe(true);
+  });
+
+  it("candidato jogador carrega titularidade=provavel (sem xi confirmado) e tem chave posicao", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClientNoXi(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [],
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+    const all = [...out.candidatos, ...out.reprovados];
+    const havertz = all.find((c: any) => String(c.jogador).includes("Havertz"));
+    expect(havertz).toBeDefined();
+    expect(havertz!.titularidade).toBe("provavel");
+    expect("posicao" in havertz!).toBe(true);
   });
 });

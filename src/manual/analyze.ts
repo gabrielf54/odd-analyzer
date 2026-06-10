@@ -114,10 +114,13 @@ async function playerCandidates(
     const entity = byId.get(od.player_id);
     if (!entity) continue;
     const isHome = entity.team_id === homeId;
+    const titularidade = xiTeamIds.size > 0
+      ? (xiTeamIds.has(od.player_id) ? "confirmado" : "fora_do_xi")
+      : "provavel";
     const ctx = {
       event, entity_team_id: entity.team_id ?? entity.id, is_home: isHome,
       opp_team_id: isHome ? awayId : homeId, league_avg_conceded: base,
-      xi_team_ids: xiTeamIds, escopo_historico: "todos",
+      xi_team_ids: xiTeamIds, escopo_historico: "todos", posicao: entity.posicao ?? "",
     };
     const rate = await stats.entityRate(entity.id, market, ctx);
     if (rate == null) continue;
@@ -127,6 +130,8 @@ async function playerCandidates(
       minutos_esperados: rate.minutos_esperados, xi_confirmado: rate.xi_confirmado,
       amostra_jogos: rate.amostra_jogos, concedido_adversario: rate.concedido_adversario,
       incerteza: rate.incerteza, market_type: market.key, player_id: entity.id, trace: rate.trace,
+      posicao: entity.posicao ?? null, titularidade,
+      concedido_posicao: rate.concedido_posicao ?? null,
     }));
   }
   return out;

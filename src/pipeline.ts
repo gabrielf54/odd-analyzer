@@ -139,10 +139,13 @@ async function playerCount(event: any, market: MarketSpec, sp: any, lines: any[]
   const candidates: any[] = [];
   for (const entity of squad) {
     const isHome = entity.team_id === homeId;
+    const titularidade = xiTeamIds.size > 0
+      ? (xiTeamIds.has(String(entity.id)) ? "confirmado" : "fora_do_xi")
+      : "provavel";
     const ctx = {
       event, entity_team_id: entity.team_id ?? entity.id, is_home: isHome,
       opp_team_id: isHome ? awayId : homeId, league_avg_conceded: base,
-      xi_team_ids: xiTeamIds, escopo_historico: scope,
+      xi_team_ids: xiTeamIds, escopo_historico: scope, posicao: entity.posicao ?? "",
     };
     const rate = await sp.entityRate(entity.id, market, ctx);
     if (rate == null) continue;
@@ -154,6 +157,9 @@ async function playerCount(event: any, market: MarketSpec, sp: any, lines: any[]
         amostra_jogos: rate.amostra_jogos, concedido_adversario: rate.concedido_adversario,
         incerteza: rate.incerteza, market_type: market.key, player_id: entity.id,
         trace: rate.trace,
+        posicao: entity.posicao ?? null,
+        titularidade,
+        concedido_posicao: rate.concedido_posicao ?? null,
       }));
     }
   }

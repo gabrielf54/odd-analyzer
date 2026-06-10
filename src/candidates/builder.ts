@@ -17,6 +17,9 @@ export interface BuildCandidateArgs {
   market_type: string;
   player_id?: unknown;
   trace?: RateTrace;
+  posicao?: string | null;
+  titularidade?: "confirmado" | "provavel" | "fora_do_xi" | "desconhecido" | null;
+  concedido_posicao?: string | null;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -45,6 +48,10 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     concedido_adversario: a.concedido_adversario,
     incerteza: a.incerteza,
     market_type: a.market_type,
+    posicao: a.posicao ?? null,
+    titularidade: a.titularidade ?? null,
+    alerta_minutos: a.minutos_esperados < 60,
+    concedido_posicao: a.concedido_posicao ?? null,
   };
   if (a.trace) {
     out.trace = finalizeTrace(a.trace, {
