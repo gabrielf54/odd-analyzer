@@ -44,3 +44,55 @@ describe("InMemoryRepo", () => {
     expect(ov["cr7"]).toBe("20");
   });
 });
+
+describe("InMemoryRepo — odds", () => {
+  const row = (over: number, extra: Partial<import("../src/store/repo.js").OddsRow> = {}) => ({
+    event_id: "e1", entidade: "CR7", market_type: "sot", linha: 0.5,
+    odd_over: over, odd_under: null as number | null, book: "bet365",
+    coletado_em: "2026-06-10T00:00:00Z", ...extra,
+  });
+
+  it("saveOdds insere e getOdds devolve", () => {
+    const r = new InMemoryRepo();
+    r.saveOdds("e1", [row(1.5)]);
+    const got = r.getOdds("e1");
+    expect(got).toHaveLength(1);
+    expect(got[0]!.odd_over).toBe(1.5);
+    expect(r.getOdds("zzz")).toEqual([]);
+  });
+
+  it("saveOdds sobrescreve a mesma PK (event+entidade+market+linha+book)", () => {
+    const r = new InMemoryRepo();
+    r.saveOdds("e1", [row(1.5)]);
+    r.saveOdds("e1", [row(1.8)]); // mesma PK, odd nova
+    const got = r.getOdds("e1");
+    expect(got).toHaveLength(1);
+    expect(got[0]!.odd_over).toBe(1.8);
+  });
+
+  it("saveOdds acumula mercados diferentes sem apagar", () => {
+    const r = new InMemoryRepo();
+    r.saveOdds("e1", [row(1.5)]);
+    r.saveOdds("e1", [row(2.0, { market_type: "desarmes" })]);
+    expect(r.getOdds("e1")).toHaveLength(2);
+  });
+
+  it("deleteOdds sem filtro limpa o jogo; com filtro remove 1 linha", () => {
+    const r = new InMemoryRepo();
+    r.saveOdds("e1", [row(1.5), row(2.0, { market_type: "desarmes" })]);
+    r.deleteOdds("e1", { market_type: "sot" });
+    expect(r.getOdds("e1")).toHaveLength(1);
+    r.deleteOdds("e1");
+    expect(r.getOdds("e1")).toEqual([]);
+  });
+
+  it("listOddsEvents resume por event_id", () => {
+    const r = new InMemoryRepo();
+    r.saveOdds("e1", [row(1.5)]);
+    r.saveOdds("e2", [row(1.5, { event_id: "e2" }), row(2.0, { event_id: "e2", market_type: "desarmes" })]);
+    const sum = r.listOddsEvents().sort((a, b) => a.event_id.localeCompare(b.event_id));
+    expect(sum).toHaveLength(2);
+    expect(sum[1]!.total_linhas).toBe(2);
+    expect(sum[0]!.ultimo_coletado_em).toBe("2026-06-10T00:00:00Z");
+  });
+});
