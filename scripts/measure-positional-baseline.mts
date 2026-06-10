@@ -9,6 +9,8 @@ const LEAGUES = [31, 58, 59, 60, 61, 62, 64, 65, 66, 67];
 const EVENTS_PER_LEAGUE = 12;
 const STAT_FIELDS = ["total_tackle", "shots_on_target", "total_shots"] as const;
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
 const client = new BSDClient(getRequired("BZZOIRO_API_KEY"));
 const posCache = new Map<string, string>();
 
@@ -19,12 +21,14 @@ async function positionOf(pid: unknown): Promise<string> {
   let pos = "?";
   try { pos = String((await client.player(pid))?.position ?? "?"); } catch { /* sem posição */ }
   posCache.set(key, pos);
+  await sleep(100);
   return pos;
 }
 
 const totals: Record<string, Record<string, number>> = {};
 for (const f of STAT_FIELDS) totals[f] = { D: 0, M: 0, F: 0 };
 let gamesUsed = 0;
+let droppedRows = 0;
 
 for (const lg of LEAGUES) {
   let evs: any;
@@ -42,12 +46,23 @@ for (const lg of LEAGUES) {
         const v = Number(r[f] ?? 0);
         if (!(v > 0)) continue;
         pos = pos ?? await positionOf(r.player_id);
-        if (pos === "D" || pos === "M" || pos === "F") totals[f]![pos] = (totals[f]![pos] ?? 0) + v;
+        if (pos === "D" || pos === "M" || pos === "F") {
+          totals[f]![pos] = (totals[f]![pos] ?? 0) + v;
+        } else {
+          droppedRows++;
+        }
       }
     }
     console.error(`liga ${lg} evento ${ev.id} ok (${gamesUsed} jogos acumulados)`);
   }
 }
+
+if (gamesUsed < 50) {
+  console.error(`ABORTADO: só ${gamesUsed} jogos com player-stats (mínimo 50) — baseline não confiável.`);
+  process.exit(1);
+}
+
+console.error(`linhas com posição fora de D/M/F (descartadas): ${droppedRows}`);
 
 console.log(`\n// Medido em ${gamesUsed} jogos de seleção (ligas ${LEAGUES.join("/")}), ${new Date().toISOString().slice(0, 10)}:`);
 for (const f of STAT_FIELDS) {
