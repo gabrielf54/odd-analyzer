@@ -80,6 +80,19 @@ describe("analyzeManual", () => {
     expect(Array.isArray(out.ia.alertas)).toBe(true);
   });
 
+  it("candidatos trazem trace e stats_detalhadas mesmo sem diagnostics (drawer do front)", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+    expect(out.candidatos.length).toBeGreaterThan(0);
+    expect(out.candidatos[0].trace).toBeDefined();
+    expect(out.candidatos[0]).toHaveProperty("stats_detalhadas");
+    expect(out.reprovados).toEqual([]); // segue gated por diagnostics
+  });
+
   it("candidato jogador carrega titularidade=provavel (sem xi confirmado) e tem chave posicao", async () => {
     const repo = new InMemoryRepo();
     const out = await analyzeManual(fakeClientNoXi(), {

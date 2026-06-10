@@ -75,4 +75,15 @@ describe("buildCandidate", () => {
     expect(buildCandidate({ ...base, minutos_esperados: 60 }).alerta_minutos).toBe(false);
     expect(buildCandidate({ ...base, minutos_esperados: 59 }).alerta_minutos).toBe(true);
   });
+
+  it("repassa stats_detalhadas quando presente; null quando ausente", () => {
+    const base = {
+      jogador: "X", linha: 2.5, odd_over: 2.0, odd_under: 1.8, prob_modelo: 0.5,
+      mu: 2.5, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 10,
+      concedido_adversario: "1.0", incerteza: "media", market_type: "desarmes",
+    };
+    const sd = { media_5: 3.0, media_10: 2.5, ultimos_valores: [4, 3, 2, 3, 3], minutos_medios: 88, media_casa: 3.5, media_fora: 2.4, jogos_casa: 5, jogos_fora: 5 };
+    expect(buildCandidate({ ...base, stats_detalhadas: sd }).stats_detalhadas).toEqual(sd);
+    expect(buildCandidate(base).stats_detalhadas).toBeNull();
+  });
 });

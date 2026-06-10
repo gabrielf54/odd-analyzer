@@ -21,6 +21,7 @@ export interface BuildCandidateArgs {
   posicao?: string | null;
   titularidade?: "confirmado" | "provavel" | "fora_do_xi" | "desconhecido" | null;
   concedido_posicao?: string | null;
+  stats_detalhadas?: unknown;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -53,6 +54,7 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     titularidade: a.titularidade ?? null,
     alerta_minutos: a.minutos_esperados < ALERTA_MINUTOS_THRESHOLD,
     concedido_posicao: a.concedido_posicao ?? null,
+    stats_detalhadas: a.stats_detalhadas ?? null,
   };
   if (a.trace) {
     out.trace = finalizeTrace(a.trace, {

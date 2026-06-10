@@ -33,7 +33,9 @@ function groupByMarket(odds: ManualOddsLine[]): Map<string, ManualOddsLine[]> {
 /** Analisa um jogo a partir de odds coladas, cobrindo TODOS os mercados presentes.
  * Mercados de jogador casam a odd a cada jogador (matchPlayerOdds); mercados de
  * partida reusam matchCount/runMatch do pipeline. Filtra uma vez, IA uma vez,
- * persiste uma vez. O motor (model/value) não muda. */
+ * persiste uma vez. O motor (model/value) não muda.
+ * `trace` e `stats_detalhadas` sempre presentes nos candidatos (o drawer do front
+ * precisa deles). `reprovados` fica gateado por `diagnostics`. */
 export async function analyzeManual(
   client: any, input: ManualOddsInput, opts: AnalyzeManualOpts = {},
 ): Promise<any> {
@@ -78,13 +80,9 @@ export async function analyzeManual(
     jogo: event.jogo, market_type: "manual_todos", candidatos: revisados, llm_resultado: ia,
   });
 
-  const hideTrace = (c: any) => {
-    if (opts.diagnostics || !c || c.trace === undefined) return c;
-    const { trace, ...rest } = c; return rest;
-  };
   return {
     jogo: event.jogo,
-    candidatos: revisados.map(hideTrace),
+    candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match,
     linhas_rejeitadas: input.linhas_rejeitadas,
@@ -133,6 +131,7 @@ async function playerCandidates(
       incerteza: rate.incerteza, market_type: market.key, player_id: entity.id, trace: rate.trace,
       posicao: entity.posicao ?? null, titularidade,
       concedido_posicao: rate.concedido_posicao ?? null,
+      stats_detalhadas: rate.stats_detalhadas ?? null,
     }));
   }
   return out;
