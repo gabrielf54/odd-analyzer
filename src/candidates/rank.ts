@@ -15,7 +15,8 @@ export function classifyRisk(probModelo: number): Risco {
 const ORDEM: Record<Risco, number> = { seguro: 0, moderado: 1, tiro_longo: 2 };
 
 /** Cópia ordenada por faixa (seguro→moderado→tiro_longo) e EV desc dentro da faixa.
- * Anexa `risco` a cada candidato e `recomendado: true` só no primeiro.
+ * Anexa `risco` a cada candidato e `recomendado: true` ao primeiro SEM alerta_minutos.
+ * Se todos têm alerta, o primeiro leva a estrela mesmo assim — ninguém é removido.
  * Isto é APRESENTAÇÃO (ninguém é removido — todos já passaram no edge>0), não o
  * proibido "filtrar por probabilidade alta". Lista vazia → vazia. */
 export function rankCandidates(
@@ -32,5 +33,10 @@ export function rankCandidates(
     const br = b as Record<string, unknown>;
     return ((br["ev"] as number) ?? -Infinity) - ((ar["ev"] as number) ?? -Infinity);
   });
-  return withRisk.map((c, i) => ({ ...c, recomendado: i === 0 }));
+  // Estrela: primeiro da ordem SEM risco de minutos (pode estar no banco /
+  // sair cedo). Se todos tiverem alerta, o primeiro leva a estrela mesmo assim
+  // — ninguém é removido; o selo avisa.
+  const starIdx = withRisk.findIndex((c) => (c as Record<string, unknown>)["alerta_minutos"] !== true);
+  const star = starIdx === -1 ? 0 : starIdx;
+  return withRisk.map((c, i) => ({ ...c, recomendado: i === star }));
 }

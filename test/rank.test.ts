@@ -47,4 +47,27 @@ describe("rankCandidates", () => {
     rankCandidates(input);
     expect(input[0]).not.toHaveProperty("risco");
   });
+
+  it("estrela vai pro primeiro SEM alerta_minutos; ordem não muda", () => {
+    const out = rankCandidates([
+      { jogador: "banco", prob_modelo: 0.6, ev: 0.5, alerta_minutos: true },
+      { jogador: "limpo", prob_modelo: 0.55, ev: 0.3, alerta_minutos: false },
+    ]);
+    expect(out.map((c) => c.jogador)).toEqual(["banco", "limpo"]); // ordem intacta
+    expect(out[0]!.recomendado).toBe(false);
+    expect(out[1]!.recomendado).toBe(true);
+  });
+
+  it("todos com alerta → o primeiro leva a estrela mesmo assim", () => {
+    const out = rankCandidates([
+      { jogador: "a", prob_modelo: 0.6, ev: 0.5, alerta_minutos: true },
+      { jogador: "b", prob_modelo: 0.2, ev: 0.9, alerta_minutos: true },
+    ]);
+    expect(out[0]!.recomendado).toBe(true);
+  });
+
+  it("candidato sem o campo conta como elegível (compat)", () => {
+    const out = rankCandidates([{ jogador: "a", prob_modelo: 0.6, ev: 0.5 }]);
+    expect(out[0]!.recomendado).toBe(true);
+  });
 });
