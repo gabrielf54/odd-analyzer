@@ -30,6 +30,13 @@ describe("buildOddsPrompt", () => {
     expect(p).toMatch(/empate/i);
   });
 
+  it("todos os prompts instruem cortar odds altas (≥ 10) pra não estourar o JSON", () => {
+    for (const key of ["jogador", "partida", "sot", "escanteios", "vitoria"]) {
+      const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, key, lineup);
+      expect(p, key).toMatch(/odd ≥ 10/);
+    }
+  });
+
   it("mercado desconhecido lança", () => {
     expect(() => buildOddsPrompt({ jogo: "x" }, "cartoes", lineup)).toThrow(/desconhecido/);
   });

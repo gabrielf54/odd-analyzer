@@ -2,6 +2,13 @@ import { MARKETS } from "../model/markets.js";
 
 const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes"]);
 
+/** Teto de odd: células com odd ≥ 10 (prob implícita < 10%) são linhas-limiar
+ * muito improváveis — quase nunca têm valor nos nossos mercados de contagem e
+ * só incham o JSON. Em jogos de Copa com muitas linhas isso estoura o limite de
+ * resposta da IA externa. Cortamos na coleta. */
+const ODD_CAP = 10;
+const ODD_CAP_RULE = `LIMITE DE ODD: IGNORE qualquer célula com odd ≥ ${ODD_CAP} (linhas muito improváveis) — não a colete, não a inclua no JSON.`;
+
 function playerNames(lineup: any): string[] {
   const out: string[] = [];
   for (const side of ["home", "away"]) {
@@ -43,6 +50,7 @@ definição, um over ("aquele número OU MAIS"). Para cada célula com odd:
 Só se a casa usar o estilo clássico "Mais de X.5", use esse X.5 direto como "linha".
 IGNORE células com cadeado/suspensas (sem odd). NÃO confunda colunas de desfecho
 ("Score"/"Assist"/"Score or Assist") com linhas — não são mercado de contagem.
+${ODD_CAP_RULE}
 
 NOMES — case com a MINHA lista, não com o texto cru da casa. A casa remove acentos e
 caracteres islandeses e às vezes muda o nome do meio. Para casar: tire acentos;
@@ -84,6 +92,7 @@ Colete as odds dos MERCADOS DE PARTIDA abaixo, para cada linha visível:
 
 Expanda TODAS as seções/abas/acordeões antes de ler. Não invente. Não chute odd
 que você não viu. Nos totais (gols/escanteios) sempre traga os dois lados.
+${ODD_CAP_RULE} Nos totais, use a odd do lado Over para decidir o corte.
 
 Devolva APENAS JSON, um único array com TODAS as linhas, nada mais:
 [
@@ -115,6 +124,7 @@ ${lista}
 Para CADA jogador e CADA linha visível, devolva uma entrada.
 Expanda TODAS as seções/acordeões antes de ler. Se um jogador da lista
 não aparecer, OMITA — não invente. Não chute odd que você não viu.
+${ODD_CAP_RULE}
 
 Devolva APENAS JSON neste formato, nada mais:
 [ { "market_type": "${marketKey}", "entidade": "<nome exato da lista>",
@@ -132,6 +142,7 @@ Aba: "${market.label}" (mercado de partida).
 
 Colete as odds com OS DOIS LADOS (Over/Under, "Mais de"/"Menos de") de cada linha visível.
 Expanda TODAS as seções antes de ler. Não invente. Não chute odd que você não viu.
+${ODD_CAP_RULE} Nos totais, use a odd do lado Over para decidir o corte.
 
 Devolva APENAS JSON neste formato, nada mais:
 ${exemplo}`;
