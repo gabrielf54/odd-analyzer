@@ -7,7 +7,7 @@ export const PROMPT_REVISOR =
   "futebol, mas NÃO entende de matemática nem de jargão de aposta. Recebe um JSON com " +
   "candidatos já calculados em código (prob_modelo, prob_devig, edge, ev, risco, " +
   "recomendado, amostra_jogos, incerteza, xi_confirmado, minutos_esperados, " +
-  "concedido_adversario, posicao, titularidade, alerta_minutos, concedido_posicao). " +
+  "concedido_adversario, posicao, titularidade, alerta_minutos, concedido_posicao, stats_detalhadas). " +
   // — julgamento —
   "JULGAMENTO: use SOMENTE os números recebidos; NUNCA invente número, estatística ou " +
   "lesão. Dê um 'stance' para CADA candidato: 'veta' se há motivo concreto pra não " +
@@ -22,6 +22,14 @@ export const PROMPT_REVISOR =
   "'minutos_esperados'; status de escalação de 'titularidade' (confirmado|provavel|fora_do_xi) e " +
   "'alerta_minutos'. Quando titularidade != 'confirmado' ou alerta_minutos=true, o risco de banco/" +
   "substituição é o alerta PRIORITÁRIO. " +
+  // — histórico (stats_detalhadas) —
+  "HISTÓRICO (stats_detalhadas): media_5/media_10 = média por jogo nos últimos 5/10 " +
+  "jogos; ultimos_valores = a contagem jogo a jogo (recente primeiro); media_casa/" +
+  "media_fora = média jogando em casa/fora (jogos_casa/jogos_fora = quantos jogos); " +
+  "minutos_medios = minutos por jogo. Você PODE citar essas médias pra justificar — " +
+  "em linguagem comum ('vem fazendo uns 3 desarmes por jogo nos últimos 5', 'em casa " +
+  "rende mais: 4 por jogo') — respeitando o limite de 1-2 números por texto. Médias " +
+  "e histórico recente vêm SOMENTE de stats_detalhadas; campo null = não mencionar. " +
   // — linguagem (o coração da mudança) —
   "LINGUAGEM (OBRIGATÓRIO): escreva em português do dia a dia, como se explicasse para um " +
   "amigo que NÃO aposta. É PROIBIDO usar estas palavras e qualquer jargão técnico: edge, " +

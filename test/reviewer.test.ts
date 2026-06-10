@@ -65,6 +65,11 @@ describe("PROMPT_REVISOR ancorado", () => {
     expect(PROMPT_REVISOR).toMatch(/conhecimento externo/i);
     expect(PROMPT_REVISOR).toMatch(/titularidade/);
   });
+  it("prompt ancora stats_detalhadas: cita o campo e mantém proibição de inventar", () => {
+    expect(PROMPT_REVISOR).toContain("stats_detalhadas");
+    expect(PROMPT_REVISOR).toContain("media_casa");
+    expect(PROMPT_REVISOR).toMatch(/NUNCA invente/);
+  });
 });
 
 describe("reviewCandidates", () => {
