@@ -2,6 +2,7 @@ import { fairProbOver, impliedProb } from "../value/devig.js";
 import { edgeEv } from "../value/ev.js";
 import { finalizeTrace, type RateTrace } from "../model/trace.js";
 import { ALERTA_MINUTOS_THRESHOLD } from "../model/params.js";
+import type { StatsDetalhadas } from "../model/detailedStats.js";
 
 export interface BuildCandidateArgs {
   jogador: unknown;
@@ -21,7 +22,7 @@ export interface BuildCandidateArgs {
   posicao?: string | null;
   titularidade?: "confirmado" | "provavel" | "fora_do_xi" | "desconhecido" | null;
   concedido_posicao?: string | null;
-  stats_detalhadas?: unknown;
+  stats_detalhadas?: StatsDetalhadas | null;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
