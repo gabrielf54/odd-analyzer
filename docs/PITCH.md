@@ -47,6 +47,18 @@ Estatística velha não serve. A análise usa **dados recentes e atualizados dos
 
 ---
 
+## As cotações ficam guardadas (2026-06-10)
+
+Antes, toda vez que eu queria analisar um jogo eu precisava **colar de novo** as cotações (as odds) daquele jogo. Cansativo e fácil de perder.
+
+Agora as cotações que eu colo ficam **guardadas no sistema**, presas ao jogo. **Abri o jogo de novo, elas já estão lá** — analiso na hora, sem re-colar. Se eu colar uma cotação nova pra uma linha que já existe, ela **substitui** a antiga; cotações de mercados diferentes (chutes, desarmes...) vão se **somando** no mesmo jogo.
+
+> Por enquanto a entrada das cotações continua sendo o **JSON colado** (estou em construção). No futuro isso vira automático — um robô que lê os preços (scraping) ou uma fonte de odds. A parte de **guardar** já está pronta; só a forma de *trazer* a cotação vai melhorar depois.
+
+> Times, jogos e jogadores **não** são guardados — eles vêm sempre frescos da fonte de dados a cada acesso. Só as **cotações** (que não têm fonte automática ainda) é que o sistema guarda.
+
+---
+
 ## Como eu uso (a experiência)
 
 1. **Tela de jogos.** Abro o app e vejo uma lista de jogos disponíveis.
@@ -143,6 +155,14 @@ O sistema **calcula e entrega** o histórico real de cada jogador: a média dele
 **A tela está sendo atualizada agora** (hoje 2026-06-10) para mostrar esse histórico num painel de detalhes, mas o sistema **já faz a conta com esses números de verdade**:
 1. **A probabilidade é feita a partir do histórico real.** Em vez de uma média genérica da temporada, o modelo usa os últimos 5 e 10 jogos: "nos últimos 5 jogos ele deu 3, 2, 4, 3, 3 chutes — a média é 3 por jogo". Esse número virou 64% no modelo, que comparamos com a odd da casa.
 2. **A segunda opinião usa os mesmos números.** A IA não inventa — ela pega o histórico que o código calculou e explica por quê aquilo vale (ou não vale). Se o histórico estiver fraco, ela diz; se estiver forte, ela confirma. Continua proibida de "saber das coisas" de fora — tudo que ela afirma tem que estar nos dados reais do jogador na tela.
+
+---
+
+## Os jogos da Copa já aparecem na lista (2026-06-10)
+
+Tinha um defeito chato: ao pedir os jogos da Copa, a lista vinha **vazia de jogos de verdade** — só aparecia a fase final ("vencedor do jogo X contra vencedor do jogo Y"), sem times definidos, e o **jogo de abertura (México × África do Sul, 11/06) sumia**.
+
+O motivo: a fonte de dados entrega os jogos na ordem errada (os de chave primeiro) e o sistema só pegava os 50 primeiros — então os jogos da fase de grupos, que é o que interessa agora, ficavam de fora. **Corrigido:** agora o sistema puxa a janela inteira, joga fora os jogos sem time definido e ordena por data. Resultado: a lista da Copa passou de 50 jogos-fantasma para **72 jogos reais**, com a abertura no topo.
 
 ---
 

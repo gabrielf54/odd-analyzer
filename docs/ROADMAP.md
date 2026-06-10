@@ -2,9 +2,40 @@
 
 > **✅ MIGRAÇÃO DE STACK CONCLUÍDA (2026-06-04):** projeto portado de **Python → Node/TypeScript** (motivo: manutenibilidade — o dono dá suporte em JS, não em Python). Backend Node na **raiz do repo** (`src/`+`test/`, Express+REST+Zod) e front **Next** no repo separado `odd-analyzer-frontend`. **Motor + adapters + API portados, 111 testes Vitest verdes, com GATE DE PARIDADE** provando que o TS reproduz os números do Python em 1e-9 (protege a calibração). **E2E ao vivo validado** (análise real via BSD → value bet coerente). **Python legado removido**; golden files do gate ficam congeladas. A doutrina de Produto e os vereditos de calibração abaixo **continuam valendo** (não dependem de linguagem). Detalhe: `docs/superpowers/specs/2026-06-04-migracao-node-design.md` + planos 1/2/3. Meta de dinheiro real 11/06 **flexível** (só após validação forward).
 
-> **Atualizado:** 2026-06-10 · **Suíte:** 217 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-10 · **Suíte:** 232 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
 >
 > **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. A **rota de análise manual (`/analise/manual`) agora ranqueia os candidatos por faixa de risco** (`seguro/moderado/tiro_longo`) com a ⭐ recomendada marcada, **e roda a IA revisora** (veredito `concorda/ressalva/veta` por candidato + degradação graciosa se a IA falhar). Desde 2026-06-10 o candidato carrega **titularidade/posição/alerta de minutos/`stats_detalhadas`**, a ⭐ **pula jogador com risco de banco**, e a IA revisora é **ancorada nos campos do dossiê** (proibido conhecimento externo). O **tilt posicional foi medido e ficou DESLIGADO** (degradou ECE em 2 dos 3 mercados — ver seção 2026-06-10). Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Persistência de odds — tabela `odds` é fonte de verdade — FEITO (2026-06-10)
+
+**Dor:** as odds eram dado órfão — vinham de JSON colado a cada análise e eram salvas à mão em `odds/*.json` p/ não re-extrair. Reabrir um jogo exigia re-colar tudo.
+
+**O que entrou (backend; motor + gate de paridade intocados):**
+- **Nova tabela `odds`** (`src/store/schema.sql`, migração `create_odds_table` aplicada no Supabase via MCP): PK `(event_id, entidade, market_type, linha, book)` + índice por `event_id`. **Só odds** ganham tabela — liga/jogo/jogador seguem **vivos da BSD** (não duplicar a fonte de verdade da API; espelho completo foi descartado por custo de coerência).
+- **Port `Repo`** ganhou `saveOdds` (upsert por PK) / `getOdds` / `deleteOdds` / `listOddsEvents`, em `InMemoryRepo` e `SupabaseRepo`.
+- **Endpoints:** `POST /odds` (colar = salva, valida via `parseManualOdds`, devolve `salvas` + `linhas_rejeitadas`), `GET /jogos/:id/odds` (abrir = carrega), `DELETE /jogos/:id/odds` (limpa jogo ou 1 linha via query).
+- **`POST /analise/manual` agora lê do repo:** `odds[]` no corpo virou **opcional** — se vier, persiste (upsert) antes; a análise **sempre** carrega as odds do repo por `event_id`. Retrocompatível (corpo antigo segue funcionando) e fonte-de-verdade (front novo manda só `event_id`). `escopo_historico` continua parâmetro de análise, **fora da tabela**.
+- **Seed** `npm run seed:odds` (`scripts/seedOdds.ts` + `odds/manifest.json`): importa os `odds/*.json` existentes mapeando arquivo → `event_id`; entradas sem id são puladas com aviso.
+
+**Escopo decidido (brainstorming):** só odds; sobrescreve por linha (sem versão/histórico); acúmulo por mercado (não wipe). Spec: `docs/superpowers/specs/2026-06-10-odds-persistencia-design.md` · plano: `docs/superpowers/plans/2026-06-10-odds-persistencia.md`.
+
+**Frontend:** wiring (carregar/salvar odds via os novos endpoints) é **follow-up** após a migração de tela única do front (`/coletar` → `/`) mergear — evita conflito entre as duas frentes.
+
+**Suíte: 232 testes verdes** (typecheck + paridade verdes; +13 sobre 219).
+
+## Fix — listar jogos da Copa (liga 27) — FEITO (2026-06-10)
+
+**Bug:** `GET /ligas/27/jogos?status=notstarted` não devolvia os jogos da Copa (incl. o opener Mexico×South Africa de 11/06). Causa: `service.listMatches` pedia à BSD só `limit=50` e cortava **antes** de ordenar. A BSD **não ordena `/events` por data** — devolve por **id DESC** e respeita o `limit`; na liga 27 os ids altos são jogos de **chave/knockout** (data tarde, times placeholder `W101`/`1K`/`3D/3E`), então a janela de 50 enterrava o opener (id 8287, baixo) e toda a fase de grupos.
+
+**Fix (`src/service.ts::listMatches`, money-path intocado):**
+- Puxa janela larga (`WIDE_FETCH=200`) e só corta (`slice(limit)`) **depois** de filtrar e ordenar por data.
+- `isPlaceholderTeam()` descarta jogos de chave sem time definido (`^([WL]\d+|\d[A-Za-z]|[A-Za-z]\d)$` ou nome com `/`) — sem time real não há stats → não é candidato.
+
+**Prova ao vivo:** a rota saía com 50 jogos placeholder (data mais cedo 25/06) → passou a **72 jogos reais** ordenados por data, opener de 11/06 no topo.
+
+**Caveat:** a liga 27 da BSD **mistura edições** (há eventos de 2018); o filtro `data >= now` já os elimina. Blindagem extra possível: fixar `season_id=188` (a edição 2026). **Follow-up aberto** se a lista voltar a sujar.
+
+**Suíte: 219 testes verdes** (2 novos em `test/service.test.ts`; typecheck + paridade verdes).
 
 ## Coletar v2 — `stats_detalhadas` por candidato — FEITO (2026-06-10)
 
