@@ -65,7 +65,7 @@ listOddsEvents(): Promise<OddsEventSummary[]> | OddsEventSummary[];  // event_id
 | `POST` | `/odds` | **Colar = salvar.** Recebe o mesmo corpo de hoje (`event_id`, `coletado_em`, `odds[]`). Valida via `parseManualOdds` (reuso), faz upsert das linhas válidas, devolve `{ salvas, linhas_rejeitadas }`. |
 | `GET`  | `/jogos/:eventId/odds` | **Abrir = carregar.** Devolve as odds salvas do jogo (hidrata o lote no front). |
 | `DELETE` | `/jogos/:eventId/odds` | Limpa as odds do jogo (ou uma linha, via query). Para o botão "limpar". |
-| `POST` | `/analise/manual` | **Analisar = ler a tabela.** Passa a receber `{ event_id, escopo_historico?, diagnostico? }`. O serviço **carrega as odds do repo** por `event_id`, monta o `ManualOddsInput` e chama `analyzeManual` **sem alterar o motor**. (Não recebe mais `odds[]` no corpo.) |
+| `POST` | `/analise/manual` | **Analisar = ler a tabela.** `odds[]` no corpo vira **opcional**: se vier, é persistido (upsert) antes; a análise **sempre carrega do repo** por `event_id`, monta o `ManualOddsInput` e chama `analyzeManual` **sem alterar o motor**. Retrocompatível (corpo antigo com `odds[]` segue funcionando) e fonte-de-verdade (front novo manda só `event_id`). |
 | `GET`  | `/odds/jogos` | (opcional) Lista resumida de jogos com odds coletadas — base para uma vitrine "meus jogos" futura. |
 
 **Validação:** schema Zod novo para `/odds` (reaproveita `parseManualOdds` para a semântica por-linha) e para o `/analise/manual` reduzido. Bordas só com Zod, como manda o CLAUDE.md.
@@ -74,7 +74,7 @@ listOddsEvents(): Promise<OddsEventSummary[]> | OddsEventSummary[];  // event_id
 
 - `saveOddsService(repo, body)`: `parseManualOdds(body)` → `repo.saveOdds(event_id, linhas)` → retorna `{ salvas, linhas_rejeitadas }`.
 - `getOddsService(repo, eventId)`: `repo.getOdds(eventId)`.
-- `analyzeManualService` muda: em vez de `parseManualOdds(body)` sobre odds do corpo, lê `repo.getOdds(event_id)`, monta o `ManualOddsInput` (com `escopo_historico` do corpo) e chama `analyzeManual(client, input, …)`. O `analyzeManual` e todo o motor (`model/`, `value/`, `candidates/`) **não mudam** — o gate de paridade segue intacto.
+- `analyzeManualService` muda: se o corpo trouxer `odds[]`, faz `parseManualOdds(body)` + `repo.saveOdds` antes (upsert). Depois **sempre** lê `repo.getOdds(event_id)`, monta o `ManualOddsInput` (com `escopo_historico` do corpo, default `"todos"`) e chama `analyzeManual(client, input, …)`. O `analyzeManual` e todo o motor (`model/`, `value/`, `candidates/`) **não mudam** — o gate de paridade segue intacto.
 
 ## Seed dos `odds/*.json` existentes
 
