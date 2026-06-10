@@ -1,6 +1,7 @@
 import { fairProbOver, impliedProb } from "../value/devig.js";
 import { edgeEv } from "../value/ev.js";
 import { finalizeTrace, type RateTrace } from "../model/trace.js";
+import { ALERTA_MINUTOS_THRESHOLD } from "../model/params.js";
 
 export interface BuildCandidateArgs {
   jogador: unknown;
@@ -50,7 +51,7 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     market_type: a.market_type,
     posicao: a.posicao ?? null,
     titularidade: a.titularidade ?? null,
-    alerta_minutos: a.minutos_esperados < 60,
+    alerta_minutos: a.minutos_esperados < ALERTA_MINUTOS_THRESHOLD,
     concedido_posicao: a.concedido_posicao ?? null,
   };
   if (a.trace) {

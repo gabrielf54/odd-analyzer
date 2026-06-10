@@ -16,3 +16,8 @@ export const POSITIONAL_SHARE_NACIONAL: Record<string, Record<string, number>> =
 // Liga por padrão SÓ depois do mini-backtest (scripts/backtest-tilt.mts) não degradar Brier/ECE.
 export const POSITIONAL_TILT_ENABLED = false;
 export const POSITIONAL_MIN_GAMES = 5; // jogos do adversário com player-stats
+
+// Threshold do alerta_minutos no dossiê do candidato: abaixo disto o jogador
+// pode começar no banco / sair cedo. NÃO confundir com MIN_OTHER_MINUTES
+// (filtro leave-one-out do backtest), que só por coincidência também é 60.
+export const ALERTA_MINUTOS_THRESHOLD = 60;

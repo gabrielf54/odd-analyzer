@@ -65,4 +65,14 @@ describe("buildCandidate", () => {
     expect(c["titularidade"]).toBeNull();
     expect(c["concedido_posicao"]).toBeNull();
   });
+
+  it("alerta_minutos: borda exata em 60 (false) e 59 (true)", () => {
+    const base = {
+      jogador: "X", linha: 0.5, odd_over: 2.0, odd_under: null, prob_modelo: 0.5, mu: 1.0,
+      xi_confirmado: true, amostra_jogos: 20, concedido_adversario: "n/d",
+      incerteza: "baixa", market_type: "sot",
+    };
+    expect(buildCandidate({ ...base, minutos_esperados: 60 }).alerta_minutos).toBe(false);
+    expect(buildCandidate({ ...base, minutos_esperados: 59 }).alerta_minutos).toBe(true);
+  });
 });
