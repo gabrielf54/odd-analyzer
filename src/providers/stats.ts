@@ -8,6 +8,7 @@ import { POSITIONAL_SHARE_NACIONAL, POSITIONAL_TILT_ENABLED, POSITIONAL_MIN_GAME
 import { buildTeamMap, resolve } from "../crosswalk/bsdIds.js";
 import type { EntityRate } from "./types.js";
 import { buildRateTrace } from "../model/trace.js";
+import { detailedStats } from "../model/detailedStats.js";
 
 // market.stat_field (de jogador) → campo no /events/{id}/stats/ (nível TIME).
 const TEAM_STAT_FIELD: Record<string, string> = {
@@ -64,6 +65,24 @@ export class BSDStatsProvider {
     }
     if (values.length === 0) return null;
     return values.reduce((a, b) => a + b, 0) / values.length;
+  }
+
+  /** event_id → home_team_id pros jogos do histórico do jogador. 1 chamada
+   * /events/ por time distinto (cacheada no client). Falha → mapa parcial:
+   * o split casa/fora degrada pra null, nunca estima mando. */
+  private async homeAwayMap(games: any[], window = 10): Promise<Map<string, string>> {
+    const teamIds = [...new Set(games.slice(-window).map((g) => String(g?.team_id ?? "")))]
+      .filter((t) => t && t !== "undefined" && t !== "null");
+    const map = new Map<string, string>();
+    for (const tid of teamIds) {
+      let events: any;
+      try { events = await this.client.events({ team_id: tid, status: "finished", limit: 30 }); }
+      catch { continue; }
+      for (const ev of (Array.isArray(events?.results) ? events.results : [])) {
+        if (ev?.id != null && ev?.home_team_id != null) map.set(String(ev.id), String(ev.home_team_id));
+      }
+    }
+    return map;
   }
 
   private async playerPosition(pid: unknown): Promise<string> {
@@ -190,6 +209,7 @@ export class BSDStatsProvider {
       isHome,
       mu: calc.mu,
     });
+    const statsDetalhadas = detailedStats(games, market.stat_field, await this.homeAwayMap(games));
     return {
       mu: calc.mu, minutos_esperados: minutes,
       xi_confirmado: xiConfirmed, amostra_jogos: n,
@@ -197,6 +217,7 @@ export class BSDStatsProvider {
       incerteza: uncertaintyFor(n),
       trace,
       concedido_posicao: positionalNote,
+      stats_detalhadas: statsDetalhadas,
     };
   }
 

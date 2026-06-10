@@ -1,5 +1,6 @@
 import type { MarketSpec } from "../model/markets.js";
 import type { RateTrace } from "../model/trace.js";
+import type { StatsDetalhadas } from "../model/detailedStats.js";
 
 export interface OddsLine {
   entidade: string;
@@ -23,6 +24,7 @@ export interface EntityRate {
   incerteza: string;
   trace?: RateTrace;
   concedido_posicao?: string | null;
+  stats_detalhadas?: StatsDetalhadas;
 }
 
 export interface StatsProvider {

@@ -184,6 +184,63 @@ describe("tilt posicional no entityRate", () => {
   });
 });
 
+describe("stats_detalhadas", () => {
+  it("computa médias e casa/fora via mapa de eventos do time", async () => {
+    const client: any = {
+      playerStats: async () => ({ results: [ // BSD entrega recente-primeiro
+        { total_tackle: 6, minutes_played: 90, event_id: "e3", team_id: "100" },
+        { total_tackle: 4, minutes_played: 90, event_id: "e2", team_id: "100" },
+        { total_tackle: 2, minutes_played: 90, event_id: "e1", team_id: "100" },
+      ] }),
+      events: async (filtros: any) => {
+        if (String(filtros.team_id) === "100") {
+          return { results: [
+            { id: "e3", home_team_id: "100" }, // casa
+            { id: "e2", home_team_id: "999" }, // fora
+            { id: "e1", home_team_id: "100" }, // casa
+          ] };
+        }
+        return { results: [] }; // adversário (teamConceded) sem dado → neutro
+      },
+      eventStats: async () => ({ stats: {} }),
+    };
+    const provider = new BSDStatsProvider(client, { positionalTilt: false });
+    const market = MARKETS["desarmes"]!;
+    const rate = await provider.entityRate("p1", market, {
+      event: { home_team: { id: "100" }, away_team: { id: "200" } },
+      entity_team_id: "100", is_home: true, league_avg_conceded: 1.0,
+    });
+    expect(rate).not.toBeNull();
+    const s = rate!.stats_detalhadas!;
+    expect(s.media_5).toBeCloseTo(4, 9);          // (2+4+6)/3
+    expect(s.ultimos_valores).toEqual([6, 4, 2]); // recente primeiro
+    expect(s.media_casa).toBeCloseTo(4, 9);       // e1=2, e3=6
+    expect(s.jogos_casa).toBe(2);
+    expect(s.media_fora).toBeCloseTo(4, 9);       // e2=4
+    expect(s.jogos_fora).toBe(1);
+    expect(s.minutos_medios).toBeCloseTo(90, 9);
+  });
+
+  it("client.events falhando → split null, resto preenchido (degrada, não quebra)", async () => {
+    const client: any = {
+      playerStats: async () => ({ results: [
+        { total_tackle: 3, minutes_played: 90, event_id: "e1", team_id: "100" },
+      ] }),
+      events: async () => { throw new Error("rede"); },
+      eventStats: async () => ({ stats: {} }),
+    };
+    const provider = new BSDStatsProvider(client, { positionalTilt: false });
+    const rate = await provider.entityRate("p1", MARKETS["desarmes"]!, {
+      event: { home_team: { id: "100" }, away_team: { id: "200" } },
+      entity_team_id: "100", is_home: true, league_avg_conceded: 1.0,
+    });
+    const s = rate!.stats_detalhadas!;
+    expect(s.media_5).toBeCloseTo(3, 9);
+    expect(s.media_casa).toBeNull();
+    expect(s.media_fora).toBeNull();
+  });
+});
+
 describe("OnlyPlayer", () => {
   it("filtra elenco ao ref por substring de nome", async () => {
     const p = new OnlyPlayer(new BSDStatsProvider(makeClient()), "kaiki");
