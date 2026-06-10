@@ -6,6 +6,7 @@ function validReviewItem(r: any, validKeys: Set<string>): boolean {
   if (r == null || typeof r !== "object") return false;
   if (!["jogador", "linha", "market_type", "stance"].every((k) => k in r)) return false;
   if (!STANCES.has(r.stance)) return false;
+  if (r.nota != null && typeof r.nota !== "string") return false;
   return validKeys.has(`${r.jogador}|${r.linha}|${r.market_type}`);
 }
 

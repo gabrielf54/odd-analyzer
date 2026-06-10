@@ -33,6 +33,12 @@ describe("validateReview", () => {
   it("rejeita estrutura sem as chaves obrigatórias", () => {
     expect(validateReview({ revisoes: [], alertas: [] }, cands)).toBe(false);
   });
+  it("rejeita nota que não seja string nem null", () => {
+    const bad = { ...validOut, revisoes: [
+      { jogador: "Declan Rice", linha: 2.5, market_type: "desarmes", stance: "concorda", nota: 42 },
+    ] };
+    expect(validateReview(bad, cands)).toBe(false);
+  });
 });
 
 describe("reviewCandidates", () => {
