@@ -160,6 +160,7 @@ async function playerCount(event: any, market: MarketSpec, sp: any, lines: any[]
         posicao: entity.posicao ?? null,
         titularidade,
         concedido_posicao: rate.concedido_posicao ?? null,
+        stats_detalhadas: rate.stats_detalhadas ?? null,
       }));
     }
   }
