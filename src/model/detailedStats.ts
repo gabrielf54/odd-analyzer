@@ -1,3 +1,4 @@
+// igual a assemble.ts::Game — manter em sincronia
 type Game = Record<string, unknown>;
 const num = (v: unknown): number => {
   const n = typeof v === "number" ? v : Number(v);
@@ -7,7 +8,7 @@ const num = (v: unknown): number => {
 export interface StatsDetalhadas {
   media_5: number | null;
   media_10: number | null;
-  ultimos_valores: number[];
+  readonly ultimos_valores: number[];
   minutos_medios: number | null;
   media_casa: number | null;
   media_fora: number | null;
@@ -40,7 +41,7 @@ export function detailedStats(
     media_5: mean(vals(last5)),
     media_10: mean(vals(last10)),
     ultimos_valores: vals(last5).reverse(),
-    minutos_medios: mean(last10.map((g) => num(g["minutes_played"]))),
+    minutos_medios: mean(last10.map((g) => num(g["minutes_played"]))), // janela 10 — minutos mudam devagar; mais largo = mais estável
     media_casa: mean(casa),
     media_fora: mean(fora),
     jogos_casa: casa.length,

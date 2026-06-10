@@ -35,6 +35,8 @@ describe("detailedStats", () => {
     expect(s0.media_10).toBeNull();
     expect(s0.ultimos_valores).toEqual([]);
     expect(s0.minutos_medios).toBeNull();
+    expect(s0.jogos_casa).toBe(0);
+    expect(s0.jogos_fora).toBe(0);
   });
 
   it("stat ausente num jogo conta como 0 (não NaN)", () => {
