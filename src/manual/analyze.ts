@@ -6,14 +6,15 @@ import { evaluateCandidates } from "../candidates/filter.js";
 import { BSDStatsProvider, CrosswalkStatsProvider } from "../providers/stats.js";
 import { ManualOdds } from "../providers/odds.js";
 import { InMemoryRepo } from "../store/repo.js";
-import { fakeAnalyst as defaultFake } from "../ai/analyst.js";
+import { rankCandidates } from "../candidates/rank.js";
+import { reviewCandidates, type ReviewResult } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
 import { matchPlayerOdds } from "./matchOdds.js";
 import type { ManualOddsInput, ManualOddsLine } from "./schema.js";
 
 export interface AnalyzeManualOpts {
   repo?: any;
-  analystFn?: (cands: any[], ctx: any) => any | Promise<any>;
+  reviewerFn?: (cands: any[], ctx: any) => ReviewResult | Promise<ReviewResult>;
   diagnostics?: boolean;
 }
 
@@ -37,7 +38,7 @@ export async function analyzeManual(
   client: any, input: ManualOddsInput, opts: AnalyzeManualOpts = {},
 ): Promise<any> {
   const repo = opts.repo ?? new InMemoryRepo();
-  const analystFn = opts.analystFn ?? defaultFake;
+  const reviewerFn = opts.reviewerFn ?? reviewCandidates;
 
   const event = normalizeEvent(await client.getEvent(input.event_id));
   const leagueId = event.league_id ?? null;
@@ -70,10 +71,11 @@ export async function analyzeManual(
   }
 
   const { approved, rejected } = evaluateCandidates(allCandidates);
-  const ia = await analystFn(approved, { jogo: event.jogo ?? event.id });
+  const ranked = rankCandidates(approved);
+  const { candidatos: revisados, ia } = await reviewerFn(ranked, { jogo: event.jogo ?? event.id });
 
   await repo.saveAnalysis(event.id, {
-    jogo: event.jogo, market_type: "manual_todos", candidatos: approved, llm_resultado: ia,
+    jogo: event.jogo, market_type: "manual_todos", candidatos: revisados, llm_resultado: ia,
   });
 
   const hideTrace = (c: any) => {
@@ -82,7 +84,7 @@ export async function analyzeManual(
   };
   return {
     jogo: event.jogo,
-    candidatos: approved.map(hideTrace),
+    candidatos: revisados.map(hideTrace),
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match,
     linhas_rejeitadas: input.linhas_rejeitadas,

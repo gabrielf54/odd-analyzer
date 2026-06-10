@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import request from "supertest";
 import { createApp } from "../src/api/app.js";
 import { InMemoryRepo } from "../src/store/repo.js";
-import { fakeClient as manualClient } from "./manualFixtures.js";
+import { fakeClient as manualClient, fakeReviewer } from "./manualFixtures.js";
 
 function makeClient(): any {
   return {
@@ -66,7 +66,7 @@ describe("API", () => {
 });
 
 describe("API — fluxo manual de odds", () => {
-  const manualApp = () => createApp({ client: manualClient(), repo: new InMemoryRepo() });
+  const manualApp = () => createApp({ client: manualClient(), repo: new InMemoryRepo(), reviewerFn: fakeReviewer });
 
   it("GET /prompt → 200 com string do prompt e lista de jogadores", async () => {
     const r = await request(manualApp()).get("/prompt").query({ event_id: "e1", market: "sot" });

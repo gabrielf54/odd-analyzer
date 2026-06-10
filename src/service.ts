@@ -7,7 +7,6 @@ import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
-import { analyze as aiAnalyst, fakeAnalyst } from "./ai/analyst.js";
 
 export async function listLeagues(client: any, limit = 200): Promise<any[]> {
   const data = await client.leagues({ limit });
@@ -164,13 +163,13 @@ export async function generateOddsPrompt(client: any, eventId: string, marketKey
   return buildOddsPrompt(event, marketKey, lineup);
 }
 
-export interface AnalyzeManualServiceOpts { repo?: any; useAi?: boolean; diagnostics?: boolean; }
+export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: any; diagnostics?: boolean; }
 
-/** Valida o JSON colado e roda a análise geral de todos os mercados. */
+/** Valida o JSON colado e roda a análise geral de todos os mercados (com IA revisora). */
 export async function analyzeManualService(client: any, body: unknown, opts: AnalyzeManualServiceOpts = {}): Promise<any> {
   const input = parseManualOdds(body); // lança em erro estrutural (→ 400 na API)
   return analyzeManual(client, input, {
-    repo: opts.repo, analystFn: opts.useAi ? aiAnalyst : fakeAnalyst, diagnostics: opts.diagnostics ?? false,
+    repo: opts.repo, reviewerFn: opts.reviewerFn, diagnostics: opts.diagnostics ?? false,
   });
 }
 

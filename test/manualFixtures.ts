@@ -55,3 +55,11 @@ export function fakeClient(): any {
 }
 
 export const fakeAnalyst = (cands: any[]) => ({ melhor_aposta: null, candidatos_vistos: cands.length });
+
+// Revisor fake: não chama IA, anexa ia_revisao=null e devolve no shape do reviewer.
+export function fakeReviewer(candidatos: any[], _contexto: any) {
+  return {
+    candidatos: candidatos.map((c) => ({ ...c, ia_revisao: null })),
+    ia: { topo_explicacao: null, alertas: ["IA desligada (teste)"] },
+  };
+}

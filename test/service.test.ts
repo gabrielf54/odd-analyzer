@@ -6,7 +6,7 @@ import {
 } from "../src/service.js";
 import { InMemoryRepo } from "../src/store/repo.js";
 import { ManualOdds } from "../src/providers/odds.js";
-import { fakeClient } from "./manualFixtures.js";
+import { fakeClient, fakeReviewer } from "./manualFixtures.js";
 
 describe("service", () => {
   it("listLeagues ordena por nome", async () => {
@@ -99,7 +99,7 @@ describe("service manual (coleta de odds via IA externa)", () => {
     const out = await analyzeManualService(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
-    }, { repo });
+    }, { repo, reviewerFn: fakeReviewer });
     expect(out.candidatos).toBeDefined();
     expect(out.linhas_rejeitadas).toHaveLength(0);
   });

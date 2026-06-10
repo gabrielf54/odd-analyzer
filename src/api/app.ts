@@ -6,6 +6,7 @@ import * as service from "../service.js";
 export interface Deps {
   client: any;
   repo: any;
+  reviewerFn?: any;
 }
 
 const analyzeSchema = z.object({
@@ -90,7 +91,7 @@ export function createApp(deps: Deps): express.Express {
 
   app.post("/analise/manual", wrap(async (req, res) => {
     // A validação fina do JSON é do parseManualOdds (lança → 400 no middleware).
-    res.json(await service.analyzeManualService(deps.client, req.body, { repo: deps.repo }));
+    res.json(await service.analyzeManualService(deps.client, req.body, { repo: deps.repo, reviewerFn: deps.reviewerFn }));
   }));
 
   app.post("/crosswalk", wrap(async (req, res) => {
