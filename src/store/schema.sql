@@ -31,6 +31,21 @@ create table if not exists paper_ledger (
   unique (event_id, jogador, linha, market_type)
 );
 
+-- odds coletadas (fonte de verdade das odds; liga/jogo/jogador seguem vivos da BSD).
+-- Última migração: create_odds_table (2026-06-10)
+create table if not exists odds (
+  event_id     text not null,
+  entidade     text not null,        -- nome do jogador, ou "partida" p/ mercados de partida
+  market_type  text not null,
+  linha        numeric not null,
+  odd_over     numeric not null,
+  odd_under    numeric,
+  book         text not null default 'manual',
+  coletado_em  timestamptz not null default now(),
+  primary key (event_id, entidade, market_type, linha, book)
+);
+create index if not exists odds_event_idx on odds (event_id);
+
 -- lido/escrito por SupabaseRepo.save_crosswalk/get_crosswalk
 create table if not exists jogadores_crosswalk (
   id_canonico bigint primary key,  -- id canonico do jogador, fornecido pelo caller (ex.: ID API-Football)
