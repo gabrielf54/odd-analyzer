@@ -9,3 +9,13 @@ export function opponentMultiplier(oppConcededPerGame: number, leagueAvgConceded
 export function homeAwayMultiplier(isHome: boolean, homeFactor: number, awayFactor: number): number {
   return isHome ? homeFactor : awayFactor;
 }
+
+export const TILT_MIN = 0.85;
+export const TILT_MAX = 1.20;
+
+/** Tilt posicional: o adversário concede desproporcionalmente a esta posição?
+ * share_adv/share_base clampado. Neutro (1.0) se faltar dado — fail-closed. */
+export function positionalTilt(shareAdv: number | null, shareBase: number | null): number {
+  if (shareAdv == null || shareBase == null || shareBase <= 0) return 1.0;
+  return Math.max(TILT_MIN, Math.min(TILT_MAX, shareAdv / shareBase));
+}
