@@ -150,7 +150,7 @@ export class BSDStatsProvider {
     const oppMult = this.oppMult(oppConceded, leagueAvg);
 
     let tilt = 1.0;
-    let concedidoPosicao: string | null = null;
+    let positionalNote: string | null = null;
     const pos = String(ctx.posicao ?? "");
     const shareBase = POSITIONAL_SHARE_NACIONAL[market.stat_field]?.[pos] ?? null;
     if (this.positionalTiltOn && shareBase != null && shareBase > 0) {
@@ -159,7 +159,7 @@ export class BSDStatsProvider {
         const shareAdv = (byPos.byPos[pos] ?? 0) / byPos.total;
         tilt = positionalTilt(shareAdv, shareBase);
         const perGame = (byPos.byPos[pos] ?? 0) / byPos.games;
-        concedidoPosicao = `${perGame.toFixed(1)}/jogo a ${POS_LABEL[pos] ?? pos} (${tilt.toFixed(2)}× o típico)`;
+        positionalNote = `${perGame.toFixed(1)}/jogo a ${POS_LABEL[pos] ?? pos} (${tilt.toFixed(2)}× o típico)`;
       }
     }
     const oppMultFinal = Math.max(
@@ -197,7 +197,7 @@ export class BSDStatsProvider {
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
       incerteza: uncertaintyFor(n),
       trace,
-      concedido_posicao: concedidoPosicao,
+      concedido_posicao: positionalNote,
     };
   }
 
