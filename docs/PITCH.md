@@ -102,6 +102,30 @@ As odds da casa são metade da conta (comparamos o nosso número com o da casa).
 
 ---
 
+## A tela de coleta diz "aposte NESTA" — e ainda traz uma segunda opinião (2026-06-09)
+
+Depois de colar o JSON das odds, o app não devolve mais uma lista solta. Ele:
+
+**1. Mostra primeiro a mais sólida.** As oportunidades aprovadas são organizadas em três grupos antes de aparecerem na tela:
+- **Sólida** — o modelo diz que acontece mais vezes que não (≥ 50%). A ⭐ marca a melhor dentro desse grupo.
+- **Moderada** — 35–50% de chance segundo o modelo; ainda positiva em valor, mas menor certeza.
+- **Tiro-longo** — acontece menos de 35% das vezes, mas a odd paga tão bem que ainda vale matematicamente.
+
+Ninguém desaparece: mesmo o tiro-longo fica visível, porque passou no filtro de valor. A organização é só pra eu saber em qual depositar mais confiança — o produto **nunca** esconde uma aposta de valor só porque a probabilidade é baixa.
+
+**2. Traz uma segunda opinião da IA.** Para cada oportunidade aprovada, o sistema pede à IA que dê um de três veredictos:
+- **Concorda** — a IA confirma a lógica do confronto.
+- **Ressalva** — concorda com valor, mas aponta algo para eu avaliar (ex.: jogador em fase ruim, jogo sem importância).
+- **Barra** — a IA enxerga algo que torna aquela aposta arriscada além do que o número mostra.
+
+> A IA **nunca inventa número**. Ela só olha o que o código calculou e dá a opinião como se fosse um analista lendo a análise. Se ela barrar algo que o código aprovou, eu vejo o conflito na tela e decido — o poder de veto é meu.
+
+**3. Se a IA estiver fora do ar** (sem chave ou conexão), o app não trava — ele mostra só o veredito do código com um aviso "segunda opinião indisponível". A análise segue funcionando.
+
+**Os números viram linguagem do dia a dia.** Em vez de "EV +0.275", a tela traduz: "+R$ 2,75 a cada R$ 10 apostados, no longo prazo". Em vez de "prob_modelo 0.58", aparece "o modelo diz que isso acontece em 58 de 100 jogos similares".
+
+---
+
 ## Em resumo
 
-> Eu escolho um jogo. O sistema cruza as estatísticas atualizadas dos dois times, calcula a probabilidade real, compara com a odd da casa sem a margem, e a IA me entrega o veredito final explicado: **qual aposta vale a pena e por quê.**
+> Eu escolho um jogo. O sistema cruza as estatísticas atualizadas dos dois times, calcula a probabilidade real, compara com a odd da casa sem a margem, e a IA me entrega o veredito final explicado: **qual aposta vale a pena e por quê** — com a mais sólida na frente, os tiros-longos sinalizados, e uma segunda opinião que pode concordar, ressalvar ou barrar cada uma.

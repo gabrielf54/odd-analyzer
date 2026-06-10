@@ -2,9 +2,30 @@
 
 > **✅ MIGRAÇÃO DE STACK CONCLUÍDA (2026-06-04):** projeto portado de **Python → Node/TypeScript** (motivo: manutenibilidade — o dono dá suporte em JS, não em Python). Backend Node na **raiz do repo** (`src/`+`test/`, Express+REST+Zod) e front **Next** no repo separado `odd-analyzer-frontend`. **Motor + adapters + API portados, 111 testes Vitest verdes, com GATE DE PARIDADE** provando que o TS reproduz os números do Python em 1e-9 (protege a calibração). **E2E ao vivo validado** (análise real via BSD → value bet coerente). **Python legado removido**; golden files do gate ficam congeladas. A doutrina de Produto e os vereditos de calibração abaixo **continuam valendo** (não dependem de linguagem). Detalhe: `docs/superpowers/specs/2026-06-04-migracao-node-design.md` + planos 1/2/3. Meta de dinheiro real 11/06 **flexível** (só após validação forward).
 
-> **Atualizado:** 2026-06-09 · **Suíte:** 163 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
+> **Atualizado:** 2026-06-09 · **Suíte:** 182 testes Vitest verdes (Node/TS; Python removido) · **Custo até aqui:** $0.
 >
-> **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+> **ESTADO ATUAL (bottom-line):** os **3 mercados de JOGADOR (SOT · finalizações · desarmes) estão VALIDADOS na população da Copa (seleção)** e marcados **money-ready** (`COPA_STATUS="ready"`). A calibração só fechou após o follow-up **minutos-esperados** (o gap nunca foi a taxa — era projetar 90 min p/ todos; corrigido estimando minutos). O **caminho PRÉ-JOGO ao vivo agora roda ponta-a-ponta** — o crosswalk lineup→stats-id (2026-06-03) resolveu o bug que dava 404 em todo jogo futuro. A **rota de análise manual (`/analise/manual`) agora ranqueia os candidatos por faixa de risco** (`seguro/moderado/tiro_longo`) com a ⭐ recomendada marcada, **e roda a IA revisora** (veredito `concorda/ressalva/veta` por candidato + degradação graciosa se a IA falhar). Mercados de **PARTIDA (gols/1x2 · escanteios) seguem FORA** (não calibram). **Falta antes do dinheiro real (11/06):** harness de validação forward ao vivo + disciplina de risco + cross-check de settlement. Casado com o escopo do [PITCH.md](PITCH.md). Detalhe e histórico cronológico nas seções de Calibração abaixo (⚠️ os vereditos intermediários "não passa/paper" estão **SUPERADOS** pela re-validação com minutos estimados — ver linha-marcada).
+
+## Ranking de risco + IA revisora na rota manual — FEITO (2026-06-09)
+
+A rota `/analise/manual` (página `/coletar` do front) ganhou duas capacidades novas, sem tocar no money-path nem no gate de paridade:
+
+**1. Classificação por faixa de risco e ordenação user-friendly.**
+Cada candidato aprovado pelo filtro de edge/EV é agora classificado em uma das três faixas pela `prob_modelo`:
+- `seguro` (≥ 0.50) — "acontece mais vezes que não"
+- `moderado` (0.35–0.49)
+- `tiro_longo` (< 0.35) — paga muito, mas acerta pouco
+
+Os candidatos são ordenados por faixa (seguro → moderado → tiro_longo) e depois por EV decrescente dentro de cada faixa. O primeiro recebe `recomendado: true` (⭐). Ninguém é removido — todos já passaram no corte EV; `tiro_longo` +EV continua visível ao usuário. Isso é **apresentação**, não filtro de probabilidade — o princípio "nunca filtrar por prob alta" é preservado. Constantes em `src/candidates/rank.ts`.
+
+**2. IA revisora rodando sempre.**
+`src/ai/reviewer.ts` faz **1 chamada** ao modelo (OpenRouter) e devolve um veredito por candidato — `concorda`, `ressalva` ou `veta` — mais uma explicação em 1-2 frases da recomendada. A IA **nunca calcula número** (doutrina respeitada): só anota o que o código aprovou e explica. Se o código aprovou mas a IA vetou, o conflito aparece explicitamente para o usuário decidir.
+Degradação graciosa: se a chave OpenRouter estiver ausente ou a IA falhar, a rota devolve `ia_revisao: null` + alerta "IA indisponível" e segue mostrando só o veredito do código — sem travar.
+
+> ⚠️ **SUPERADO na Slice 1 abaixo:** o texto "EV em código, IA opcional (`--ia`)" e "a IA está desligada na rota manual" (devolvia `melhor_aposta: null`) referem-se ao estado **anterior a esta entrega**. A IA agora está **ligada por padrão** na rota manual como revisora — não como calculadora.
+
+**Suíte:** 182 testes verdes (gate de paridade incluso; money-path intocado).
+Módulos: `src/candidates/rank.ts` (constantes de faixa) · `src/ai/reviewer.ts` (IA revisora) · `src/manual/` (rota atualizada). Front da tela userfriendly que exibe esses dados: em andamento (`odd-analyzer-frontend`).
 
 ## Coleta manual de odds via IA externa + análise geral de TODOS os mercados — FEITO (2026-06-09)
 
@@ -226,7 +247,7 @@ Construindo o **motor multi-mercado** sobre o **BSD/Bzzoiro** (fonte oficial de 
 
 - ✅ **PRIMEIRA SAÍDA REAL** (2026-06-03): `cli.py analisar` puxa dado VIVO do BSD e imprime candidato com edge/EV. Ex. real (evento 7166, Cruzeiro×Flu finalizado): **Kaiki o1.5 desarmes — p_modelo 0.731 (3.38 desarmes/jogo em 50 jogos) vs odd de-vig 0.546 → edge +0.185, EV +0.242**. EV decide em código; IA só explica.
 - 🔴 **Causa-raiz que estava escondida:** os providers liam uma **forma idealizada de JSON que NÃO batia com o BSD real**; os 287 testes passavam porque o `FakeBSDClient` devolvia a forma idealizada. **O e2e de escanteios da "Fase 1" era fixture-idealizada, não forma-real** → escanteios **nunca rodou em dado vivo**. Reconciliar provider↔forma-real é o verdadeiro bloqueador (resolvido p/ jogador; pendente p/ escanteios).
-- ✅ **Slice 1 (jogador) em dado REAL:** desarmes ponta-a-ponta (`bsd-probe` → reconciliação `elenco`/`entity_taxa` → `runner` + `ManualOdds` → `cli analisar`). **SOT e finalizações** usam o **mesmo caminho** (`shots_on_target`/`total_shots` no mesmo payload) — validados rodando (basta trocar `--market`).
+- ✅ **Slice 1 (jogador) em dado REAL:** desarmes ponta-a-ponta (`bsd-probe` → reconciliação `elenco`/`entity_taxa` → `runner` + `ManualOdds` → `cli analisar`). **SOT e finalizações** usam o **mesmo caminho** (`shots_on_target`/`total_shots` no mesmo payload) — validados rodando (basta trocar `--market`). ⚠️ **SUPERADO (2026-06-09):** a menção "IA opcional (`--ia`)" reflete o estado anterior à rota manual — na rota `/analise/manual`, a IA revisora roda **sempre por padrão** (ver seção "Ranking de risco + IA revisora" acima).
 - ✅ **Slice 2 (escanteios) em dado REAL:** #25 resolvido (`team_taxa` agrega `corner_kicks` do histórico de cada time via `events(team_id, finished)` + `/events/{id}/stats/`); pipeline ramifica por `market.nivel` (total da partida = soma dos dois times). Odd colada via `ManualOdds`. **Automático (odds do BSD) = pendente** (só pré-jogo, ver follow-up `odds-corners`).
 - ✅ **MATCHUP REAL ligado (2026-06-03)** — o diferencial da doutrina entra no `mu`: `BSDStatsProvider._team_conceded` agrega o que o **adversário concede** no mesmo eixo (lado oposto em `/events/{id}/stats/` do histórico DELE) → `opponent_multiplier` (clampado `[0.7,1.4]`) multiplica a produção. Liga em jogador (`entity_taxa`) e partida (`team_taxa`). Baseline nível-TIME = `MarketSpec.concede_baseline` (prior estático, **pendente de league-sweep na Fase 4**). **Efeito real visível:** escanteios do 7166, que no número *ingênuo* dava over 8.5 (mu 10.13, "edge +0.069"), com o confronto cai p/ **mu 7.94** (Fluminense concede só 3.0 corners/jogo → mult 0.7; Cruzeiro 4.6 → 0.92) → **deixa de ser valor**. Produção × concessão, não média bruta.
 - ✅ **VARREDURA ligada (2026-06-03)** — `cli analisar` SEM `--player` escaneia o **elenco inteiro** e o filtro edge/EV revela quem tem valor (não precisa adivinhar o jogador). Ex. 7166 desarmes o1.5 @1.90: Kaiki (edge +0.205) e L. Romero (+0.164). Coluna `adv_concede` mostra o matchup na tabela.
@@ -258,7 +279,7 @@ Commits: `6bed52c` `a0aba7f` `328b45b` `27619f6` `c082d6a`.
 Commits: `7a3a467` `05a6ac9` `8a5872c` `ff84b12` `4793cb4` `a641a52`.
 
 ### ✅ Slice 1 — Mercado de JOGADOR em dado REAL (desarmes ponta-a-ponta)
-`probes/bsd_probe.py` + `cli bsd-probe` (captura forma real) · **reconciliação** `BSDStatsProvider.elenco`/`entity_taxa` p/ a forma real do BSD · `runner.py` (`normalize_event` + `OnlyPlayer` + `fake_analista`) · `ManualOdds` (cola a linha) · `cli analisar`. **EV em código, IA opcional (`--ia`).** 11 testes novos (298 total). Mercado-bandeira: **desarmes** (exemplo de confronto da doutrina).
+`probes/bsd_probe.py` + `cli bsd-probe` (captura forma real) · **reconciliação** `BSDStatsProvider.elenco`/`entity_taxa` p/ a forma real do BSD · `runner.py` (`normalize_event` + `OnlyPlayer` + `fake_analista`) · `ManualOdds` (cola a linha) · `cli analisar`. ~~**EV em código, IA opcional (`--ia`).**~~ ⚠️ **SUPERADO (2026-06-09):** na rota manual (`/analise/manual`) a IA revisora roda **por padrão** (ver seção "Ranking de risco + IA revisora"). 11 testes novos (298 total no estado original; suíte atual: 182 testes — contagem reflete a migração Node/TS). Mercado-bandeira: **desarmes** (exemplo de confronto da doutrina).
 > SOT e finalizações compartilham o caminho (mesmo payload `/players/{id}/stats/`) — **falta só validar/mostrar** (não precisa de código novo de provider).
 
 ### ✅ Slice 2 — Escanteios em dado REAL (stats; odds via ManualOdds)
