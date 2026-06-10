@@ -136,6 +136,16 @@ Testamos uma ideia promissora: refinar o confronto perguntando "esse adversário
 
 ---
 
+## Agora dá pra ver de onde veio o número (2026-06-10)
+
+Para cada oportunidade aprovada, a tela agora mostra o **histórico real do jogador** por trás da probabilidade: a média dele nos últimos 5 e 10 jogos, os resultados jogo a jogo, quanto tempo em média ele jogou, e como ele se sai em casa versus fora.
+
+Isso serve para duas coisas:
+1. **Você entende a conta.** Em vez de só ver "prob 64%", você vê "nos últimos 5 jogos ele deu 3, 2, 4, 3, 3 chutes — a média é 3 por jogo, e a aposta é em 0.5+". O número não cai do céu.
+2. **A IA explica com esses dados.** A segunda opinião usa exatamente esses números para montar a explicação — e continua proibida de inventar algo que não esteja na tela. Se o histórico estiver fraco, ela diz; se estiver forte, ela confirma.
+
+---
+
 ## Em resumo
 
 > Eu escolho um jogo. O sistema cruza as estatísticas atualizadas dos dois times, calcula a probabilidade real, compara com a odd da casa sem a margem, e a IA me entrega o veredito final explicado: **qual aposta vale a pena e por quê** — com a mais sólida na frente, os tiros-longos sinalizados, e uma segunda opinião que pode concordar, ressalvar ou barrar cada uma.

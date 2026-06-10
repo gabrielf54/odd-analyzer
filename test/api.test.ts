@@ -89,6 +89,21 @@ describe("API — fluxo manual de odds", () => {
     expect(r.body.jogadores_sem_match).toBeDefined();
   });
 
+  it("POST /analise/manual → candidatos carregam stats_detalhadas e trace no fio", async () => {
+    const r = await request(manualApp()).post("/analise/manual").send({
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    expect(r.status).toBe(200);
+    expect(r.body.candidatos.length).toBeGreaterThan(0);
+    // stats_detalhadas e trace devem sempre estar presentes no fluxo manual
+    expect(r.body.candidatos[0]).toHaveProperty("stats_detalhadas");
+    expect(r.body.candidatos[0]).toHaveProperty("trace");
+    // o fake provider devolve 12 jogos com shots_on_target=3 → stats_detalhadas não-nulo
+    expect(r.body.candidatos[0].stats_detalhadas).toHaveProperty("media_5");
+    expect(r.body.candidatos[0].stats_detalhadas.media_5).toBe(3);
+  });
+
   it("POST /analise/manual sem coletado_em → 400", async () => {
     const r = await request(manualApp()).post("/analise/manual").send({ event_id: "e1", odds: [] });
     expect(r.status).toBe(400);
