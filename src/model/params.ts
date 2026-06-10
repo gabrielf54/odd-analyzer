@@ -13,7 +13,11 @@ export const POSITIONAL_SHARE_NACIONAL: Record<string, Record<string, number>> =
   shots_on_target: { D: 0.143, M: 0.467, F: 0.390 },
   total_shots: { D: 0.174, M: 0.478, F: 0.347 },
 };
-// Liga por padrão SÓ depois do mini-backtest (scripts/backtest-tilt.mts) não degradar Brier/ECE.
+// Medido pelo scripts/backtest-tilt.mts em 2026-06-10 (n=201/mercado, over 1.5):
+// desarmes Brier +1.1% ECE +10.1% · sot Brier +0.2% ECE +20.0% ·
+// finalizacoes Brier -2.2% ECE -13.1%. Critério (≤ +5% relativo em ambos, nos
+// 3 mercados) FALHOU em desarmes/sot (ECE) → segue DESLIGADO por default.
+// O tilt melhorou finalizações — candidato a flag por-mercado no futuro, com re-teste.
 export const POSITIONAL_TILT_ENABLED = false;
 export const POSITIONAL_MIN_GAMES = 5; // jogos do adversário com player-stats
 
