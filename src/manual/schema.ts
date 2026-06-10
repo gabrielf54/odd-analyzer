@@ -17,6 +17,7 @@ const bodySchema = z.object({
   event_id: z.string(),
   coletado_em: z.string(),
   odds: z.array(z.unknown()),
+  escopo_historico: z.enum(["todos", "selecao", "clube"]).default("todos"),
 });
 
 export interface ManualOddsLine {
@@ -35,6 +36,7 @@ export interface ManualOddsInput {
   coletado_em: string;
   odds: ManualOddsLine[];
   linhas_rejeitadas: LinhaRejeitada[];
+  escopo_historico: string;
 }
 
 /** Valida o JSON colado. Lança em erro estrutural (body). Erros por-linha NÃO
@@ -74,5 +76,5 @@ export function parseManualOdds(body: unknown): ManualOddsInput {
       odd_over: l.odd_over, odd_under: l.odd_under ?? null, book: l.book,
     });
   }
-  return { event_id: b.event_id, coletado_em: b.coletado_em, odds, linhas_rejeitadas };
+  return { event_id: b.event_id, coletado_em: b.coletado_em, odds, linhas_rejeitadas, escopo_historico: b.escopo_historico };
 }

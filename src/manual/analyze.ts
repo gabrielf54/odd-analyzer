@@ -56,7 +56,7 @@ export async function analyzeManual(
     const market: MarketSpec | undefined = MARKETS[marketKey];
     if (market == null) continue; // schema já filtrou; defensivo
     if (PLAYER_MARKETS.has(marketKey)) {
-      const cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match);
+      const cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match, input.escopo_historico);
       allCandidates.push(...cands);
     } else {
       const provider = new ManualOdds(lines.map((l) => ({
@@ -97,6 +97,7 @@ export async function analyzeManual(
 async function playerCandidates(
   event: any, market: MarketSpec, stats: any, lines: ManualOddsLine[],
   leagueId: unknown, overrides: Record<string, string>, semMatchSink: any[],
+  scope: string,
 ): Promise<any[]> {
   const squad: any[] = await stats.squad(event);
   const squadForMatch = squad.map((p) => ({ id: String(p.id), name: p.name }));
@@ -120,7 +121,7 @@ async function playerCandidates(
     const ctx = {
       event, entity_team_id: entity.team_id ?? entity.id, is_home: isHome,
       opp_team_id: isHome ? awayId : homeId, league_avg_conceded: base,
-      xi_team_ids: xiTeamIds, escopo_historico: "todos", posicao: entity.posicao ?? "",
+      xi_team_ids: xiTeamIds, escopo_historico: scope, posicao: entity.posicao ?? "",
     };
     const rate = await stats.entityRate(entity.id, market, ctx);
     if (rate == null) continue;

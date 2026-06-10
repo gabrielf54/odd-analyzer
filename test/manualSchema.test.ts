@@ -50,4 +50,11 @@ describe("parseManualOdds", () => {
   it("body sem coletado_em lança", () => {
     expect(() => parseManualOdds({ event_id: "e1", odds: [] })).toThrow();
   });
+
+  it("aceita escopo_historico opcional (default todos) e rejeita valor inválido", () => {
+    const base = { event_id: "1", coletado_em: "2026-06-10", odds: [] };
+    expect(parseManualOdds(base).escopo_historico).toBe("todos");
+    expect(parseManualOdds({ ...base, escopo_historico: "selecao" }).escopo_historico).toBe("selecao");
+    expect(() => parseManualOdds({ ...base, escopo_historico: "errado" })).toThrow();
+  });
 });

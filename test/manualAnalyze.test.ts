@@ -28,7 +28,7 @@ describe("analyzeManual", () => {
     const out = await analyzeManual(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
-      linhas_rejeitadas: [],
+      linhas_rejeitadas: [], escopo_historico: "todos",
     }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
 
     const all = [...out.candidatos, ...out.reprovados];
@@ -44,7 +44,7 @@ describe("analyzeManual", () => {
     const out = await analyzeManual(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "Lionel Messi", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
-      linhas_rejeitadas: [{ linha_crua: { x: 1 }, motivo: "teste" }],
+      linhas_rejeitadas: [{ linha_crua: { x: 1 }, motivo: "teste" }], escopo_historico: "todos",
     }, { repo, reviewerFn: fakeReviewer });
     expect(out.jogadores_sem_match.length).toBe(1);
     expect(out.jogadores_sem_match[0]!.market_type).toBe("sot");
@@ -57,7 +57,7 @@ describe("analyzeManual", () => {
     const out = await analyzeManual(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "CR7", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
-      linhas_rejeitadas: [],
+      linhas_rejeitadas: [], escopo_historico: "todos",
     }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
     expect(out.jogadores_sem_match).toHaveLength(0);
     const all = [...out.candidatos, ...out.reprovados];
@@ -69,7 +69,7 @@ describe("analyzeManual", () => {
     const out = await analyzeManual(fakeClient(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
-      linhas_rejeitadas: [],
+      linhas_rejeitadas: [], escopo_historico: "todos",
     }, { repo, reviewerFn: fakeReviewer });
     if (out.candidatos.length > 0) {
       expect(out.candidatos[0]!).toHaveProperty("risco");
@@ -85,7 +85,7 @@ describe("analyzeManual", () => {
     const out = await analyzeManual(fakeClientNoXi(), {
       event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
       odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
-      linhas_rejeitadas: [],
+      linhas_rejeitadas: [], escopo_historico: "todos",
     }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
     const all = [...out.candidatos, ...out.reprovados];
     const havertz = all.find((c: any) => String(c.jogador).includes("Havertz"));
