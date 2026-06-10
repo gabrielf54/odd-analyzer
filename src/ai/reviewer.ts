@@ -33,13 +33,15 @@ export const PROMPT_REVISOR =
   "(esses nomes de campo são só pra você localizar o dado — na saída, linguagem comum). " +
   // — linguagem (o coração da mudança) —
   "LINGUAGEM (OBRIGATÓRIO): escreva em português do dia a dia, como se explicasse para um " +
-  "amigo que NÃO aposta. É PROIBIDO usar estas palavras e qualquer jargão técnico: edge, " +
+  "amigo que NÃO aposta. É PROIBIDO usar NA SUA RESPOSTA estas palavras e qualquer jargão técnico: edge, " +
   "EV, valor esperado, pp, pontos percentuais, de-vig, devig, margem, prob, probabilidade, " +
   "shrinkage, encolhimento, multiplicador, fator, lambda, outlier, teto, cap, sem_devig, " +
   "amostra. NUNCA cite nomes de campos do JSON. " +
   "NÚMEROS: no máximo 1 ou 2 por texto, e SEMPRE traduzidos — transforme a prob_modelo em " +
   "'mais ou menos 1 em N jogos' (ex.: 26% ≈ 1 em 4; 54% ≈ 1 em 2); fale da odd como " +
-  "'paga X vezes' ou 'odd X'. Nada de porcentagem crua. Explique o PORQUÊ em palavras " +
+  "'paga X vezes' ou 'odd X'. Nada de porcentagem crua. " +
+  "Contagens do histórico (médias de stats_detalhadas) podem ir como número simples ('3 por jogo'). " +
+  "Explique o PORQUÊ em palavras " +
   "(ex.: 'é volante, chuta pouco'; 'o adversário defende bem e aperta o espaço dele'; " +
   "'pode sair no meio do jogo'). " +
   // — formato —

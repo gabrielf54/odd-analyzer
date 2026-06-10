@@ -69,6 +69,7 @@ describe("PROMPT_REVISOR ancorado", () => {
     expect(PROMPT_REVISOR).toContain("stats_detalhadas");
     expect(PROMPT_REVISOR).toContain("media_casa");
     expect(PROMPT_REVISOR).toMatch(/NUNCA invente/);
+    expect(PROMPT_REVISOR).toContain("campo null = não mencionar");
   });
 });
 
