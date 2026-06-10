@@ -11,7 +11,7 @@
 **O que entrou (backend; money-path intocado, gate de paridade verde):**
 Cada candidato aprovado em `/analise/manual` e `/analisar` passa a carregar um bloco descritivo `stats_detalhadas` com:
 - `media_5` / `media_10` — média por jogo nos últimos 5 e 10 jogos finalizados;
-- `ultimos_valores` — lista dos valores jogo a jogo (últimos 5, decrescente — o mais recente primeiro);
+- `ultimos_valores` — lista dos valores jogo a jogo (últimos 5, mais recente primeiro);
 - `minutos_medios` — média de minutos jogados (janela 10 — mais estável);
 - `media_casa` / `media_fora` + `jogos_casa` / `jogos_fora` — split mandante/visitante via mapa de eventos do time.
 

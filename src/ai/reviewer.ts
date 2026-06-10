@@ -31,6 +31,7 @@ export const PROMPT_REVISOR =
   "rende mais: 4 por jogo') — respeitando o limite de 1-2 números por texto. Médias " +
   "e histórico recente vêm SOMENTE de stats_detalhadas; campo null = não mencionar " +
   "(esses nomes de campo são só pra você localizar o dado — na saída, linguagem comum). " +
+  "Ignore o campo 'trace' se presente — não cite nada dele. " +
   // — linguagem (o coração da mudança) —
   "LINGUAGEM (OBRIGATÓRIO): escreva em português do dia a dia, como se explicasse para um " +
   "amigo que NÃO aposta. É PROIBIDO usar NA SUA RESPOSTA estas palavras e qualquer jargão técnico: edge, " +
