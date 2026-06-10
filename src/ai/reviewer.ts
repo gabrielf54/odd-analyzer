@@ -1,5 +1,6 @@
 import { chat as defaultChat, type Msg } from "./openrouter.js";
 import { validateReview } from "./reviewSchema.js";
+import { parseJsonLoose } from "./parseJson.js";
 
 export const PROMPT_REVISOR =
   "Você é um revisor de apostas conservador e cético. Recebe um JSON com candidatos " +
@@ -24,10 +25,6 @@ export interface ReviewResult {
 
 export type ReviewerFn = (candidatos: any[], contexto: any) => ReviewResult | Promise<ReviewResult>;
 
-function parse(texto: string): any {
-  try { return JSON.parse(texto); } catch { return null; }
-}
-
 /** Revisa os candidatos ranqueados numa única chamada: anexa `ia_revisao` a cada um
  * (merge por jogador|linha|market_type) e devolve a explicação do topo. 1 tentativa
  * + 1 retry; qualquer falha (saída inválida, erro de rede, sem chave) degrada de
@@ -44,11 +41,15 @@ export async function reviewCandidates(
     { role: "system", content: PROMPT_REVISOR },
     { role: "user", content: JSON.stringify({ contexto, candidatos }) },
   ];
+  let ultimoMotivo = "sem tentativa";
   for (let i = 0; i < 2; i++) {
     let raw: string;
-    try { raw = await chatFn(messages, { temperature: 0.0 }); } catch { continue; }
-    const obj = parse(raw);
-    if (obj != null && validateReview(obj, candidatos)) {
+    try { raw = await chatFn(messages, { temperature: 0.0 }); }
+    catch (e) { ultimoMotivo = `chamada falhou: ${e instanceof Error ? e.message : String(e)}`; continue; }
+    const obj = parseJsonLoose(raw);
+    if (obj == null) { ultimoMotivo = "saída não é JSON"; continue; }
+    if (!validateReview(obj, candidatos)) { ultimoMotivo = "JSON fora do schema esperado"; continue; }
+    {
       const byKey = new Map<string, Revisao>();
       for (const r of obj.revisoes) {
         byKey.set(`${r.jogador}|${r.linha}|${r.market_type}`, { stance: r.stance, nota: r.nota ?? null });
@@ -60,6 +61,7 @@ export async function reviewCandidates(
       return { candidatos: merged, ia: { topo_explicacao: obj.topo_explicacao ?? null, alertas: obj.alertas ?? [] } };
     }
   }
+  console.warn(`[reviewer] IA degradou após 2 tentativas — motivo: ${ultimoMotivo}`);
   return {
     candidatos: candidatos.map((c) => ({ ...c, ia_revisao: null })),
     ia: { topo_explicacao: null, alertas: ["IA indisponível — exibindo só o veredito do código"] },

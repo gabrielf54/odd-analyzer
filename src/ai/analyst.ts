@@ -1,5 +1,6 @@
 import { chat as defaultChat, type Msg } from "./openrouter.js";
 import { validateAiOutput } from "./schema.js";
+import { parseJsonLoose } from "./parseJson.js";
 
 export const PROMPT_SISTEMA =
   "Você é um analista de apostas conservador. Recebe um JSON com candidatos já " +
@@ -12,10 +13,6 @@ export const PROMPT_SISTEMA =
   '{"melhor_aposta": {"jogador","linha","veredito","confianca","motivo"} ou null, ' +
   '"outras": [], "alertas": []}. veredito ∈ {APOSTAR,NAO_APOSTAR,PASSAR}; ' +
   "confianca ∈ {alta,media,baixa}.";
-
-function parse(texto: string): any {
-  try { return JSON.parse(texto); } catch { return null; }
-}
 
 export type ChatFn = (messages: Msg[], opts?: { temperature?: number }) => Promise<string>;
 
@@ -33,7 +30,7 @@ export async function analyze(
   for (let i = 0; i < 2; i++) {
     let raw: string;
     try { raw = await chatFn(messages, { temperature: 0.0 }); } catch { continue; }
-    const obj = parse(raw);
+    const obj = parseJsonLoose(raw);
     if (obj != null && validateAiOutput(obj, candidatos)) return obj;
   }
   return { melhor_aposta: null, outras: [], alertas: ["IA não produziu saída válida (fail-closed)."] };
