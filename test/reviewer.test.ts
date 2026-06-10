@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { validateReview } from "../src/ai/reviewSchema.js";
-import { reviewCandidates } from "../src/ai/reviewer.js";
+import { reviewCandidates, PROMPT_REVISOR } from "../src/ai/reviewer.js";
 
 const cands = [
   { jogador: "Declan Rice", linha: 2.5, market_type: "desarmes", recomendado: true },
@@ -38,6 +38,24 @@ describe("validateReview", () => {
       { jogador: "Declan Rice", linha: 2.5, market_type: "desarmes", stance: "concorda", nota: 42 },
     ] };
     expect(validateReview(bad, cands)).toBe(false);
+  });
+});
+
+describe("PROMPT_REVISOR (userfriendly)", () => {
+  it("manda escrever em linguagem leiga e proíbe o jargão técnico", () => {
+    expect(PROMPT_REVISOR).toMatch(/leig|amigo que NÃO aposta|dia a dia/i);
+    expect(PROMPT_REVISOR).toMatch(/PROIBIDO/);
+    // cita os jargões a banir
+    for (const termo of ["edge", "EV", "de-vig", "shrinkage"]) {
+      expect(PROMPT_REVISOR, termo).toContain(termo);
+    }
+  });
+  it("instrui traduzir número em '1 em N' e limitar a 1-2 números", () => {
+    expect(PROMPT_REVISOR).toMatch(/1 em N|1 em \d/i);
+    expect(PROMPT_REVISOR).toMatch(/máximo 1 ou 2|no máximo 1/i);
+  });
+  it("pede JSON sem cerca de markdown", () => {
+    expect(PROMPT_REVISOR).toMatch(/sem cercas? de markdown/i);
   });
 });
 
