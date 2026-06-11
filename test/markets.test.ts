@@ -2,10 +2,17 @@ import { describe, it, expect } from "vitest";
 import { MARKETS, baselineFor, populacaoFor, isValidated, populacaoMotivo } from "../src/model/markets.js";
 
 describe("markets", () => {
-  it("registry tem os 6 mercados do MVP", () => {
+  it("registry tem os mercados do MVP (faltas inclusa, sem estrela ainda)", () => {
     expect(Object.keys(MARKETS).sort()).toEqual(
-      ["desarmes", "escanteios", "finalizacoes", "gols", "sot", "vitoria"]
+      ["desarmes", "escanteios", "faltas", "finalizacoes", "gols", "sot", "vitoria"]
     );
+  });
+
+  it("faltas: jogador/contagem, comete fouls, concede was_fouled, NÃO validada ainda", () => {
+    const m = MARKETS["faltas"]!;
+    expect(m.stat_field).toBe("fouls");
+    expect(m.concede_field).toBe("was_fouled");
+    expect(isValidated("faltas", 0.5, 27)).toBe(false); // sem validated_lines → diagnóstico
   });
 
   it("sot é nível jogador, contagem, campo shots_on_target", () => {

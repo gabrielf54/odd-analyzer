@@ -18,7 +18,7 @@ export interface AnalyzeManualOpts {
   diagnostics?: boolean;
 }
 
-const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes"]);
+const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes", "faltas"]);
 
 function groupByMarket(odds: ManualOddsLine[]): Map<string, ManualOddsLine[]> {
   const m = new Map<string, ManualOddsLine[]>();
