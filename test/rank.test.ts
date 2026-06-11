@@ -15,7 +15,7 @@ describe("classifyRisk", () => {
 });
 
 describe("rankCandidates — ordenação", () => {
-  // confirmado + mercado money_ready (sot) por padrão; sobrescreve quando preciso.
+  // confirmado + mercado validado (sot) por padrão; sobrescreve quando preciso.
   const mk = (jogador: string, prob: number, ev: number, extra: Record<string, unknown> = {}) =>
     ({ jogador, prob_modelo: prob, ev, titularidade: "confirmado", market_type: "sot", ...extra });
 
@@ -45,7 +45,7 @@ describe("rankCandidates — ordenação", () => {
   });
 });
 
-describe("rankCandidates — gate de titularidade + money_ready", () => {
+describe("rankCandidates — gate de titularidade + mercado validado", () => {
   it("NÃO recomenda quando ninguém está confirmado (pré-lineup)", () => {
     const r = rankCandidates([
       { prob_modelo: 0.6, ev: 0.2, titularidade: "provavel", market_type: "sot" },
@@ -55,7 +55,7 @@ describe("rankCandidates — gate de titularidade + money_ready", () => {
     expect(r.every((c: any) => c.pronto_para_apostar === false)).toBe(true);
   });
 
-  it("recomenda o melhor confirmado de mercado money_ready, sem alerta de minutos", () => {
+  it("recomenda o melhor confirmado de mercado validado, sem alerta de minutos", () => {
     const r = rankCandidates([
       { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot" },
       { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
@@ -73,7 +73,7 @@ describe("rankCandidates — gate de titularidade + money_ready", () => {
     expect(r[0]!.pronto_para_apostar).toBe(false);
   });
 
-  it("entre money_ready e selado, a estrela vai pro money_ready (mesmo com EV menor)", () => {
+  it("entre validado e em-validação, a estrela vai pro validado (mesmo com EV menor)", () => {
     const r = rankCandidates([
       { prob_modelo: 0.8, ev: 0.5, titularidade: "confirmado", market_type: "desarmes" },
       { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "finalizacoes" },

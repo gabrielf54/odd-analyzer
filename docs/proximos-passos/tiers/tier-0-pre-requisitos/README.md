@@ -1,4 +1,4 @@
-# 🔴 Tier 0 — Pré-requisitos (fazer ANTES de apostar dinheiro real)
+# 🔴 Tier 0 — Pré-requisitos (fazer ANTES de recomendar apostas de valor)
 
 > Sem estes três, as indicações da Copa são **fé cega**. Nenhum deles recalibra o número
 > (risco de paridade baixo/nulo) e todos são rápidos. São a base para confiar em qualquer

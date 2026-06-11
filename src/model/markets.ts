@@ -15,21 +15,22 @@ export interface MarketSpec {
   // quando modelamos uma coisa e a casa paga outra (desarmes: modelamos
   // total_tackle, mas a casa liquida won_tackle — Opta "Tackles Won").
   settle_field?: string;
-  // GATE de dinheiro real: só mercados VALIDADOS (calibração presta) viram true.
+  // GATE de aposta de valor: só mercado com calibração VALIDADA pode ser
+  // sinalizado como "aposta de valor que vale a pena" (rank dá a estrela).
   // Política (CLAUDE.md): começa false; cada mercado vira true conforme a
-  // calibração/CLV-forward o prova. Hoje: sot/finalizações true; desarmes/gols/
-  // vitória/escanteios false (validação). rank só dá a estrela a money_ready.
-  money_ready: boolean;
+  // calibração/prova-forward o demonstrar. Hoje: sot/finalizações true; desarmes/
+  // gols/vitória/escanteios false (em validação). rank só recomenda mercado validado.
+  validated: boolean;
 }
 
-function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_nacional" | "money_ready"> &
-  { concede_baseline?: number; concede_baseline_nacional?: number; money_ready?: boolean }): MarketSpec {
-  return { concede_baseline: 0.0, concede_baseline_nacional: 0.0, money_ready: false, ...p };
+function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_nacional" | "validated"> &
+  { concede_baseline?: number; concede_baseline_nacional?: number; validated?: boolean }): MarketSpec {
+  return { concede_baseline: 0.0, concede_baseline_nacional: 0.0, validated: false, ...p };
 }
 
-/** Mercado liberado pra dinheiro real (calibração validada)? Default false. */
-export function isMoneyReady(marketType: string): boolean {
-  return MARKETS[marketType]?.money_ready ?? false;
+/** Mercado validado (calibração provada) → pode ser sinalizado como aposta de valor? Default false. */
+export function isValidated(marketType: string): boolean {
+  return MARKETS[marketType]?.validated ?? false;
 }
 
 /** Campo que a casa usa para liquidar a aposta (default = stat_field). */
@@ -43,26 +44,27 @@ export const MARKETS: Record<string, MarketSpec> = {
     key: "sot", nivel: "jogador", kind: "contagem", stat_field: "shots_on_target",
     prior_rate: 0.4, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "chutes_a_gol_concedidos_por_jogo", label: "Chutes a Gol (SOT)",
-    concede_baseline: 4.55, concede_baseline_nacional: 4.28, money_ready: true,
+    concede_baseline: 4.55, concede_baseline_nacional: 4.28, validated: true,
   }),
   finalizacoes: spec({
     key: "finalizacoes", nivel: "jogador", kind: "contagem", stat_field: "total_shots",
     prior_rate: 1.2, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "finalizacoes_concedidas_por_jogo", label: "Finalizações Totais",
-    concede_baseline: 13.46, concede_baseline_nacional: 12.22, money_ready: true,
+    concede_baseline: 13.46, concede_baseline_nacional: 12.22, validated: true,
   }),
-  // DESARME SELADO (2026-06-11): a casa liquida won_tackle (Opta "Tackles Won"),
-  // mas o motor só tem skill em total_tackle (tentativas). won_tackle reprovou a
-  // calibração na seleção (scripts/recalibrate-desarmes-won.mts, n=1738, 10 ligas):
-  // BrierSkill won≈ +0.05/−0.02/−0.07 (over 0.5/1.5/2.5) e ECE sempre pior que
-  // total (+0.14/+0.08/+0.01). Modelo segue total_tackle (calibrado); settle_field
-  // liquida won_tackle pra MEDIR forward. money_ready=false até a prova forward virar.
+  // DESARME EM VALIDAÇÃO (2026-06-11): a casa liquida won_tackle (Opta "Tackles
+  // Won"), mas o motor só tem skill em total_tackle (tentativas). won_tackle
+  // reprovou a calibração na seleção (scripts/recalibrate-desarmes-won.mts, n=1738,
+  // 10 ligas): BrierSkill won≈ +0.05/−0.02/−0.07 (over 0.5/1.5/2.5) e ECE sempre
+  // pior que total (+0.14/+0.08/+0.01). Modelo segue total_tackle (calibrado);
+  // settle_field liquida won_tackle pra MEDIR forward. validated=false (não vira
+  // aposta de valor recomendada) até a prova forward demonstrar o contrário.
   desarmes: spec({
     key: "desarmes", nivel: "jogador", kind: "contagem", stat_field: "total_tackle",
     prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "desarmes_concedidos_por_jogo", label: "Desarmes",
+    settle_field: "won_tackle", validated: false,
     concede_baseline: 14.64, concede_baseline_nacional: 13.97,
-    settle_field: "won_tackle", money_ready: false,
   }),
   escanteios: spec({
     key: "escanteios", nivel: "partida", kind: "contagem", stat_field: "corners",

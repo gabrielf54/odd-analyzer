@@ -101,7 +101,7 @@ export async function analyzeManual(
 
   // Loop forward (I7): registra TODO candidato com edge>0 (o universo de "valor"
   // do modelo) no paper_ledger p/ calibração/CLV. Upsert idempotente. O subconjunto
-  // "apostado" é o recomendado/pronto_para_apostar (N1 + money_ready) — não filtra aqui.
+  // a aposta de valor recomendada é o recomendado/pronto_para_apostar (N1 + mercado validado) — não filtra aqui.
   const ledgerRows = revisados
     .filter((c: any) => typeof c.edge === "number" && c.edge > 0)
     .map((c: any) => ({

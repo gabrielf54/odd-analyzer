@@ -17,6 +17,6 @@ for (const r of rep) {
     `${r.market_type.padEnd(12)} ${String(r.n).padStart(3)}  ${r.brier.toFixed(4)} ${r.ece.toFixed(4)}  ${r.brier_skill.toFixed(4).padStart(8)}  ${clv}`,
   );
 }
-console.log("\nBrierSkill>0 = melhor que chutar a média. Mercado só vira money_ready com prova consistente.");
+console.log("\nBrierSkill>0 = melhor que chutar a média. Mercado só vira validado (aposta de valor recomendada) com prova consistente.");
 // Nota: no Windows pode aparecer um "Assertion failed ... async.c" no encerramento —
 // artefato do libuv/undici (handle keep-alive do supabase-js) APÓS o resultado; exit 0, benigno.
