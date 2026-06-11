@@ -52,7 +52,10 @@ Substitui o par atual `validated: boolean` + `validated_lines?: number[]`. (Migr
 
 ```
 pop = NATIONAL_LEAGUE_IDS.has(leagueId) ? "selecao" : "clube"
-     // leagueId desconhecido/ausente → "selecao" (conservador: Copa é o foco atual
+     // leagueId desconhecido/ausente → "clube" (REVISADO no plano: roteador ÚNICO
+     //   consistente com baselineFor; liga de clube nova cai em clube sem cadastro,
+     //   servindo o pós-Copa. Durante a Copa o league_id é sempre 27, então o default
+     //   não é exercido na prática). Antes a spec dizia "selecao"; ver plano Task 6.
      //   e seleção é o conjunto MAIS restrito → menos estrela falsa). Ver §7 (virada).
 lines = market.validated_lines?.[pop]
 se lines === undefined            → false   // não validado nessa população
@@ -116,8 +119,8 @@ leigo no `PITCH.md`. Conteúdo:
          não confiar só no legado.
    - [ ] Medir `desarmes.clube` (decomposição com `wr_prior` de clube) → preencher
          `validated_lines.clube`.
-   - [ ] Revisar o **default de liga desconhecida** (§3): hoje cai em `selecao` (restrito); ao
-         virar p/ clube, decidir se o default vira `clube` ou se adiciona os league_ids de clube.
+   - [ ] Revisar o **default de liga desconhecida** (§3): cai em `clube` (REVISADO — ver plano);
+         pós-Copa isso já é o certo. Só revisitar se aparecer liga ambígua.
    - [ ] Acumular **forward de clube** (paper_ledger já é população-agnóstico) antes de graduar.
 4. **Mapa de re-validação por mercado** (qual linha re-abre, o que medir).
 
@@ -136,7 +139,7 @@ proximos-passos/README.md (não apagar o histórico — banner de descartado).
     `desarme 1.5`=true.
   - clube (liga 9 ou qualquer fora do set): `sot 1.5`=true, `sot 2.5`=true, `desarme 1.5`=false
     (ausente).
-  - liga desconhecida/ausente → rota seleção (conservador).
+  - liga desconhecida/ausente → rota clube (REVISADO — roteador único; ver plano).
 - **Paridade intacta** (não toca o número): golden de `test/parity/` inalteradas; `npm test`
   verde; `npm run typecheck` limpo.
 - **Critério de aceite:** suíte verde (≥ 273 + novos testes); o E2E manual num jogo da Copa
@@ -147,7 +150,7 @@ proximos-passos/README.md (não apagar o histórico — banner de descartado).
 
 - **Não afirmar validação de clube sem evidência atual:** `clube` de sot/finalizações usa o
   legado — **marcado p/ re-confirmar (Fatia 1)**. Documentar como "herdado, a re-verificar".
-- **Default de liga desconhecida** pode surpreender (cai em seleção, restrito). Documentado e no
+- **Default de liga desconhecida** cai em clube (REVISADO — roteador único). Documentado e no
   checklist do pivô.
 - **Paridade:** o gate testa funções puras com `mu` hardcoded — mudar gating **não** o toca
   (mesma descoberta do desarme). Confirmar mesmo assim.
@@ -162,7 +165,7 @@ bloqueados por dado. Mudança de `nb_dispersion` (o R≈2.0 da seleção) — fo
 ## 12. Checklist de aceite
 
 - [ ] `MarketSpec.validated_lines` é mapa por população; `spec()` atualizado.
-- [ ] `isValidated(market, linha, leagueId)` roteia por `NATIONAL_LEAGUE_IDS`; default seleção.
+- [ ] `isValidated(market, linha, leagueId)` roteia por `NATIONAL_LEAGUE_IDS`; default clube.
 - [ ] `rankCandidates` passa a liga; demais call sites idem.
 - [ ] Valores da §4 aplicados (sot seleção [0.5]/clube todas; desarme clube ausente).
 - [ ] `populacao` + `populacao_motivo` no fio do resultado (texto, fora do número).

@@ -118,6 +118,8 @@ O motor não entra no ar por fé — cada mercado passou (ou não) por uma calib
 
 > Em uma frase: o produto **recomenda finalizações (todas as linhas), chutes a gol só na linha 1+, e desarmes (0.5/1.5)**, com **chutes a gol 2+/3+, desarme 2.5 e os mercados de partida em observação** — cada um vira **aposta de valor recomendada** **um a um** (até por linha), só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
+**E depois da Copa? O mesmo produto serve as ligas de clube.** A Copa é só a primeira arena. O sistema entende que **seleção e clube jogam diferente** — seleção chuta a gol menos, então lá só confio em "1+ chute a gol"; no **clube**, onde os atacantes finalizam muito, os "2+/3+ chutes a gol" voltam a valer **sozinhos**, sem eu mexer em nada (o sistema reconhece a liga e troca o conjunto de regras automaticamente). Ou seja: **não estou preso à Copa** — quando ela acabar, é só apontar pros jogos de clube. O passo-a-passo dessa virada está escrito e guardado (re-conferir as contas no clube antes de operar), pra não depender de memória. Detalhe: [pos-copa-ligas-nacionais.md](pos-copa-ligas-nacionais.md).
+
 ### De onde vêm as odds (2026-06-09)
 
 As odds da casa são metade da conta (comparamos o nosso número com o da casa). De onde elas chegam:

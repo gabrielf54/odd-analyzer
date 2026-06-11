@@ -1,5 +1,10 @@
 # N4 — Odds automáticas da BSD (só mercado de partida)
 
+> 🗑️ **DESCARTADO (decisão do dono, 2026-06-11).** O dono decidiu **não** usar odds automáticas.
+> A BSD só dá mercado de **partida** (não recomendável: gols selado; 1x2/BTTS sem calibração) e
+> **zero player prop** (o MVP). A ficha fica como **histórico**, não como passo a implementar.
+> Ver `docs/proximos-passos/SESSION-MAP.md` (seção "Descartado").
+
 ## 1. TL;DR
 A BSD entrega odds de **1x2 / over-under gols / BTTS com os DOIS lados** → **de-vig real** e **linha de
 fechamento (CLV) automáticos** nesses mercados. Ler `eventOdds` e mapear para os mercados de partida do
