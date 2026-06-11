@@ -63,7 +63,10 @@ export async function analyzeManual(
     } else {
       const provider = new ManualOdds(lines.map((l) => ({
         entidade: l.entidade, linha: l.linha, odd_over: l.odd_over,
-        odd_under: l.odd_under ?? 0, book: l.book,
+        // null (não 0): sem o outro lado, o builder cai no ramo conservador
+        // (sem_devig). 0 cairia no de-vig e estouraria impliedProb(0) — bug do 1x2
+        // só-over, que isenta o under no schema (ver schema.ts) e quebrava a análise.
+        odd_under: l.odd_under ?? null, book: l.book,
       })));
       const cands = market.kind === "contagem"
         ? await matchCount(event, market, stats, await provider.lines())

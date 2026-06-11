@@ -214,6 +214,24 @@ export class BSDStatsProvider {
     if (calc === null) return null;
     const xiConfirmed = xiTeamIds.size > 0 ? xiTeamIds.has(String(entityId)) : true;
     const n = calc.n;
+
+    // Decomposição (desarme ganho): μ_ganhos = μ_tentativas × aproveitamento.
+    // O aproveitamento (won/total no histórico) é encolhido p/ a média da liga
+    // (wr_prior) com peso wr_shrink — robusto p/ quem tem poucas tentativas.
+    let mu = calc.mu;
+    let decompTrace: { winRate: number; attemptsMu: number; baseLabel: string; won_label: string } | undefined;
+    if (market.mu_decomp) {
+      const d = market.mu_decomp;
+      let sumNum = 0, sumBase = 0;
+      for (const g of games) {
+        sumNum += Number((g as any)[d.num_field] ?? 0);
+        sumBase += Number((g as any)[market.stat_field] ?? 0);
+      }
+      const winRate = (sumNum + d.wr_shrink * d.wr_prior) / (sumBase + d.wr_shrink);
+      mu = calc.mu * winRate;
+      decompTrace = { winRate, attemptsMu: calc.mu, baseLabel: d.base_label, won_label: d.won_label };
+    }
+
     const trace = buildRateTrace({
       statField: market.stat_field,
       games,
@@ -227,11 +245,14 @@ export class BSDStatsProvider {
       haMult,
       oppConceded,
       isHome,
-      mu: calc.mu,
+      mu,
+      decomp: decompTrace
+        ? { winRate: decompTrace.winRate, attemptsMu: decompTrace.attemptsMu, baseLabel: decompTrace.baseLabel, wonLabel: decompTrace.won_label }
+        : undefined,
     });
     const statsDetalhadas = detailedStats(games, market.stat_field, await this.homeAwayMap(games));
     return {
-      mu: calc.mu, minutos_esperados: minutes,
+      mu, minutos_esperados: minutes,
       xi_confirmado: xiConfirmed, amostra_jogos: n,
       concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
       incerteza: uncertaintyFor(n),

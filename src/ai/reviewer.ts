@@ -7,7 +7,7 @@ export const PROMPT_REVISOR =
   "futebol, mas NÃO entende de matemática nem de jargão de aposta. Recebe um JSON com " +
   "candidatos já calculados em código (prob_modelo, prob_devig, edge, ev, risco, " +
   "recomendado, amostra_jogos, incerteza, xi_confirmado, minutos_esperados, " +
-  "concedido_adversario, posicao, titularidade, alerta_minutos, concedido_posicao, stats_detalhadas). " +
+  "concedido_adversario, posicao, titularidade, alerta_minutos, concedido_posicao, stats_detalhadas, forma_tendencia). " +
   // — julgamento —
   "JULGAMENTO: use SOMENTE os números recebidos; NUNCA invente número, estatística ou " +
   "lesão. Dê um 'stance' para CADA candidato: 'veta' se há motivo concreto pra não " +
@@ -32,6 +32,13 @@ export const PROMPT_REVISOR =
   "e histórico recente vêm SOMENTE de stats_detalhadas; campo null = não mencionar " +
   "(esses nomes de campo são só pra você localizar o dado — na saída, linguagem comum). " +
   "Ignore o campo 'trace' se presente — não cite nada dele. " +
+  // — forma recente (I5: sinal de confronto como TEXTO, fora do número) —
+  "FORMA (forma_tendencia): rótulo de como o jogador vem nos últimos jogos " +
+  "('em alta'/'em queda'/'estável'), derivado das médias recentes — NÃO é número novo. " +
+  "Você PODE citá-lo em linguagem comum ('vem numa fase boa', 'vinha caindo de produção') " +
+  "para REFORÇAR um 'concorda' ou dar uma 'ressalva' — nunca como motivo único. " +
+  "Campo null ou 'estável' = não precisa mencionar. Continua valendo a ancoragem: " +
+  "não inventar número e não usar nada que não esteja num campo recebido. " +
   // — linguagem (o coração da mudança) —
   "LINGUAGEM (OBRIGATÓRIO): escreva em português do dia a dia, como se explicasse para um " +
   "amigo que NÃO aposta. É PROIBIDO usar NA SUA RESPOSTA estas palavras e qualquer jargão técnico: edge, " +

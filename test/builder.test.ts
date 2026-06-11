@@ -76,6 +76,33 @@ describe("buildCandidate", () => {
     expect(buildCandidate({ ...base, minutos_esperados: 59 }).alerta_minutos).toBe(true);
   });
 
+  it("I1 defesa: odd_under inválido (0/≤1) cai no conservador, não estoura impliedProb", () => {
+    const base = {
+      jogador: "partida (1)", linha: 2.5, odd_over: 1.8, prob_modelo: 0.5, mu: 2.0,
+      minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 10,
+      concedido_adversario: "n/d", incerteza: "media", market_type: "vitoria",
+    };
+    // 0 era o valor que o ramo de partida passava sem under (bug do 1x2 só-over).
+    const c0 = buildCandidate({ ...base, odd_under: 0 });
+    expect(c0["sem_devig"]).toBe(true);
+    expect(c0["prob_devig"]).toBeCloseTo(impliedProb(1.8), 9);
+    // 1.0 também é inválido (impliedProb lança em ≤ 1) → conservador.
+    expect(() => buildCandidate({ ...base, odd_under: 1.0 })).not.toThrow();
+    expect(buildCandidate({ ...base, odd_under: 1.0 })["sem_devig"]).toBe(true);
+  });
+
+  it("I5: deriva forma_tendencia do stats_detalhadas (em alta / null sem dado)", () => {
+    const base = {
+      jogador: "X", linha: 2.5, odd_over: 2.0, odd_under: 1.8, prob_modelo: 0.5,
+      mu: 2.5, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 10,
+      concedido_adversario: "1.0", incerteza: "media", market_type: "desarmes",
+    };
+    const sdAlta = { media_5: 3.5, media_10: 2.5, ultimos_valores: [4, 3, 4, 3, 3], minutos_medios: 88, media_casa: null, media_fora: null, jogos_casa: 0, jogos_fora: 0 };
+    expect(buildCandidate({ ...base, stats_detalhadas: sdAlta })["forma_tendencia"]).toBe("em alta");
+    // sem stats_detalhadas → campo presente e null (a IA não menciona)
+    expect(buildCandidate(base)["forma_tendencia"]).toBeNull();
+  });
+
   it("repassa stats_detalhadas quando presente; null quando ausente", () => {
     const base = {
       jogador: "X", linha: 2.5, odd_over: 2.0, odd_under: 1.8, prob_modelo: 0.5,

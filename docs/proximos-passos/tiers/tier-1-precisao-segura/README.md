@@ -1,5 +1,12 @@
 # 🟡 Tier 1 — precisão segura (melhora o NÚMERO sem recalibrar)
 
+> **STATUS (2026-06-11):** **I1 e I5 FEITOS** (branch `feat/tier1-devig-honesto-i5-confronto`, 267 testes, paridade intacta). **N4 DEFERIDO** + o **resto do I5** (sinais ricos de confronto) **pendentes** — ver "Pendente" abaixo e no `docs/ROADMAP.md`.
+> - **I1 ✅** — fix do bug do `0` (1x2 só-over abortava a análise) + `odd_under ?? null` + defesa em profundidade no builder + `OddsLine.odd_under: number|null`. De-vig de 2 vias segue quando há os 2 lados; one-sided segue conservador (`sem_devig`).
+> - **I5 ✅ (1º sinal)** — campo descritivo `forma_tendencia` (em alta/queda/estável, do `stats_detalhadas`) chega à IA como TEXTO, fora do money-path; prompt atualizado com ancoragem preservada.
+> - **N4 ⏳ deferido** — BSD não dá player prop (o MVP); N4 só serve mercado de partida não recomendável (gols selado, 1x2/BTTS sem calibração). É infra de CLV; exige re-sondar payload BSD ao vivo. **Fazer depois.**
+> - **I5 resto ⏳** — `posse_adversario`, `nota_confronto` (lado de ataque × posição), `arbitro_tendencia`: precisam de sonda BSD ao vivo. Vão junto do N4.
+
+
 > **O que este tier faz:** deixa o número que o produto compara contra a casa **mais honesto e
 > mais preciso**, sem mexer no miolo calibrado do modelo (priors, dispersão NB2, shrinkage, μ).
 > Por isso o **risco de paridade é baixo**: nenhuma ficha aqui altera as golden de `test/parity/`

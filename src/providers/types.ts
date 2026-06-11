@@ -6,7 +6,9 @@ export interface OddsLine {
   entidade: string;
   linha: number;
   odd_over: number;
-  odd_under: number;
+  // null quando a casa só dá o over (player prop, 1x2 só-mandante): o builder cai
+  // no ramo conservador (sem_devig) em vez de tentar de-vig com lado ausente.
+  odd_under: number | null;
   book: string;
   odd_draw?: number | null;
 }

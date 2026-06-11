@@ -59,6 +59,14 @@ Agora as cotações que eu colo ficam **guardadas no sistema**, presas ao jogo. 
 
 ---
 
+## A IA agora também enxerga a "fase" do jogador (2026-06-11)
+
+Além dos números de sempre, a IA que escreve a explicação passou a receber um sinal a mais: se o jogador **vem numa boa fase** ou **vinha caindo de produção** nos últimos jogos (comparando os últimos 5 com os últimos 10). Ela pode usar isso pra **reforçar** ou **ressalvar** uma recomendação em linguagem simples ("vem fazendo bastante ultimamente") — **sem nunca mexer no número**. O número continua vindo só do cálculo; isso é só pra explicação ficar mais rica e o filtro de "vale a pena?" ficar mais esperto. (É o primeiro passo do "olhar de confronto" que vamos aprofundar depois.)
+
+> E um conserto silencioso: uma cotação de **resultado (1X2)** colada só de um lado podia **derrubar a análise inteira** — corrigido; agora ela só fica no modo conservador, sem quebrar nada.
+
+---
+
 ## Como eu uso (a experiência)
 
 1. **Tela de jogos.** Abro o app e vejo uma lista de jogos disponíveis.
@@ -99,10 +107,10 @@ O motor não entra no ar por fé — cada mercado passou (ou não) por uma calib
 - ✅ **Validados — podem virar aposta de valor recomendada — mercados de JOGADOR:** **chutes a gol (SOT)** e **finalizações**. O modelo acerta a probabilidade (calibração boa). São o núcleo do MVP.
   - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e continuam acertando lá também.
   - **O que descobrimos no caminho (honestidade):** num primeiro teste pareceu que o modelo "errava" pra seleção. Investigando, o erro não era a conta de quanto o jogador produz — era assumir que **todo titular joga 90 minutos**. Ao **estimar os minutos esperados** de cada jogador, o acerto voltou ao normal.
-- 🔒 **DESARME — SELADO (descoberta de 2026-06-11):** a casa de apostas paga desarme pelos **desarmes GANHOS**, não pelas **tentativas**. Nosso modelo acerta bem as **tentativas** (é rotina do jogador, dá pra prever do histórico), mas **não** acerta os **ganhos** (ganhar um desarme depende do lance, do adversário, de sorte — o histórico não prevê). Provamos isso em **1738 jogos de seleção**: no alvo que a casa paga, o modelo **não bate nem o chute na média**. Conclusão honesta: **desarme NÃO é recomendado como aposta de valor por enquanto** — fica em observação, sendo medido ao vivo. (O confronto do "Exemplo 1" acima segue valendo como **raciocínio**; só não vira aposta recomendada até a prova ao vivo mudar.)
+- ✅ **DESARME — RECUPERADO nas linhas 0.5 e 1.5 (2026-06-11):** a casa paga desarme pelos **GANHOS**, não pelas **tentativas**. Tentar adivinhar o "ganho" direto **não funcionou** (ganhar depende de lance/sorte). A virada: prever **tentativas** (que o modelo acerta bem) e multiplicar **pelo quanto o jogador costuma converter** (ganhos ÷ tentativas, ~62% na média). Provado em **1746 jogos de seleção** — fica tão bom quanto chutes a gol nas linhas de **1+ e 2+ desarmes ganhos** (0.5/1.5). A linha de **3+ (2.5) ainda não fecha** → segue em observação. Então desarme **volta a virar aposta de valor recomendada** em 0.5/1.5; 2.5 fica de fora por ora.
 - ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda.
 
-> Em uma frase: o produto **estreia recomendando 2 mercados de jogador (chutes a gol e finalizações)**, com **desarme em observação** (a casa paga uma coisa que ainda não sabemos prever) e os de partida **quando — e se — calibrarem**. Cada mercado vira **aposta de valor recomendada** **um a um**, só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
+> Em uma frase: o produto **recomenda chutes a gol, finalizações e desarmes (0.5/1.5)**, com **desarme 2.5 e os mercados de partida em observação** — cada um vira **aposta de valor recomendada** **um a um**, só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
 ### De onde vêm as odds (2026-06-09)
 
@@ -175,7 +183,7 @@ A Copa é população nova (seleções), e não dá pra provar o modelo no passa
 - **Depois do jogo, o sistema confere sozinho** o que de fato aconteff — lendo as estatísticas reais do jogo — e marca acertou/errou. **No desarme, ele confere pelo número que a casa paga (ganhos), não pelas tentativas** — é assim que vamos saber se o desarme um dia presta.
 - **Um relatório** mostra, por mercado, se o modelo está sendo honesto (as notas Brier/ECE) e se pegamos preço bom (CLV).
 
-E uma trava nova de segurança: **só mercado já provado pode receber a estrela de "aposte nesta"**. Hoje são chutes a gol e finalizações. Os outros (desarme, gols, escanteios, vitória) aparecem na análise mas **não** saem como aposta de valor recomendada — vão sendo **liberados um a um**, só quando a medição ao vivo provar que prestam. Nada de recomendar uma "aposta de valor" cuja vantagem a gente ainda não confirmou.
+E uma trava nova de segurança: **só mercado já provado pode receber a estrela de "aposte nesta"**. Hoje são **chutes a gol, finalizações e desarmes (linhas 0.5/1.5)**. Os outros (desarme 2.5, gols, escanteios, vitória) aparecem na análise mas **não** saem como aposta de valor recomendada — vão sendo **liberados um a um** (até por linha), só quando a medição provar que prestam. Nada de recomendar uma "aposta de valor" cuja vantagem a gente ainda não confirmou.
 
 ---
 

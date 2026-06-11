@@ -163,6 +163,23 @@ describe("analyzeManual", () => {
     expect(out.pendente_lineup).toBe(false);
   });
 
+  it("I1 regressão: mercado de partida 1x2 SÓ over (sem under) NÃO estoura e sai sem_devig", async () => {
+    const repo = new InMemoryRepo();
+    // vitoria é isenta da exigência de 2 lados (schema.ts); antes do fix, o ramo de
+    // partida coalescia odd_under para 0 → impliedProb(0) lançava e abortava a análise.
+    const run = analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "vitoria", entidade: "partida", linha: 0, odd_over: 1.8, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+    await expect(run).resolves.toBeDefined();
+    const out = await run;
+    const all = [...out.candidatos, ...out.reprovados];
+    const vit = all.find((c: any) => String(c.market_type) === "vitoria");
+    expect(vit).toBeDefined();
+    expect(vit!.sem_devig).toBe(true); // conservador: 1/odd_over, sem inventar margem
+  });
+
   it("grava no paper_ledger os candidatos com edge>0 (calibração forward)", async () => {
     const repo = new InMemoryRepo();
     await analyzeManual(fakeClient(), {

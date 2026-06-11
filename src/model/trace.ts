@@ -56,10 +56,14 @@ export interface RateTraceArgs {
   oppConceded: number | null;
   isHome: boolean;
   mu: number;
+  // Decomposição (ex.: desarme ganho = tentativas × aproveitamento). Quando
+  // presente, `mu` é o esperado FINAL (ganhos); os passos do ritmo descrevem a
+  // base (tentativas) e um passo extra mostra a conversão.
+  decomp?: { winRate: number; attemptsMu: number; baseLabel: string; wonLabel: string };
 }
 
 export function buildRateTrace(a: RateTraceArgs): RateTrace {
-  const label = statLabelFor(a.statField);
+  const label = a.decomp ? a.decomp.baseLabel : statLabelFor(a.statField);
   const window = a.games.slice(-5);
   const statTotal = window.reduce((s, g) => s + numField(g, a.statField), 0);
   const minTotal = window.reduce((s, g) => s + numField(g, "minutes_played"), 0);
@@ -117,14 +121,34 @@ export function buildRateTrace(a: RateTraceArgs): RateTrace {
       : `Fora de casa, leve ajuste pra baixo (×${r2(a.haMult)}).`,
   });
 
-  passos.push({
-    passo: "esperado_final",
-    titulo: `Total esperado de ${label}`,
-    formula: "ritmo ajustado × fatores",
-    entradas: { esperado: r2(a.mu) },
-    saida: r2(a.mu),
-    frase: `No total, esperamos ${r2(a.mu)} ${label} nesta partida.`,
-  });
+  if (a.decomp) {
+    // a.mu já é o esperado de GANHOS; attemptsMu é o esperado de tentativas.
+    passos.push({
+      passo: "esperado_tentativas",
+      titulo: `Total esperado de ${a.decomp.baseLabel}`,
+      formula: "ritmo ajustado × fatores",
+      entradas: { esperado: r2(a.decomp.attemptsMu) },
+      saida: r2(a.decomp.attemptsMu),
+      frase: `No total, esperamos ${r2(a.decomp.attemptsMu)} ${a.decomp.baseLabel} nesta partida.`,
+    });
+    passos.push({
+      passo: "aproveitamento",
+      titulo: `Conversão em ${a.decomp.wonLabel}`,
+      formula: "tentativas esperadas × taxa de aproveitamento (ganhos ÷ tentativas)",
+      entradas: { tentativas: r2(a.decomp.attemptsMu), aproveitamento: pct(a.decomp.winRate), ganhos: r2(a.mu) },
+      saida: r2(a.mu),
+      frase: `Costuma ganhar ${pct(a.decomp.winRate)} do que tenta → ~${r2(a.mu)} ${a.decomp.wonLabel} (o que a casa paga).`,
+    });
+  } else {
+    passos.push({
+      passo: "esperado_final",
+      titulo: `Total esperado de ${label}`,
+      formula: "ritmo ajustado × fatores",
+      entradas: { esperado: r2(a.mu) },
+      saida: r2(a.mu),
+      frase: `No total, esperamos ${r2(a.mu)} ${label} nesta partida.`,
+    });
+  }
 
   return { statField: a.statField, mu: a.mu, passos };
 }

@@ -24,7 +24,7 @@ function prontoParaApostar(c: Record<string, unknown>): boolean {
   return (
     c["titularidade"] === "confirmado" &&
     c["alerta_minutos"] !== true &&
-    isValidated(String(c["market_type"] ?? ""))
+    isValidated(String(c["market_type"] ?? ""), c["linha"] as number | undefined)
   );
 }
 

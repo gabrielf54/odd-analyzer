@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { detailedStats } from "../src/model/detailedStats.js";
+import { detailedStats, formaTendencia } from "../src/model/detailedStats.js";
 
 // jogos em ordem CRESCENTE (recente no fim), como o resto do motor
 const g = (tackles: number, min: number, eventId: string, teamId = "T1") => ({
@@ -43,5 +43,28 @@ describe("detailedStats", () => {
     const games = [{ minutes_played: 90, event_id: "e1", team_id: "T1" }, g(4, 90, "e2")];
     const s = detailedStats(games, "total_tackle");
     expect(s.media_10).toBeCloseTo(2, 9);
+  });
+});
+
+describe("formaTendencia (I5: rótulo descritivo, fora do money-path)", () => {
+  const sd = (media_5: number | null, media_10: number | null, recentes = 5) => ({
+    media_5, media_10, ultimos_valores: Array.from({ length: recentes }, () => 1),
+    minutos_medios: 90, media_casa: null, media_fora: null, jogos_casa: 0, jogos_fora: 0,
+  });
+
+  it("últimos 5 acima dos 10 (≥ +15%) → 'em alta'", () => {
+    expect(formaTendencia(sd(3.5, 2.5))).toBe("em alta"); // 1.4×
+  });
+  it("últimos 5 abaixo dos 10 (≤ -15%) → 'em queda'", () => {
+    expect(formaTendencia(sd(2.0, 3.0))).toBe("em queda"); // 0.67×
+  });
+  it("dentro da faixa ±15% → 'estável'", () => {
+    expect(formaTendencia(sd(2.6, 2.5))).toBe("estável"); // 1.04×
+  });
+  it("null: sem stats, média base nula/zero, ou amostra recente fraca (<3)", () => {
+    expect(formaTendencia(null)).toBeNull();
+    expect(formaTendencia(sd(3.0, null))).toBeNull();
+    expect(formaTendencia(sd(3.0, 0))).toBeNull();
+    expect(formaTendencia(sd(3.0, 2.0, 2))).toBeNull(); // só 2 jogos recentes
   });
 });
