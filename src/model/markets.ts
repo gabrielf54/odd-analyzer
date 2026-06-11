@@ -67,14 +67,17 @@ export const MARKETS: Record<string, MarketSpec> = {
   // DESARME GANHO via DECOMPOSIÇÃO (2026-06-11): a casa liquida won_tackle (Opta
   // "Tackles Won"). Prever "ganho" direto reprovou (motor só prevê tentativas);
   // mas μ_ganhos = μ_tentativas(total_tackle) × aproveitamento(won/total, encolhido)
-  // PASSA — backtest n=1746, 10 ligas (scripts/recalibrate-desarmes-decomp.mts):
-  // BrierSkill +0.085 (over 0.5, ECE 0.039) e +0.021 (over 1.5, ECE 0.044);
-  // over 2.5 ainda negativo (−0.023) → fora. base=total_tackle (μ tentativas,
-  // calibrado, prior 1.3); mu_decomp aplica o aproveitamento; settle_field=won_tackle.
-  // validated só nas linhas que passam (0.5/1.5); 2.5 segue em observação forward.
+  // PASSA — backtest n=1746/2710, 10 ligas (scripts/recalibrate-desarmes-decomp.mts,
+  // backtest-desarme-25-fino.mts): BrierSkill +0.085 (over 0.5) e +0.028 (over 1.5)
+  // com nb_dispersion=2.0. nb_dispersion 2.0 (não 3.0): ganho é distribuição diferente
+  // de tentativa (afinamento) — varredura n=2710 mostrou R≈2.0 melhor no 1.5 (skill
+  // dobra) sem piorar o 0.5; efeito monotônico (não overfit). **OVER 2.5 robustamente
+  // MORTO** (todas as 18 combinações R×k deram BrierSkill<0; evento raro, sem sinal —
+  // NÃO re-tentar) → fora de validated_lines, observação forward. base=total_tackle
+  // (μ tentativas, prior 1.3); mu_decomp aplica o aproveitamento; settle=won_tackle.
   desarmes: spec({
     key: "desarmes", nivel: "jogador", kind: "contagem", stat_field: "total_tackle",
-    prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
+    prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 2.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "desarmes_concedidos_por_jogo", label: "Desarmes",
     settle_field: "won_tackle", validated: true, validated_lines: [0.5, 1.5],
     mu_decomp: { num_field: "won_tackle", wr_shrink: 40, wr_prior: 0.622, base_label: "desarmes tentados", won_label: "desarmes ganhos" },
