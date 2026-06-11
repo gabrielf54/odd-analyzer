@@ -303,3 +303,42 @@ describe("OnlyPlayer", () => {
     await expect(p.squad(evento)).rejects.toThrow(/não encontrado/);
   });
 });
+
+describe("concede_field (eixo de concessão != stat_field)", () => {
+  // Mercado fake: jogador produz "fouls"; concessão soma "was_fouled" dos adversários.
+  const faltasMarket: any = {
+    key: "faltas", nivel: "jogador", kind: "contagem", stat_field: "fouls",
+    prior_rate: 1.0, prior_strength: 12, nb_dispersion: 3.0, lines: [0.5, 1.5],
+    eixo_concessao: "faltas_provocadas", label: "Faltas", concede_field: "was_fouled",
+    concede_baseline: 10, concede_baseline_nacional: 10,
+  };
+  function client(): any {
+    return {
+      playerStats: async () => ({ results: [
+        { fouls: 2, was_fouled: 0, minutes_played: 90, event_id: "h1", team_id: "100" },
+        { fouls: 1, was_fouled: 1, minutes_played: 90, event_id: "h2", team_id: "100" },
+      ] }),
+      events: async (f: any) => String(f.team_id) === "200"
+        ? { results: [{ id: "o1", home_team_id: "200", away_team_id: "300" }] }
+        : { results: [] },
+      // adversários (team_id != 200) somam was_fouled = 7 (não fouls = 99)
+      eventPlayerStats: async () => ({ player_stats: [
+        { player_id: 1, team_id: "300", was_fouled: 4, fouls: 99 },
+        { player_id: 2, team_id: "300", was_fouled: 3, fouls: 99 },
+        { player_id: 3, team_id: "200", was_fouled: 5, fouls: 99 },
+      ] }),
+      eventStats: async () => ({ stats: {} }),
+    };
+  }
+  it("byPlayer soma o concede_field (was_fouled=7), não o stat_field", async () => {
+    const p = new BSDStatsProvider(client(), { positionalTilt: false });
+    const rate = await p.entityRate("p1", faltasMarket, {
+      event: { home_team: { id: "100" }, away_team: { id: "200" } },
+      entity_team_id: "100", is_home: true, opp_team_id: "200",
+      league_avg_conceded: 10, escopo_historico: "todos",
+    });
+    expect(rate).not.toBeNull();
+    // concedido = 7/1 jogo = 7.0 (média de was_fouled dos adversários)
+    expect(rate!.concedido_adversario).toBe("7.0");
+  });
+});

@@ -22,6 +22,10 @@ export interface MarketSpec {
   // μ_tentativas(stat_field) × aproveitamento(won/total, encolhido p/ wr_prior).
   // Recupera o sinal das tentativas (bem previstas) — backtest n=1746 (validação).
   mu_decomp?: { num_field: string; wr_shrink: number; wr_prior: number; base_label: string; won_label: string };
+  // Eixo de CONCESSÃO lê um campo DIFERENTE do stat_field. Ex.: faltas — o jogador
+  // produz `fouls`, mas o confronto é com `was_fouled` do adversário (faltas que ele
+  // PROVOCA). Default = stat_field (comportamento atual). Só afeta o byPlayer path.
+  concede_field?: string;
   // GATE de aposta de valor (estrela), CIENTE DE POPULAÇÃO. Roteado por
   // populacaoFor(leagueId): um mercado/linha pode valer na seleção e não no clube
   // (ou vice-versa). chave AUSENTE → não validado nessa população; [] → TODAS as

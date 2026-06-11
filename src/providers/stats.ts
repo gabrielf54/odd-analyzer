@@ -204,9 +204,10 @@ export class BSDStatsProvider {
     games = filterGamesByScope(games, scope, entityTeamId);
     if (games.length === 0) return null;
 
-    const teamField = TEAM_STAT_FIELD[market.stat_field] ?? market.stat_field;
-    // Sem campo de TIME (ex.: won_tackle) → agregar dos jogadores adversários.
-    const byPlayer = !(market.stat_field in TEAM_STAT_FIELD);
+    const concedeField = market.concede_field ?? market.stat_field;
+    const teamField = TEAM_STAT_FIELD[concedeField] ?? concedeField;
+    // Sem campo de TIME (ex.: won_tackle, was_fouled) → agregar dos jogadores adversários.
+    const byPlayer = !(concedeField in TEAM_STAT_FIELD);
     const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, 10, { byPlayer });
     const oppMult = this.oppMult(oppConceded, leagueAvg);
 
