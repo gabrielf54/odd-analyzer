@@ -34,6 +34,7 @@ export interface Repo {
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
   getLedger(eventId: string): Promise<any[]> | any[];
+  allLedger(): Promise<any[]> | any[];
   updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number): Promise<void> | void;
   // Settle só-resultado (player prop não tem odd de fechamento automática na BSD).
   settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number): Promise<void> | void;
@@ -71,6 +72,7 @@ export class InMemoryRepo implements Repo {
     this.ledger = [...byKey.values()];
   }
   getLedger(eventId: string): any[] { return this.ledger.filter((r) => r.event_id === eventId); }
+  allLedger(): any[] { return this.ledger; }
   settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number) {
     for (const row of this.ledger) {
       if (!(row.event_id === eventId && row.jogador === jogador && row.linha === linha)) continue;
@@ -208,6 +210,10 @@ export class SupabaseRepo implements Repo {
   }
   async getLedger(eventId: string): Promise<any[]> {
     const { data } = await this.client.from("paper_ledger").select("*").eq("event_id", eventId);
+    return data ?? [];
+  }
+  async allLedger(): Promise<any[]> {
+    const { data } = await this.client.from("paper_ledger").select("*");
     return data ?? [];
   }
   async settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number) {
