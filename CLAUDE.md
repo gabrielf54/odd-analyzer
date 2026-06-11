@@ -55,28 +55,37 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - **Brier / ECE / BrierSkill** = notas da prova de calibração. Quanto menor o Brier e o ECE, melhor (modelo mais certeiro/honesto). BrierSkill > 0 significa "melhor que chutar a média" — abaixo de 0 o modelo não presta naquele mercado.
 - **Shift de população** = calibrar num grupo (ex.: clubes do Brasileirão) e usar em outro (ex.: seleções da Copa). Os grupos jogam diferente, então a calibração de um pode não valer no outro — tem que re-medir no grupo certo.
 
-## Documentação viva — SEMPRE atualizar `docs/CORE.md`
+## Documentação viva — `docs/CORE.md` é o ÚNICO doc sempre atualizado
 
-[docs/CORE.md](docs/CORE.md) é o **documento vivo ÚNICO** — o cérebro do produto: objetivo +
-doutrina + features que existem + próximas features (Copa/pós-Copa) + cemitério (o que não
-re-tentar). **Toda mudança que altere estado, veredito ou escopo deve atualizar o `CORE.md` no
-MESMO trabalho** (idealmente no mesmo commit) — não deixe divergir do código/realidade.
+**NÃO atualizamos "todos os docs".** Cada doc tem um papel fixo. Criar "spec vivo" solto é proibido
+— eles apodrecem (foi o que matou o antigo `docs/dados-necessarios-analise.md`, parado em 02/06
+enquanto o produto andou). Taxonomia:
 
-**Quando atualizar:**
-- Calibração rodada / veredito de mercado mudou (passou, falhou, virou validado, foi selado).
-- Mercado entrou/saiu do MVP; feature concluída; item movido pro cemitério; novo bloqueio.
-- Decisão de produto/arquitetura travada; número-chave medido (baseline, ECE, contagem de testes).
+| Doc | Papel | Quando mexer |
+|---|---|---|
+| **[docs/CORE.md](docs/CORE.md)** | doc vivo ÚNICO — cérebro (objetivo·doutrina·features que existem·próximas·cemitério·glossário) | **a CADA feature/veredito/escopo**, no mesmo commit |
+| **[docs/features/](docs/features/)`<feature>/`** | detalhe de uma feature **PENDENTE** (uma pasta por feature) | ao planejar a feature; **APAGAR ao shipar** (ver regra abaixo) |
+| **[docs/apis/](docs/apis/)** | referência de dado/custo (BSD, the-odds-api…) | só quando a **realidade da API/dado** muda — NÃO por feature |
+| **CLAUDE.md** (este) | regras de código/engenharia | quando muda convenção/arquitetura |
 
-**Como manter coerente:**
-1. **Um "ESTADO ATUAL" único e sempre verdadeiro** no cabeçalho do CORE (data + contagem de testes).
-2. **Veredito superado = mover pro Cemitério (§5)** com o porquê — não apague o aprendizado (e o git
-   guarda o histórico). Nunca deixe um veredito antigo lido como o atual.
-3. **Feature nova:** atualize a tabela de features (§3) + crie/atualize a pasta de detalhe em
-   [docs/features/](docs/features/) (uma pasta por feature). Linguagem leiga onde tocar o dono
-   (o dono não lê código — ver Glossário no CORE).
-4. **Validação ciente de população:** ao graduar um mercado, diga em QUAL população (seleção/clube).
-5. Detalhe de engenharia (este arquivo) e referência de dado ([docs/apis/](docs/apis/)) **não** vão
-   pro CORE — o CORE é produto/estado/roadmap.
+Se um doc não é CORE, `features/`, `apis/` ou este — **ele não deveria existir**: ou vira referência
+em `apis/`, ou some. **Estado/veredito/escopo vivem SÓ no CORE.**
+
+**Regra de não-poluição do `features/` (INEGOCIÁVEL):** `docs/features/` só guarda o que **ainda NÃO
+foi feito**. Assim que uma feature é implementada e mergeada, **no MESMO trabalho**: (a) move a
+essência pro **CORE §3** (features que existem) — em qual população validou, veredito, números-chave;
+(b) **APAGA a pasta `docs/features/.../` dela**. O git preserva o detalhe se um dia precisar. Achado
+que NÃO se deve re-tentar vai pro **Cemitério (CORE §5)**, não pra uma pasta.
+
+**Quando atualizar o CORE:** calibração rodada / veredito mudou · feature concluída (→ §3 + apaga a
+pasta) · item pro cemitério · novo bloqueio · decisão travada · número-chave medido (baseline, ECE,
+contagem de testes).
+
+**Como manter o CORE coerente:**
+1. Um **"ESTADO ATUAL" único e sempre verdadeiro** no cabeçalho (data + contagem de testes).
+2. **Veredito superado = mover pro Cemitério (§5)** com o porquê — não apague o aprendizado.
+3. **Validação ciente de população:** ao graduar um mercado, diga em QUAL população (seleção/clube).
+4. **Linguagem leiga** onde tocar o dono (ele não lê código — ver Glossário no CORE).
 
 ## Supabase — contexto
 

@@ -3,8 +3,9 @@
 > **ESTE É O DOCUMENTO VIVO ÚNICO.** Objetivo + doutrina + features que existem + próximas
 > features (Copa / pós-Copa) + o que NÃO re-tentar. **Atualize-o a CADA feature** (estado,
 > veredito, escopo). Regras de **código/engenharia** ficam no [`CLAUDE.md`](../CLAUDE.md);
-> **referência de dado/custo** em [`docs/apis/`](apis/). Detalhe de cada próxima feature vive em
-> [`docs/features/`](features/) (uma pasta por feature).
+> **referência de dado/custo** em [`docs/apis/`](apis/). Detalhe de cada feature **pendente** vive em
+> [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
+> (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
 > **Atualizado:** 2026-06-11 · **Suíte:** 279 testes Vitest verdes · **Custo até aqui:** $0 ·
 > **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11.
