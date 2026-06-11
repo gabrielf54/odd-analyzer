@@ -1,7 +1,10 @@
 import { z } from "zod";
+import { MARKET_KEYS, PLAYER_MARKET_KEYS } from "../model/markets.js";
 
-const MARKET_TYPES = ["gols", "vitoria", "escanteios", "sot", "finalizacoes", "desarmes"] as const;
-const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes"]);
+// Fonte ÚNICA: derivam de MARKETS (model). Mercado novo no motor é aceito na borda
+// sem re-listar aqui — corrige o bug de `faltas` ser rejeitada no parse (2026-06-11).
+const MARKET_TYPES = MARKET_KEYS;
+const PLAYER_MARKETS = new Set(PLAYER_MARKET_KEYS);
 
 /** Linha crua do JSON (pré-validação semântica). */
 const rawLineSchema = z.object({
@@ -51,7 +54,7 @@ export function parseManualOdds(body: unknown): ManualOddsInput {
     const p = rawLineSchema.safeParse(raw);
     if (!p.success) { linhas_rejeitadas.push({ linha_crua: raw, motivo: "formato inválido da linha" }); continue; }
     const l = p.data;
-    if (!(MARKET_TYPES as readonly string[]).includes(l.market_type)) {
+    if (!MARKET_TYPES.includes(l.market_type)) {
       linhas_rejeitadas.push({ linha_crua: raw, motivo: `market_type desconhecido: ${l.market_type}` }); continue;
     }
     if (l.odd_over <= 1.01) {

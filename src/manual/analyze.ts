@@ -1,4 +1,4 @@
-import { MARKETS, baselineFor, populacaoFor, populacaoMotivo, type MarketSpec } from "../model/markets.js";
+import { MARKETS, baselineFor, populacaoFor, populacaoMotivo, PLAYER_MARKET_KEYS, type MarketSpec } from "../model/markets.js";
 import { probOverLine } from "../model/sotModel.js";
 import { matchCount, runMatch } from "../pipeline.js";
 import { buildCandidate } from "../candidates/builder.js";
@@ -18,7 +18,7 @@ export interface AnalyzeManualOpts {
   diagnostics?: boolean;
 }
 
-const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes", "faltas"]);
+const PLAYER_MARKETS = new Set(PLAYER_MARKET_KEYS);
 
 function groupByMarket(odds: ManualOddsLine[]): Map<string, ManualOddsLine[]> {
   const m = new Map<string, ManualOddsLine[]>();

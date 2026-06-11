@@ -155,6 +155,15 @@ export const MARKETS: Record<string, MarketSpec> = {
   }),
 };
 
+/** Chaves de todos os mercados / só os de jogador — fonte ÚNICA p/ a validação de
+ * borda (manual/schema.ts) e o roteamento do fluxo manual (manual/analyze.ts).
+ * Derivam de MARKETS: um mercado novo NÃO precisa ser re-listado na borda (era o
+ * bug de `faltas`, 2026-06-11 — a borda Zod rejeitava o que o motor já aceitava). */
+export const MARKET_KEYS: string[] = Object.keys(MARKETS);
+export const PLAYER_MARKET_KEYS: string[] = Object.values(MARKETS)
+  .filter((m) => m.nivel === "jogador")
+  .map((m) => m.key);
+
 // Ligas de seleção (Copa e correlatas) → baseline nacional. WC2026 = 27.
 const NATIONAL_LEAGUE_IDS = new Set([58, 59, 60, 61, 62, 64, 65, 66, 67, 31, 27]);
 

@@ -13,6 +13,16 @@ describe("parseManualOdds", () => {
     expect(r.linhas_rejeitadas).toHaveLength(0);
   });
 
+  it("aceita faltas (mercado de jogador novo) — borda não pode regredir p/ rejeitada", () => {
+    const r = parseManualOdds({ ...base, odds: [
+      { market_type: "faltas", entidade: "R. De Paul", linha: 0.5, odd_over: 1.8, book: "bet365" },
+    ] });
+    expect(r.odds).toHaveLength(1);
+    expect(r.odds[0]!.market_type).toBe("faltas");
+    expect(r.odds[0]!.linha).toBe(0.5);
+    expect(r.linhas_rejeitadas).toHaveLength(0);
+  });
+
   it("rejeita odd <= 1.01 sem derrubar o resto", () => {
     const r = parseManualOdds({ ...base, odds: [
       { market_type: "sot", entidade: "X", linha: 0.5, odd_over: 1.0, book: "b" },
