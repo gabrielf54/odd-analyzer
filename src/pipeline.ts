@@ -161,6 +161,7 @@ async function playerCount(event: any, market: MarketSpec, sp: any, lines: any[]
         titularidade,
         concedido_posicao: rate.concedido_posicao ?? null,
         stats_detalhadas: rate.stats_detalhadas ?? null,
+        posse_adversario: rate.posse_adversario ?? null,
       }));
     }
   }

@@ -71,10 +71,13 @@ describe("PROMPT_REVISOR ancorado", () => {
     expect(PROMPT_REVISOR).toMatch(/NUNCA invente/);
     expect(PROMPT_REVISOR).toContain("campo null = não mencionar");
   });
-  it("I5: prompt lista e libera forma_tendencia em linguagem leiga, ancoragem intacta", () => {
+  it("I5: prompt lista e libera forma_tendencia/posse_adversario em linguagem leiga, ancoragem intacta", () => {
     expect(PROMPT_REVISOR).toContain("forma_tendencia");
+    expect(PROMPT_REVISOR).toContain("posse_adversario");
     expect(PROMPT_REVISOR).toMatch(/em alta|em queda/i);
     expect(PROMPT_REVISOR).toMatch(/PODE cit/i);
+    // posse não pode virar regra fixa de direção (depende do mercado)
+    expect(PROMPT_REVISOR).toMatch(/DEPENDE do mercado|nunca como motivo único/i);
   });
 });
 
@@ -92,10 +95,11 @@ describe("reviewCandidates", () => {
   it("I5: campos descritivos novos (forma_tendencia) chegam à IA no JSON enviado", async () => {
     let enviado = "";
     const fakeChat = async (msgs: any[]) => { enviado = msgs[1].content; return JSON.stringify(validOut); };
-    const comForma = cands.map((c) => ({ ...c, forma_tendencia: "em alta" }));
+    const comForma = cands.map((c) => ({ ...c, forma_tendencia: "em alta", posse_adversario: 58 }));
     await reviewCandidates(comForma, { jogo: "x" }, fakeChat);
     expect(enviado).toContain("forma_tendencia");
     expect(enviado).toContain("em alta");
+    expect(enviado).toContain("posse_adversario");
   });
 
   it("saída inválida → degrada (ia_revisao null em todos, alerta)", async () => {

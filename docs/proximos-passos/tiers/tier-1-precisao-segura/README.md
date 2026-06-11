@@ -1,10 +1,11 @@
 # 🟡 Tier 1 — precisão segura (melhora o NÚMERO sem recalibrar)
 
-> **STATUS (2026-06-11):** **I1 e I5 FEITOS** (branch `feat/tier1-devig-honesto-i5-confronto`, 267 testes, paridade intacta). **N4 DEFERIDO** + o **resto do I5** (sinais ricos de confronto) **pendentes** — ver "Pendente" abaixo e no `docs/ROADMAP.md`.
+> **STATUS (2026-06-11, pós-sonda BSD):** **I1 FEITO** + **I5 com 2 sinais FEITOS**. I1/I5(forma) em `main`; `posse_adversario` na branch `feat/tier1-posse-adversario-e-mapeamento` (272 testes, paridade intacta). Árbitro e N4 **mapeados p/ depois**; `nota_confronto`/I2 **morto por falta de dado**.
 > - **I1 ✅** — fix do bug do `0` (1x2 só-over abortava a análise) + `odd_under ?? null` + defesa em profundidade no builder + `OddsLine.odd_under: number|null`. De-vig de 2 vias segue quando há os 2 lados; one-sided segue conservador (`sem_devig`).
-> - **I5 ✅ (1º sinal)** — campo descritivo `forma_tendencia` (em alta/queda/estável, do `stats_detalhadas`) chega à IA como TEXTO, fora do money-path; prompt atualizado com ancoragem preservada.
-> - **N4 ⏳ deferido** — BSD não dá player prop (o MVP); N4 só serve mercado de partida não recomendável (gols selado, 1x2/BTTS sem calibração). É infra de CLV; exige re-sondar payload BSD ao vivo. **Fazer depois.**
-> - **I5 resto ⏳** — `posse_adversario`, `nota_confronto` (lado de ataque × posição), `arbitro_tendencia`: precisam de sonda BSD ao vivo. Vão junto do N4.
+> - **I5 ✅ (2 sinais)** — `forma_tendencia` (do `stats_detalhadas`) **e** `posse_adversario` (`ball_possession` médio do adversário) chegam à IA como TEXTO, **fora do money-path**; prompt ancorado, com orientação por-mercado pra posse (atacante × defensor).
+> - **I5 árbitro ⏳ (mapeado)** — `referee_id` existe, mas precisa agregar histórico do árbitro na mão. Ver a ficha I5 (banner + §"árbitro").
+> - **I5 `nota_confronto` ❌ MORTO** — BSD **não tem** `average_positions`/`shotmap`/lado de ataque (sonda 2026-06-11). **Leva o I2 (Tier 2) junto.** Só com fonte posicional paga.
+> - **N4 ⏳ parado** — **dono decidiu não usar odds automáticas agora**. BSD só dá mercado de partida não recomendável (gols selado, 1x2/BTTS sem calibração). Quando retomar: re-sondar payload BSD. **Fazer depois.**
 
 
 > **O que este tier faz:** deixa o número que o produto compara contra a casa **mais honesto e

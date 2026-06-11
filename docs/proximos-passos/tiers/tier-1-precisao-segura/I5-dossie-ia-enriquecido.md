@@ -1,5 +1,13 @@
 # I5 — Dossiê da IA enriquecido (sinais de confronto como TEXTO, fora do money-path)
 
+> **STATUS após a sonda BSD ao vivo (2026-06-11):**
+> - ✅ **`forma_tendencia`** — FEITO (mergeado em `main`). Deriva do `stats_detalhadas`.
+> - ✅ **`posse_adversario`** — FEITO (branch `feat/tier1-posse-adversario-e-mapeamento`). Campo `ball_possession` confirmado em `/events/{id}/stats/` (`stats.{home,away}.ball_possession`, % inteiro). `BSDStatsProvider.teamPossession` faz a média dos jogos finalizados do adversário; vai pro candidato e pro prompt **com orientação por-mercado** (rival com a bola = menos finalização do nosso atacante, mas pode dar + volume de desarme do defensor). **Fora do número** (não toca μ/edge).
+> - ⏳ **`arbitro_tendencia`** — MAPEADO P/ DEPOIS. `event.referee_id` existe (confirmado: 9099→2401, 8287→1932), **mas não há endpoint de "perfil do árbitro"**. Pra ter a tendência (faltas/cartões médios) é preciso **agregar os jogos passados desse `referee_id` na mão** — buscar eventos por árbitro e mediar `fouls`/`yellow_cards` de `/events/{id}/stats/`. Esforço médio, valor incerto; sinal descritivo (fora do número), igual aos outros. **Ver §6/§"árbitro" abaixo.**
+> - ❌ **`nota_confronto` (lado de ataque × posição) — MORTO POR FALTA DE DADO.** A BSD **não tem** `average_positions` nem `shotmap`/heatmap (player-stats sem coordenada; lineup só `position` G/D/M/F + `formation`; `/shotmap//heatmap//positions/` = 404). Não dá nem pra separar lateral esquerdo×direito. **Consequência: o I2 (Tier 2, matchup direcional dentro do μ) está bloqueado pelo mesmo motivo** — só volta com fonte posicional/zonal paga (fora do orçamento). O confronto direcional segue como **raciocínio/explicação**, não vira número nem rótulo automático.
+>
+> **Implementação do árbitro (quando for fazer):** novo método no provider que, dado `referee_id`, busca os jogos anteriores arbitrados por ele e calcula `media_faltas`/`media_cartoes`; deriva um rótulo (`arbitro_tendencia`: "apita bastante"/"deixa jogar"); anexa ao candidato (descritivo) e ao prompt (igual `posse_adversario`). **Confirmar antes:** existe filtro `/events/?referee_id=` na BSD? Se não, fica caro (varrer jogos) — medir custo antes de implementar.
+
 ## 1. TL;DR
 Dar à IA **sinais descritivos de confronto** (lado de ataque, posse do adversário, forma/tendência
 recente, árbitro) como **campos no JSON** (snake_case PT, derivados do dado da BSD) — para melhorar o

@@ -241,6 +241,55 @@ describe("stats_detalhadas", () => {
   });
 });
 
+describe("posse_adversario (I5: descritivo, fora do money-path)", () => {
+  function fakePossessionClient(): any {
+    return {
+      async playerStats() {
+        return { results: [
+          { shots_on_target: 2, minutes_played: 90, team_id: "H", event_id: "p1" },
+          { shots_on_target: 1, minutes_played: 90, team_id: "H", event_id: "p2" },
+        ] };
+      },
+      async events({ team_id }: any) {
+        // adversário "A" jogou 2 finalizados; "H" (homeAwayMap) sem dado → split null.
+        if (String(team_id) === "A") return { results: [
+          { id: "oa", home_team_id: "A", away_team_id: "Z" }, // A em casa → lado home
+          { id: "ob", home_team_id: "Y", away_team_id: "A" }, // A fora → lado away
+        ] };
+        return { results: [] };
+      },
+      async eventStats(id: unknown) {
+        if (id === "oa") return { stats: { home: { ball_possession: 60 }, away: { ball_possession: 40 } } };
+        if (id === "ob") return { stats: { home: { ball_possession: 50 }, away: { ball_possession: 50 } } };
+        return { stats: {} };
+      },
+    };
+  }
+
+  it("média a posse do adversário nos jogos dele (lado próprio): (60+50)/2 = 55", async () => {
+    const p = new BSDStatsProvider(fakePossessionClient(), { positionalTilt: false });
+    const rate = await p.entityRate("p1", MARKETS["sot"]!, {
+      event: { home_team: { id: "H" }, away_team: { id: "A" } },
+      entity_team_id: "H", is_home: true, opp_team_id: "A", league_avg_conceded: 4.55, escopo_historico: "todos",
+    });
+    expect(rate).not.toBeNull();
+    expect(rate!.posse_adversario).toBe(55);
+    // não contamina o número: mu segue vindo do motor (>0), independente da posse
+    expect(rate!.mu).toBeGreaterThan(0);
+  });
+
+  it("sem jogos do adversário com stats → posse_adversario null (degrada, não quebra)", async () => {
+    const c = fakePossessionClient();
+    c.events = async () => ({ results: [] });
+    const p = new BSDStatsProvider(c, { positionalTilt: false });
+    const rate = await p.entityRate("p1", MARKETS["sot"]!, {
+      event: { home_team: { id: "H" }, away_team: { id: "A" } },
+      entity_team_id: "H", is_home: true, opp_team_id: "A", league_avg_conceded: 4.55, escopo_historico: "todos",
+    });
+    expect(rate!.posse_adversario).toBeNull();
+  });
+});
+
 describe("OnlyPlayer", () => {
   it("filtra elenco ao ref por substring de nome", async () => {
     const p = new OnlyPlayer(new BSDStatsProvider(makeClient()), "kaiki");

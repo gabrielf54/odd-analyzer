@@ -59,9 +59,15 @@ Agora as cotações que eu colo ficam **guardadas no sistema**, presas ao jogo. 
 
 ---
 
-## A IA agora também enxerga a "fase" do jogador (2026-06-11)
+## A IA agora também enxerga a fase do jogador e a posse do rival (2026-06-11)
 
-Além dos números de sempre, a IA que escreve a explicação passou a receber um sinal a mais: se o jogador **vem numa boa fase** ou **vinha caindo de produção** nos últimos jogos (comparando os últimos 5 com os últimos 10). Ela pode usar isso pra **reforçar** ou **ressalvar** uma recomendação em linguagem simples ("vem fazendo bastante ultimamente") — **sem nunca mexer no número**. O número continua vindo só do cálculo; isso é só pra explicação ficar mais rica e o filtro de "vale a pena?" ficar mais esperto. (É o primeiro passo do "olhar de confronto" que vamos aprofundar depois.)
+Além dos números de sempre, a IA que escreve a explicação passou a receber **dois sinais a mais**:
+1. **Fase recente:** se o jogador **vem numa boa fase** ou **vinha caindo de produção** nos últimos jogos (comparando os últimos 5 com os últimos 10).
+2. **Posse do adversário:** **quanto o rival costuma ficar com a bola**. Isso ajuda a IA a contextualizar — um rival que domina a bola deixa **menos** bola pro nosso atacante finalizar, mas pode dar **mais** trabalho de desarme pro nosso defensor (a IA é instruída a não inverter essa lógica).
+
+Ela pode usar esses sinais pra **reforçar** ou **ressalvar** uma recomendação em linguagem simples ("vem fazendo bastante ultimamente", "o adversário domina muito a bola") — **sem nunca mexer no número**. O número continua vindo só do cálculo; isso é só pra explicação ficar mais rica e o filtro de "vale a pena?" ficar mais esperto.
+
+> **Importante (honestidade de dado):** a ideia mais ambiciosa — saber **por qual lado** (esquerda/direita) o adversário ataca, pra cruzar com a posição do nosso jogador — **não dá pra fazer hoje**: a fonte de dados grátis **não informa o lado de ataque** (só a posição geral: goleiro/defensor/meio/atacante). Isso fica como ideia futura, **se** algum dia entrar uma fonte de dados posicional (que custa dinheiro). Por ora o "olhar de confronto" funciona no nível de **mercado** (quanto o adversário concede daquele tipo de jogada), não por lado do campo.
 
 > E um conserto silencioso: uma cotação de **resultado (1X2)** colada só de um lado podia **derrubar a análise inteira** — corrigido; agora ela só fica no modo conservador, sem quebrar nada.
 

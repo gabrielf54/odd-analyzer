@@ -85,6 +85,29 @@ export class BSDStatsProvider {
     return values.reduce((a, b) => a + b, 0) / values.length;
   }
 
+  /** Posse média (%) do time `teamId` nos últimos `window` jogos finalizados.
+   * DESCRITIVO (I5): contexto de confronto pra IA — NÃO entra no μ/edge. Reusa
+   * o mesmo /events/ + /stats/ que a concessão já busca (cache do client). */
+  private async teamPossession(teamId: string | null, window = 10): Promise<number | null> {
+    if (!teamId) return null;
+    const tid = String(teamId);
+    let events: any;
+    try { events = await this.client.events({ team_id: tid, status: "finished", limit: window }); }
+    catch { return null; }
+    const results: any[] = Array.isArray(events?.results) ? events.results : [];
+    const vals: number[] = [];
+    for (const ev of results.slice(0, window)) {
+      const side = String(ev.home_team_id) === tid ? "home" : "away"; // lado do PRÓPRIO time
+      try {
+        const stats = (await this.client.eventStats(ev.id))?.stats ?? {};
+        const v = stats[side]?.ball_possession;
+        if (v != null) vals.push(Number(v));
+      } catch { /* pula jogo sem stats */ }
+    }
+    if (vals.length === 0) return null;
+    return Math.round(vals.reduce((a, b) => a + b, 0) / vals.length);
+  }
+
   /** event_id → home_team_id pros jogos do histórico do jogador. 1 chamada
    * /events/ por time distinto (cacheada no client). Falha → mapa parcial:
    * o split casa/fora degrada pra null, nunca estima mando. */
@@ -251,6 +274,7 @@ export class BSDStatsProvider {
         : undefined,
     });
     const statsDetalhadas = detailedStats(games, market.stat_field, await this.homeAwayMap(games));
+    const posseAdversario = await this.teamPossession(this.oppTeamId(ctx));
     return {
       mu, minutos_esperados: minutes,
       xi_confirmado: xiConfirmed, amostra_jogos: n,
@@ -259,6 +283,7 @@ export class BSDStatsProvider {
       trace,
       concedido_posicao: positionalNote,
       stats_detalhadas: statsDetalhadas,
+      posse_adversario: posseAdversario,
     };
   }
 

@@ -1,5 +1,15 @@
 # I2 — Matchup direcional dentro do μ (o diferencial #1)
 
+> **❌ BLOQUEADO POR DADO (sonda BSD ao vivo, 2026-06-11) — NÃO IMPLEMENTAR sem fonte nova.**
+> A premissa desta ficha (`average_positions` "vem de graça na BSD") está **ERRADA**. Re-sondado:
+> a BSD **não tem** `average_positions`, nem `shotmap`/heatmap (player-stats sem coordenada; lineup
+> só `position` nominal G/D/M/F + `formation`; `/shotmap//heatmap//positions/` = **404**). Não há
+> sequer como separar lateral **esquerdo × direito**. Logo **não existe "lado de ataque" no dado free**
+> → o estimador direcional não tem insumo. Só volta com **fonte posicional/zonal paga** (Opta/StatsBomb/
+> SofaScore zonas — fora do orçamento ~$20). Por ora, vale o nível **por-mercado** (`oppMult` escalar, já
+> no motor) e o confronto direcional segue como **raciocínio/explicação** (não vira número). O texto
+> abaixo fica como **norte condicionado a dado**, não como plano executável hoje.
+
 ## 1. TL;DR
 Hoje o multiplicador de concessão (`oppMult`) é um **escalar de time** — igual para todo jogador
 daquele adversário. O **diferencial #1 do produto** é torná-lo **direcional**: cruzar o **lado de

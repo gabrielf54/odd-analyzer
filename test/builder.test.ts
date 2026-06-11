@@ -103,6 +103,16 @@ describe("buildCandidate", () => {
     expect(buildCandidate(base)["forma_tendencia"]).toBeNull();
   });
 
+  it("I5: carrega posse_adversario quando presente; null quando ausente", () => {
+    const base = {
+      jogador: "X", linha: 2.5, odd_over: 2.0, odd_under: 1.8, prob_modelo: 0.5,
+      mu: 2.5, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 10,
+      concedido_adversario: "1.0", incerteza: "media", market_type: "desarmes",
+    };
+    expect(buildCandidate({ ...base, posse_adversario: 58 })["posse_adversario"]).toBe(58);
+    expect(buildCandidate(base)["posse_adversario"]).toBeNull();
+  });
+
   it("repassa stats_detalhadas quando presente; null quando ausente", () => {
     const base = {
       jogador: "X", linha: 2.5, odd_over: 2.0, odd_under: 1.8, prob_modelo: 0.5,

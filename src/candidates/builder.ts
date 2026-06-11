@@ -23,6 +23,7 @@ export interface BuildCandidateArgs {
   titularidade?: "confirmado" | "provavel" | "fora_do_xi" | "desconhecido" | null;
   concedido_posicao?: string | null;
   stats_detalhadas?: StatsDetalhadas | null;
+  posse_adversario?: number | null;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -61,6 +62,9 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     // I5: rótulo DESCRITIVO de forma recente (texto p/ a IA citar). Derivado do
     // stats_detalhadas que já está no candidato — NÃO entra no cálculo do número.
     forma_tendencia: formaTendencia(a.stats_detalhadas ?? null),
+    // I5: posse média do adversário (%) — contexto de confronto p/ a IA. Também
+    // DESCRITIVO: não toca prob_modelo/edge/ev (esses vêm só do motor).
+    posse_adversario: a.posse_adversario ?? null,
   };
   if (a.trace) {
     out.trace = finalizeTrace(a.trace, {

@@ -27,6 +27,9 @@ export interface EntityRate {
   trace?: RateTrace;
   concedido_posicao?: string | null;
   stats_detalhadas?: StatsDetalhadas;
+  // I5 (descritivo, fora do money-path): % média de posse do adversário nos jogos
+  // recentes. Vai pra IA como contexto de confronto — NÃO entra no μ/prob/edge.
+  posse_adversario?: number | null;
 }
 
 export interface StatsProvider {

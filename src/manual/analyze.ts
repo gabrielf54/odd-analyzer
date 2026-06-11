@@ -159,6 +159,7 @@ async function playerCandidates(
       posicao: entity.posicao ?? null, titularidade,
       concedido_posicao: rate.concedido_posicao ?? null,
       stats_detalhadas: rate.stats_detalhadas ?? null,
+      posse_adversario: rate.posse_adversario ?? null,
     }));
   }
   return out;
