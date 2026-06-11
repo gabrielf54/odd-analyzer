@@ -96,12 +96,13 @@ Agora as cotações que eu colo ficam **guardadas no sistema**, presas ao jogo. 
 
 O motor não entra no ar por fé — cada mercado passou (ou não) por uma calibração honesta em dados reais. Estado atual:
 
-- ✅ **Validados e prontos — mercados de JOGADOR:** **chutes a gol (SOT)**, **finalizações** e **desarmes**. O modelo acerta a probabilidade (calibração boa). São o núcleo do MVP.
-  - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e os três mercados continuam acertando lá também.
-  - **O que descobrimos no caminho (honestidade):** num primeiro teste pareceu que o modelo "errava" pra seleção. Investigando, o erro não era a conta de quanto o jogador produz — era assumir que **todo titular joga 90 minutos**. Seleção troca/roda muito; quem joga menos produz menos. Ao **estimar os minutos esperados** de cada jogador, o acerto voltou ao normal. Lição: a parte difícil (o modelo serve pra seleção?) está respondida **sim**.
-- ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda (não vendemos o que não provamos).
+- ✅ **Validados e prontos pra dinheiro real — mercados de JOGADOR:** **chutes a gol (SOT)** e **finalizações**. O modelo acerta a probabilidade (calibração boa). São o núcleo do MVP.
+  - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e continuam acertando lá também.
+  - **O que descobrimos no caminho (honestidade):** num primeiro teste pareceu que o modelo "errava" pra seleção. Investigando, o erro não era a conta de quanto o jogador produz — era assumir que **todo titular joga 90 minutos**. Ao **estimar os minutos esperados** de cada jogador, o acerto voltou ao normal.
+- 🔒 **DESARME — SELADO (descoberta de 2026-06-11):** a casa de apostas paga desarme pelos **desarmes GANHOS**, não pelas **tentativas**. Nosso modelo acerta bem as **tentativas** (é rotina do jogador, dá pra prever do histórico), mas **não** acerta os **ganhos** (ganhar um desarme depende do lance, do adversário, de sorte — o histórico não prevê). Provamos isso em **1738 jogos de seleção**: no alvo que a casa paga, o modelo **não bate nem o chute na média**. Conclusão honesta: **desarme NÃO entra no dinheiro real por enquanto** — fica em observação, sendo medido ao vivo. (O confronto do "Exemplo 1" acima segue valendo como **raciocínio**; só não vira aposta recomendada até a prova ao vivo mudar.)
+- ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda.
 
-> Em uma frase: o produto **estreia com os 3 mercados de jogador** (provados, inclusive na população de seleção da Copa) e amplia para os de partida **quando — e se — calibrarem**. Veredito completo em [ROADMAP.md](ROADMAP.md).
+> Em uma frase: o produto **estreia com 2 mercados de jogador (chutes a gol e finalizações)**, com **desarme em observação** (a casa paga uma coisa que ainda não sabemos prever) e os de partida **quando — e se — calibrarem**. Cada mercado vira "dinheiro real" **um a um**, só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
 ### De onde vêm as odds (2026-06-09)
 
@@ -163,6 +164,18 @@ O sistema **calcula e entrega** o histórico real de cada jogador: a média dele
 Tinha um defeito chato: ao pedir os jogos da Copa, a lista vinha **vazia de jogos de verdade** — só aparecia a fase final ("vencedor do jogo X contra vencedor do jogo Y"), sem times definidos, e o **jogo de abertura (México × África do Sul, 11/06) sumia**.
 
 O motivo: a fonte de dados entrega os jogos na ordem errada (os de chave primeiro) e o sistema só pegava os 50 primeiros — então os jogos da fase de grupos, que é o que interessa agora, ficavam de fora. **Corrigido:** agora o sistema puxa a janela inteira, joga fora os jogos sem time definido e ordena por data. Resultado: a lista da Copa passou de 50 jogos-fantasma para **72 jogos reais**, com a abertura no topo.
+
+---
+
+## Agora o sistema mede a si mesmo ao vivo (2026-06-11)
+
+A Copa é população nova (seleções), e não dá pra provar o modelo no passado da Copa (a fonte não guardou os detalhes dos Mundiais antigos). Então a prova tem que ser **daqui pra frente, ao vivo**. Ligamos esse "detector de mentira ao vivo":
+
+- **Toda análise é registrada** num caderninho (o `paper_ledger`): o que o modelo disse, com qual odd, qual vantagem.
+- **Depois do jogo, o sistema confere sozinho** o que de fato aconteff — lendo as estatísticas reais do jogo — e marca acertou/errou. **No desarme, ele confere pelo número que a casa paga (ganhos), não pelas tentativas** — é assim que vamos saber se o desarme um dia presta.
+- **Um relatório** mostra, por mercado, se o modelo está sendo honesto (as notas Brier/ECE) e se pegamos preço bom (CLV).
+
+E uma trava nova de segurança: **só mercado já provado pode receber a estrela de "aposte nesta"**. Hoje são chutes a gol e finalizações. Os outros (desarme, gols, escanteios, vitória) aparecem na análise mas **não** saem como aposta recomendada — vão sendo **liberados um a um**, só quando a medição ao vivo provar que prestam. Nada de apostar dinheiro real numa "vantagem" que a gente ainda não confirmou.
 
 ---
 

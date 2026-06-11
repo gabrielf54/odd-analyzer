@@ -126,11 +126,11 @@ duelos, interceptação, key_pass, faltas, `won_tackle`, `average_positions`, `s
 Reordenado pela meta (melhores indicações **hoje**), não por elegância. Legenda de status:
 **✅ pronto p/ Copa agora** · **⏳ só com prova forward acumulada** · **❌ fora de escopo agora**.
 
-### 🔴 [Tier 0 — pré-requisitos](tiers/tier-0-pre-requisitos/) (fazer ANTES de apostar)
-Sem isto, as indicações são fé cega. São rápidos e de baixo risco (não recalibram o número).
-- **[I7 — Loop de validação forward (paper_ledger + CLV + settle)](tiers/tier-0-pre-requisitos/I7-loop-forward-paper-ledger-clv.md)** — única validação possível na população Copa.
-- **[N1 — Gate de lineup confirmado](tiers/tier-0-pre-requisitos/N1-gate-de-lineup.md)** — não recomendar quem pode ficar no banco (a maior perda real).
-- **[I8 — Settlement do desarme (`won_tackle` vs `total_tackle`)](tiers/tier-0-pre-requisitos/I8-settlement-desarme.md)** — mirar o alvo que a casa liquida.
+### 🔴 [Tier 0 — pré-requisitos](tiers/tier-0-pre-requisitos/) — ✅ CONCLUÍDO (2026-06-11)
+Implementado na branch `feat/tier0-pre-requisitos` (TDD, 258 testes verdes, paridade intacta). Spec: [`2026-06-11-tier0-design.md`](../superpowers/specs/2026-06-11-tier0-design.md) · plano: [`2026-06-11-tier0.md`](../superpowers/plans/2026-06-11-tier0.md).
+- ✅ **[I7 — Loop de validação forward (paper_ledger + CLV + settle)](tiers/tier-0-pre-requisitos/I7-loop-forward-paper-ledger-clv.md)** — `analyzeManual` grava o ledger (edge>0, upsert idempotente, com `player_id`); `settleResult` + CLI `settle` (lê `/player-stats/`; desarme liquida `won_tackle`); CLIs `report` (Brier/ECE/CLV por mercado) e `snapshotClosing`.
+- ✅ **[N1 — Gate de lineup confirmado](tiers/tier-0-pre-requisitos/N1-gate-de-lineup.md)** — `recomendado`/`pronto_para_apostar` exigem `titularidade="confirmado"` **e** mercado `money_ready`; `pendente_lineup` no resultado; `Cuts.exigir_confirmado` (default off). `lineup_status` da Copa: `predicted`→`confirmed` (~1h antes).
+- ✅ **[I8 — Settlement do desarme (`won_tackle` vs `total_tackle`)](tiers/tier-0-pre-requisitos/I8-settlement-desarme.md)** — confirmado: a casa liquida **`won_tackle`** (Opta "Tackles Won"). Recalibrado → **REPROVOU** (BrierSkill≤0 na seleção, linhas 0.5/1.5/2.5; `scripts/recalibrate-desarmes-won.mts`): o motor tem skill em tentativas, não em ganhos. **Desarme SELADO** (`money_ready=false`); modelo segue `total_tackle`, `settle_field=won_tackle` mede forward. Achado: o gate de paridade não lê `stat_field` (trocar campo não quebra a golden). Novo **trinco `money_ready` por mercado** (graduação gradual — ver CLAUDE.md).
 
 ### 🟡 [Tier 1 — precisão segura](tiers/tier-1-precisao-segura/) (melhora o número sem recalibrar)
 - **[I1 — De-vig honesto + flag one-sided](tiers/tier-1-precisao-segura/I1-devig-honesto-one-sided.md)** — comparar com o número justo, não com o inflado pela margem.
@@ -184,7 +184,7 @@ Toda ficha de melhoria segue estas seções, nesta ordem:
 
 ## 7. Snapshot do estado (2026-06-11) para a próxima sessão
 
-- **Supabase:** `odds` = 665 linhas · `analises` = 10 (cache) · **`paper_ledger` = 0** · **`jogadores_crosswalk` = 0**. Sem prova forward rodando.
-- **Mercados calibrados que prestam:** sot, finalizações, desarmes (player). **Gols não calibra (selado).** Vitória/escanteios derivados.
-- **Copa 2026:** liga 27, season 188; abre hoje (event 8287). Lineups saem ~1h antes (até lá tudo "provavel").
-- **git:** `src/manual/analyze.ts` e `test/manualAnalyze.test.ts` modificados; `tmp-out-england-v2.json`/`tmp-out-portugal-v2.json` são saídas de análise (dossiês reais de amistoso) — úteis como exemplo, não comitar.
+- **Supabase:** `odds` = 665 linhas · `analises` = 10 (cache) · `paper_ledger` agora **grava a cada análise manual** (coluna `player_id` adicionada — migração `add_player_id_to_paper_ledger`) · `jogadores_crosswalk` = 0. Loop forward LIGADO (settle/report via CLI).
+- **Mercados money_ready (dinheiro real):** **sot, finalizações** (player). **Selados (validação):** **desarmes** (casa liquida won_tackle, reprovou calibração — ver Tier 0/I8), gols, vitória, escanteios. Graduação gradual conforme prova forward (CLAUDE.md).
+- **Copa 2026:** liga 27, season 188; abre hoje (event 8287). `lineup_status` pré-jogo = `predicted` (beta); vira `confirmed` ~1h antes. Pré-confirmação: `pendente_lineup=true`, nenhum recomendado firme.
+- **git:** Tier 0 entregue na branch `feat/tier0-pre-requisitos` (não mergeada). Próximo: e2e de ledger num jogo real da Copa + acumular prova forward; só então graduar mais mercados.

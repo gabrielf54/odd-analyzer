@@ -14,9 +14,10 @@ describe("classifyRisk", () => {
   });
 });
 
-describe("rankCandidates", () => {
-  const mk = (jogador: string, prob: number, ev: number) =>
-    ({ jogador, prob_modelo: prob, ev });
+describe("rankCandidates — ordenação", () => {
+  // confirmado + mercado money_ready (sot) por padrão; sobrescreve quando preciso.
+  const mk = (jogador: string, prob: number, ev: number, extra: Record<string, unknown> = {}) =>
+    ({ jogador, prob_modelo: prob, ev, titularidade: "confirmado", market_type: "sot", ...extra });
 
   it("ordena faixa (seguro→moderado→tiro_longo) e por EV desc dentro da faixa", () => {
     const out = rankCandidates([
@@ -32,12 +33,6 @@ describe("rankCandidates", () => {
     expect(out[3]!.risco).toBe("tiro_longo");
   });
 
-  it("marca recomendado=true só no primeiro", () => {
-    const out = rankCandidates([mk("a", 0.6, 0.4), mk("b", 0.55, 0.3)]);
-    expect(out[0]!.recomendado).toBe(true);
-    expect(out[1]!.recomendado).toBe(false);
-  });
-
   it("lista vazia → vazia", () => {
     expect(rankCandidates([])).toEqual([]);
   });
@@ -46,28 +41,52 @@ describe("rankCandidates", () => {
     const input = [mk("a", 0.6, 0.4)];
     rankCandidates(input);
     expect(input[0]).not.toHaveProperty("risco");
+    expect(input[0]).not.toHaveProperty("recomendado");
   });
+});
 
-  it("estrela vai pro primeiro SEM alerta_minutos; ordem não muda", () => {
-    const out = rankCandidates([
-      { jogador: "banco", prob_modelo: 0.6, ev: 0.5, alerta_minutos: true },
-      { jogador: "limpo", prob_modelo: 0.55, ev: 0.3, alerta_minutos: false },
+describe("rankCandidates — gate de titularidade + money_ready", () => {
+  it("NÃO recomenda quando ninguém está confirmado (pré-lineup)", () => {
+    const r = rankCandidates([
+      { prob_modelo: 0.6, ev: 0.2, titularidade: "provavel", market_type: "sot" },
+      { prob_modelo: 0.5, ev: 0.1, titularidade: "provavel", market_type: "sot" },
     ]);
-    expect(out.map((c) => c.jogador)).toEqual(["banco", "limpo"]); // ordem intacta
-    expect(out[0]!.recomendado).toBe(false);
-    expect(out[1]!.recomendado).toBe(true);
+    expect(r.every((c: any) => c.recomendado === false)).toBe(true);
+    expect(r.every((c: any) => c.pronto_para_apostar === false)).toBe(true);
   });
 
-  it("todos com alerta → o primeiro leva a estrela mesmo assim", () => {
-    const out = rankCandidates([
-      { jogador: "a", prob_modelo: 0.6, ev: 0.5, alerta_minutos: true },
-      { jogador: "b", prob_modelo: 0.2, ev: 0.9, alerta_minutos: true },
+  it("recomenda o melhor confirmado de mercado money_ready, sem alerta de minutos", () => {
+    const r = rankCandidates([
+      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot" },
+      { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
     ]);
-    expect(out[0]!.recomendado).toBe(true);
+    const star = r.find((c: any) => c.recomendado === true);
+    expect(star!.prob_modelo).toBe(0.6);
+    expect(r.find((c: any) => c.alerta_minutos)!.pronto_para_apostar).toBe(false);
   });
 
-  it("candidato sem o campo conta como elegível (compat)", () => {
-    const out = rankCandidates([{ jogador: "a", prob_modelo: 0.6, ev: 0.5 }]);
-    expect(out[0]!.recomendado).toBe(true);
+  it("NÃO recomenda mercado selado (desarmes) mesmo confirmado", () => {
+    const r = rankCandidates([
+      { prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes" },
+    ]);
+    expect(r[0]!.recomendado).toBe(false);
+    expect(r[0]!.pronto_para_apostar).toBe(false);
+  });
+
+  it("entre money_ready e selado, a estrela vai pro money_ready (mesmo com EV menor)", () => {
+    const r = rankCandidates([
+      { prob_modelo: 0.8, ev: 0.5, titularidade: "confirmado", market_type: "desarmes" },
+      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "finalizacoes" },
+    ]);
+    const star = r.find((c: any) => c.recomendado === true);
+    expect(star!.market_type).toBe("finalizacoes");
+  });
+
+  it("todos com alerta de minutos → ninguém recomendado", () => {
+    const r = rankCandidates([
+      { prob_modelo: 0.6, ev: 0.5, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
+      { prob_modelo: 0.2, ev: 0.9, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
+    ]);
+    expect(r.every((c: any) => c.recomendado === false)).toBe(true);
   });
 });

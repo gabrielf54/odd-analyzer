@@ -46,13 +46,31 @@ export class BSDStatsProvider {
     return other.id ? String(other.id) : null;
   }
 
-  private async teamConceded(oppTeamId: string | null, teamField: string, window = 10): Promise<number | null> {
+  private async teamConceded(
+    oppTeamId: string | null, teamField: string, window = 10,
+    opts: { byPlayer?: boolean } = {},
+  ): Promise<number | null> {
     if (!oppTeamId) return null;
     const tid = String(oppTeamId);
     let events: any;
     try { events = await this.client.events({ team_id: tid, status: "finished", limit: window }); }
     catch { return null; }
     const results: any[] = Array.isArray(events?.results) ? events.results : [];
+    // Campos sem contagem de TIME (ex.: won_tackle — o /stats/ traz % não-contagem)
+    // são agregados somando o stat dos JOGADORES adversários por jogo.
+    if (opts.byPlayer) {
+      let total = 0, games = 0;
+      for (const ev of results.slice(0, window)) {
+        let rows: any[];
+        try { rows = (await this.client.eventPlayerStats(ev.id))?.player_stats ?? []; }
+        catch { continue; }
+        const against = rows.filter((r) => r.player_id != null && String(r.team_id) !== tid);
+        if (against.length === 0) continue;
+        games++;
+        for (const r of against) total += Number(r[teamField] ?? 0);
+      }
+      return games === 0 ? null : total / games;
+    }
     const values: number[] = [];
     for (const ev of results.slice(0, window)) {
       const concededSide = String(ev.home_team_id) === tid ? "away" : "home";
@@ -164,7 +182,9 @@ export class BSDStatsProvider {
     if (games.length === 0) return null;
 
     const teamField = TEAM_STAT_FIELD[market.stat_field] ?? market.stat_field;
-    const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField);
+    // Sem campo de TIME (ex.: won_tackle) → agregar dos jogadores adversários.
+    const byPlayer = !(market.stat_field in TEAM_STAT_FIELD);
+    const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, 10, { byPlayer });
     const oppMult = this.oppMult(oppConceded, leagueAvg);
 
     let tilt = 1.0;

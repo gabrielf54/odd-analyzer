@@ -33,7 +33,11 @@ export interface Repo {
   listOddsEvents(): Promise<OddsEventSummary[]> | OddsEventSummary[];
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
+  getLedger(eventId: string): Promise<any[]> | any[];
+  allLedger(): Promise<any[]> | any[];
   updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number): Promise<void> | void;
+  // Settle só-resultado (player prop não tem odd de fechamento automática na BSD).
+  settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number): Promise<void> | void;
   saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified?: boolean): Promise<void> | void;
   getCrosswalk(canonicalId: number): Promise<any | null> | (any | null);
   listCrosswalk(): Promise<Record<string, string>> | Record<string, string>;
@@ -53,7 +57,29 @@ export class InMemoryRepo implements Repo {
     this.manualResults.set(eventId, { result, analisado_em: analisadoEm });
   }
   getManualResult(eventId: string): ManualResult | null { return this.manualResults.get(eventId) ?? null; }
-  saveLedger(rows: any[]) { this.ledger.push(...rows); }
+
+  private ledgerKey(r: any): string {
+    return `${r.event_id}|${r.jogador}|${r.linha}|${r.market_type}`;
+  }
+  // Upsert idempotente por (event,jogador,linha,market): re-análise do mesmo jogo
+  // não duplica e o MERGE preserva campos já gravados (ex.: resultado liquidado).
+  saveLedger(rows: any[]) {
+    const byKey = new Map(this.ledger.map((r) => [this.ledgerKey(r), r]));
+    for (const r of rows) {
+      const k = this.ledgerKey(r);
+      byKey.set(k, { ...byKey.get(k), ...r });
+    }
+    this.ledger = [...byKey.values()];
+  }
+  getLedger(eventId: string): any[] { return this.ledger.filter((r) => r.event_id === eventId); }
+  allLedger(): any[] { return this.ledger; }
+  settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number) {
+    for (const row of this.ledger) {
+      if (!(row.event_id === eventId && row.jogador === jogador && row.linha === linha)) continue;
+      if (marketType != null && row.market_type !== marketType) continue;
+      row.resultado = resultado; break;
+    }
+  }
 
   private oddsKey(r: OddsRow): string {
     return `${r.entidade}|${r.market_type}|${r.linha}|${r.book}`;
@@ -180,7 +206,21 @@ export class SupabaseRepo implements Repo {
     return data && data.length ? data[0] : null;
   }
   async saveLedger(rows: any[]) {
-    if (rows.length) await this.client.from("paper_ledger").insert(rows);
+    if (rows.length) await this.client.from("paper_ledger").upsert(rows, { onConflict: "event_id,jogador,linha,market_type" });
+  }
+  async getLedger(eventId: string): Promise<any[]> {
+    const { data } = await this.client.from("paper_ledger").select("*").eq("event_id", eventId);
+    return data ?? [];
+  }
+  async allLedger(): Promise<any[]> {
+    const { data } = await this.client.from("paper_ledger").select("*");
+    return data ?? [];
+  }
+  async settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number) {
+    let upd = this.client.from("paper_ledger").update({ resultado })
+      .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
+    if (marketType != null) upd = upd.eq("market_type", marketType);
+    await upd;
   }
   async updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number) {
     let q = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);

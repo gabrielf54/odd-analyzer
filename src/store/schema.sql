@@ -13,10 +13,13 @@ create table if not exists analises (
   primary key (event_id, market_type)
 );
 
+-- Última migração do ledger: add_player_id (2026-06-11) — stats-id casa com
+-- /events/{id}/player-stats/ no settle (eventPlayerStats não traz nome).
 create table if not exists paper_ledger (
   id bigint generated always as identity primary key,
   event_id text not null,
   jogador text not null,
+  player_id text,          -- stats-id (mesmo namespace do /player-stats/); usado no settle
   linha numeric not null,
   market_type text not null default 'sot',
   odd_flag numeric not null,

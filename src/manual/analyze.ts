@@ -80,8 +80,14 @@ export async function analyzeManual(
   // idênticas — candidatos vêm do nome vs squad, não do mercado). Mantém a 1ª vista.
   const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [j.nome_casa, j])).values()];
 
+  // Pré-lineup (escalação não confirmada) → algum candidato fica "provavel".
+  // N1: a UI mostra "análise provisória — aguarde a escalação (~1h antes)" e
+  // nenhum candidato sai recomendado firme (ver rankCandidates).
+  const pendente_lineup = revisados.some((c: any) => c.titularidade === "provavel");
+
   const result = {
     jogo: event.jogo,
+    pendente_lineup,
     candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match: semMatchUnico,
@@ -92,6 +98,18 @@ export async function analyzeManual(
   // Persiste o resultado COMPLETO (fonte de verdade; o front recupera daqui na
   // hidratação → sobrevive a localStorage falho / cache limpo / outro dispositivo).
   await repo.saveManualResult(event.id, result, new Date().toISOString());
+
+  // Loop forward (I7): registra TODO candidato com edge>0 (o universo de "valor"
+  // do modelo) no paper_ledger p/ calibração/CLV. Upsert idempotente. O subconjunto
+  // "apostado" é o recomendado/pronto_para_apostar (N1 + money_ready) — não filtra aqui.
+  const ledgerRows = revisados
+    .filter((c: any) => typeof c.edge === "number" && c.edge > 0)
+    .map((c: any) => ({
+      event_id: event.id, jogador: c.jogador, player_id: c.player_id ?? null,
+      linha: c.linha, market_type: c.market_type, odd_flag: c.odd,
+      prob_modelo: c.prob_modelo, prob_devig: c.prob_devig, edge: c.edge, ev: c.ev,
+    }));
+  if (ledgerRows.length) await repo.saveLedger(ledgerRows);
 
   return result;
 }
