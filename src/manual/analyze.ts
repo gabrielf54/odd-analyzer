@@ -99,6 +99,18 @@ export async function analyzeManual(
   // hidratação → sobrevive a localStorage falho / cache limpo / outro dispositivo).
   await repo.saveManualResult(event.id, result, new Date().toISOString());
 
+  // Loop forward (I7): registra TODO candidato com edge>0 (o universo de "valor"
+  // do modelo) no paper_ledger p/ calibração/CLV. Upsert idempotente. O subconjunto
+  // "apostado" é o recomendado/pronto_para_apostar (N1 + money_ready) — não filtra aqui.
+  const ledgerRows = revisados
+    .filter((c: any) => typeof c.edge === "number" && c.edge > 0)
+    .map((c: any) => ({
+      event_id: event.id, jogador: c.jogador, player_id: c.player_id ?? null,
+      linha: c.linha, market_type: c.market_type, odd_flag: c.odd,
+      prob_modelo: c.prob_modelo, prob_devig: c.prob_devig, edge: c.edge, ev: c.ev,
+    }));
+  if (ledgerRows.length) await repo.saveLedger(ledgerRows);
+
   return result;
 }
 

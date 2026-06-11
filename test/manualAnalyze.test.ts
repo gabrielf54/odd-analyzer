@@ -162,4 +162,22 @@ describe("analyzeManual", () => {
     }, { repo, reviewerFn: fakeReviewer });
     expect(out.pendente_lineup).toBe(false);
   });
+
+  it("grava no paper_ledger os candidatos com edge>0 (calibração forward)", async () => {
+    const repo = new InMemoryRepo();
+    await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+    // Havertz: 12 jogos SOT=3 vs odd 3.0 linha 0.5 → edge>0 esperado
+    expect(repo.ledger.length).toBeGreaterThan(0);
+    for (const row of repo.ledger) {
+      expect(row.event_id).toBe("e1");
+      expect(typeof row.prob_modelo).toBe("number");
+      expect(row.edge).toBeGreaterThan(0);
+      expect(row).toHaveProperty("player_id");
+      expect(row).toHaveProperty("odd_flag");
+    }
+  });
 });

@@ -31,6 +31,45 @@ describe("InMemoryRepo", () => {
     expect(r.ledger[0]!.resultado).toBeUndefined();
   });
 
+  it("saveLedger é idempotente por (event,jogador,linha,market) — re-gravar não duplica", () => {
+    const r = new InMemoryRepo();
+    const row = { event_id: "e1", jogador: "X", player_id: "1000", linha: 1.5, market_type: "desarmes", odd_flag: 2.0 };
+    r.saveLedger([row]);
+    r.saveLedger([{ ...row, odd_flag: 2.1 }]); // mesma chave, odd nova
+    expect(r.ledger).toHaveLength(1);
+    expect(r.ledger[0]!.odd_flag).toBe(2.1);
+    expect(r.ledger[0]!.player_id).toBe("1000");
+  });
+
+  it("re-gravar NÃO apaga um resultado já liquidado (merge preserva)", () => {
+    const r = new InMemoryRepo();
+    const row = { event_id: "e1", jogador: "X", linha: 1.5, market_type: "sot", odd_flag: 2.0 };
+    r.saveLedger([row]);
+    r.settleResult("e1", "X", 1.5, "sot", 1);
+    r.saveLedger([{ ...row, odd_flag: 2.2 }]); // re-análise
+    expect(r.ledger[0]!.resultado).toBe(1); // preservado
+    expect(r.ledger[0]!.odd_flag).toBe(2.2);
+  });
+
+  it("settleResult seta resultado sem exigir odd de fechamento", () => {
+    const r = new InMemoryRepo();
+    r.saveLedger([{ event_id: "e1", jogador: "X", linha: 1.5, market_type: "desarmes", odd_flag: 2.0 }]);
+    r.settleResult("e1", "X", 1.5, "desarmes", 1);
+    expect(r.ledger[0]!.resultado).toBe(1);
+    expect(r.ledger[0]!.odd_fechamento).toBeUndefined();
+  });
+
+  it("getLedger devolve só as linhas do evento", () => {
+    const r = new InMemoryRepo();
+    r.saveLedger([
+      { event_id: "e1", jogador: "X", linha: 1.5, market_type: "sot", odd_flag: 2.0 },
+      { event_id: "e2", jogador: "Y", linha: 0.5, market_type: "sot", odd_flag: 3.0 },
+    ]);
+    const rows = r.getLedger("e1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0]!.jogador).toBe("X");
+  });
+
   it("crosswalk salva e lê", () => {
     const r = new InMemoryRepo();
     r.saveCrosswalk(7, "kaiki", { bsd: "100" }, 0.95);
