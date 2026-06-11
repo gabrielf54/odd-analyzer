@@ -141,4 +141,25 @@ describe("analyzeManual", () => {
     expect(havertz!.titularidade).toBe("provavel");
     expect("posicao" in havertz!).toBe(true);
   });
+
+  it("pré-lineup: pendente_lineup=true e nenhum recomendado", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClientNoXi(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+    expect(out.pendente_lineup).toBe(true);
+    expect(out.candidatos.every((c: any) => c.recomendado !== true)).toBe(true);
+  });
+
+  it("pós-confirmação: pendente_lineup=false", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+    expect(out.pendente_lineup).toBe(false);
+  });
 });

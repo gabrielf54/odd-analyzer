@@ -2,6 +2,10 @@ export interface Cuts {
   edge_min: number;
   ev_min: number;
   amostra_min: number;
+  // Modo "só confirmados" (N1): quando true, exige titularidade==="confirmado"
+  // (não o xi_confirmado default-true) — o corte "titular" passa a olhar a
+  // escalação confirmada. Default OFF preserva o comportamento (análise provisória).
+  exigir_confirmado?: boolean;
 }
 
 export const CUTS_DEFAULT: Cuts = { edge_min: 0.04, ev_min: 0.05, amostra_min: 10 };
@@ -26,7 +30,11 @@ function failedCuts(c: Record<string, unknown>, cuts: Cuts): CutReason[] {
   const motivos: CutReason[] = [];
   if (((c["edge"] as number) ?? -Infinity) < cuts.edge_min) motivos.push("edge");
   if (((c["ev"] as number) ?? -Infinity) < cuts.ev_min) motivos.push("ev");
-  if ((c["xi_confirmado"] as boolean) !== true) motivos.push("titular");
+  if (cuts.exigir_confirmado) {
+    if (c["titularidade"] !== "confirmado") motivos.push("titular");
+  } else if ((c["xi_confirmado"] as boolean) !== true) {
+    motivos.push("titular");
+  }
   if (((c["amostra_jogos"] as number) ?? 0) < cuts.amostra_min) motivos.push("amostra");
   return motivos;
 }

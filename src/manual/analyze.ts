@@ -80,8 +80,14 @@ export async function analyzeManual(
   // idênticas — candidatos vêm do nome vs squad, não do mercado). Mantém a 1ª vista.
   const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [j.nome_casa, j])).values()];
 
+  // Pré-lineup (escalação não confirmada) → algum candidato fica "provavel".
+  // N1: a UI mostra "análise provisória — aguarde a escalação (~1h antes)" e
+  // nenhum candidato sai recomendado firme (ver rankCandidates).
+  const pendente_lineup = revisados.some((c: any) => c.titularidade === "provavel");
+
   const result = {
     jogo: event.jogo,
+    pendente_lineup,
     candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match: semMatchUnico,

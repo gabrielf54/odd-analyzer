@@ -54,3 +54,26 @@ describe("evaluateCandidates (diagnóstico)", () => {
     expect(r!.motivos.sort()).toEqual(["amostra", "edge", "ev", "titular"]);
   });
 });
+
+describe("Cuts exigir_confirmado (modo só-confirmados)", () => {
+  it("OFF (default): 'provavel' passa se xi_confirmado=true", () => {
+    const { approved } = evaluateCandidates([cand({ titularidade: "provavel" })], CUTS_DEFAULT);
+    expect(approved).toHaveLength(1);
+  });
+
+  it("ON: 'provavel' é cortado por 'titular' (mesmo com xi_confirmado=true)", () => {
+    const { rejected } = evaluateCandidates(
+      [cand({ titularidade: "provavel" })],
+      { ...CUTS_DEFAULT, exigir_confirmado: true },
+    );
+    expect(rejected[0]!.motivos).toContain("titular");
+  });
+
+  it("ON: 'confirmado' passa", () => {
+    const { approved } = evaluateCandidates(
+      [cand({ titularidade: "confirmado" })],
+      { ...CUTS_DEFAULT, exigir_confirmado: true },
+    );
+    expect(approved).toHaveLength(1);
+  });
+});
