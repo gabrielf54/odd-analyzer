@@ -1,3 +1,5 @@
+export type Populacao = "selecao" | "clube";
+
 export interface MarketSpec {
   key: string;
   nivel: "jogador" | "partida";
@@ -20,29 +22,37 @@ export interface MarketSpec {
   // μ_tentativas(stat_field) × aproveitamento(won/total, encolhido p/ wr_prior).
   // Recupera o sinal das tentativas (bem previstas) — backtest n=1746 (validação).
   mu_decomp?: { num_field: string; wr_shrink: number; wr_prior: number; base_label: string; won_label: string };
-  // GATE de aposta de valor: só mercado com calibração VALIDADA pode ser
-  // sinalizado como "aposta de valor que vale a pena" (rank dá a estrela).
-  // Política (CLAUDE.md): começa false; cada mercado vira true conforme a
-  // calibração/prova-forward o demonstrar. rank só recomenda mercado validado.
-  validated: boolean;
-  // Restringe a validação a CERTAS LINHAS (as que passaram no crivo). Vazio/ausente
-  // = todas as linhas valem. Ex.: desarme passa em 0.5/1.5, mas não em 2.5.
-  validated_lines?: number[];
+  // GATE de aposta de valor (estrela), CIENTE DE POPULAÇÃO. Roteado por
+  // populacaoFor(leagueId): um mercado/linha pode valer na seleção e não no clube
+  // (ou vice-versa). chave AUSENTE → não validado nessa população; [] → TODAS as
+  // linhas; [a,b] → só essas. (Anti-lock-in: apertar a seleção não trava o clube.)
+  // Política (CLAUDE.md): cada (mercado,população,linha) vira true conforme a
+  // calibração/prova-forward o demonstrar — graduação gradual.
+  validated_lines?: Partial<Record<Populacao, number[]>>;
 }
 
-function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_nacional" | "validated"> &
-  { concede_baseline?: number; concede_baseline_nacional?: number; validated?: boolean }): MarketSpec {
-  return { concede_baseline: 0.0, concede_baseline_nacional: 0.0, validated: false, ...p };
+function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_nacional"> &
+  { concede_baseline?: number; concede_baseline_nacional?: number }): MarketSpec {
+  return { concede_baseline: 0.0, concede_baseline_nacional: 0.0, ...p };
 }
 
-/** Mercado validado (calibração provada) → pode virar aposta de valor recomendada?
- * Se `validated_lines` existe, só essas linhas valem (ex.: desarme 0.5/1.5, não 2.5).
- * Default false. */
-export function isValidated(marketType: string, linha?: number): boolean {
+/** Mercado/linha validado p/ a POPULAÇÃO do jogo (derivada da liga) → pode ganhar
+ * estrela. Default de liga desconhecida = clube (ver populacaoFor). */
+export function isValidated(marketType: string, linha?: number, leagueId?: unknown): boolean {
   const m = MARKETS[marketType];
-  if (!m?.validated) return false;
-  if (!m.validated_lines || m.validated_lines.length === 0) return true;
-  return linha != null && m.validated_lines.includes(linha);
+  if (!m) return false;
+  const lines = m.validated_lines?.[populacaoFor(leagueId)];
+  if (lines === undefined) return false; // não validado nessa população
+  if (lines.length === 0) return true; // todas as linhas
+  return linha != null && lines.includes(linha);
+}
+
+/** Texto leigo (fora do money-path) explicando o gate de estrela da população.
+ * O front mostra como selo + razão de uma linha não ter estrela. */
+export function populacaoMotivo(pop: Populacao): string {
+  return pop === "selecao"
+    ? "Jogo de seleção: chutes a gol só viram aposta de valor na linha de 1+ (over 0.5) — linhas altas seguem analisadas, sem estrela. Finalizações (todas as linhas) e desarmes (1+/2+) valem."
+    : "Jogo de clube: chutes a gol e finalizações viram aposta de valor em todas as linhas; desarme aguarda calibração de clube (ainda sem estrela).";
 }
 
 /** Campo que a casa usa para liquidar a aposta (default = stat_field). */
@@ -66,7 +76,9 @@ export const MARKETS: Record<string, MarketSpec> = {
     prior_rate: 0.4, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "chutes_a_gol_concedidos_por_jogo", label: "Chutes a Gol (SOT)",
     concede_baseline: 4.55, concede_baseline_nacional: 4.28,
-    validated: true, validated_lines: [0.5],
+    // seleção: só 0.5 (1.5/2.5 reprovam, calib 2026-06-11). clube: todas (legado
+    // Brasileirão; re-confirmar na Fatia 1). Anti-lock-in.
+    validated_lines: { selecao: [0.5], clube: [] },
   }),
   // Finalizações TRANSFERIU limpo do clube p/ seleção: mesma calibração (n=2071,
   // scripts/recalibrate-sot-fin-selecao.mts) deu BrierSkill positivo nas 3 linhas
@@ -75,7 +87,9 @@ export const MARKETS: Record<string, MarketSpec> = {
     key: "finalizacoes", nivel: "jogador", kind: "contagem", stat_field: "total_shots",
     prior_rate: 1.2, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "finalizacoes_concedidas_por_jogo", label: "Finalizações Totais",
-    concede_baseline: 13.46, concede_baseline_nacional: 12.22, validated: true,
+    concede_baseline: 13.46, concede_baseline_nacional: 12.22,
+    // transfere limpo do clube p/ seleção → todas as linhas nas duas populações.
+    validated_lines: { selecao: [], clube: [] },
   }),
   // DESARME GANHO via DECOMPOSIÇÃO (2026-06-11): a casa liquida won_tackle (Opta
   // "Tackles Won"). Prever "ganho" direto reprovou (motor só prevê tentativas);
@@ -92,7 +106,10 @@ export const MARKETS: Record<string, MarketSpec> = {
     key: "desarmes", nivel: "jogador", kind: "contagem", stat_field: "total_tackle",
     prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 2.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "desarmes_concedidos_por_jogo", label: "Desarmes",
-    settle_field: "won_tackle", validated: true, validated_lines: [0.5, 1.5],
+    settle_field: "won_tackle",
+    // seleção: 0.5/1.5 (decomposição won_tackle, wr_prior medido na seleção).
+    // clube: AUSENTE = não validado até a Fatia 1 medir o aproveitamento de clube.
+    validated_lines: { selecao: [0.5, 1.5] },
     mu_decomp: { num_field: "won_tackle", wr_shrink: 40, wr_prior: 0.622, base_label: "desarmes tentados", won_label: "desarmes ganhos" },
     concede_baseline: 14.64, concede_baseline_nacional: 13.97,
   }),
@@ -119,10 +136,19 @@ export const MARKETS: Record<string, MarketSpec> = {
 // Ligas de seleção (Copa e correlatas) → baseline nacional. WC2026 = 27.
 const NATIONAL_LEAGUE_IDS = new Set([58, 59, 60, 61, 62, 64, 65, 66, 67, 31, 27]);
 
+/** População do jogo pela liga: NATIONAL_LEAGUE_IDS → "selecao"; o resto (e liga
+ * desconhecida/inválida) → "clube". Fonte ÚNICA de verdade de população — usada por
+ * baselineFor (concessão) e isValidated (gate de estrela). Ligas de clube novas caem
+ * em "clube" sem cadastro → serve o pós-Copa sem lock-in. */
+export function populacaoFor(leagueId: unknown): Populacao {
+  const lid = typeof leagueId === "number" ? leagueId : parseInt(String(leagueId), 10);
+  if (Number.isNaN(lid)) return "clube";
+  return NATIONAL_LEAGUE_IDS.has(lid) ? "selecao" : "clube";
+}
+
 /** Escolhe o concede_baseline certo pela liga: seleção → nacional; senão → clube. */
 export function baselineFor(market: MarketSpec, leagueId: unknown): number {
-  const lid = typeof leagueId === "number" ? leagueId : parseInt(String(leagueId), 10);
-  if (Number.isNaN(lid)) return market.concede_baseline;
-  if (NATIONAL_LEAGUE_IDS.has(lid)) return market.concede_baseline_nacional || market.concede_baseline;
-  return market.concede_baseline;
+  return populacaoFor(leagueId) === "selecao"
+    ? (market.concede_baseline_nacional || market.concede_baseline)
+    : market.concede_baseline;
 }

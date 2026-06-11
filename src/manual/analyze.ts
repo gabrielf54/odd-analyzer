@@ -1,4 +1,4 @@
-import { MARKETS, baselineFor, type MarketSpec } from "../model/markets.js";
+import { MARKETS, baselineFor, populacaoFor, populacaoMotivo, type MarketSpec } from "../model/markets.js";
 import { probOverLine } from "../model/sotModel.js";
 import { matchCount, runMatch } from "../pipeline.js";
 import { buildCandidate } from "../candidates/builder.js";
@@ -76,7 +76,7 @@ export async function analyzeManual(
   }
 
   const { approved, rejected } = evaluateCandidates(allCandidates);
-  const ranked = rankCandidates(approved);
+  const ranked = rankCandidates(approved, leagueId);
   const { candidatos: revisados, ia } = await reviewerFn(ranked, { jogo: event.jogo ?? event.id });
 
   // Dedup: 1 entrada por jogador descasado (várias linhas/mercados geram cópias
@@ -88,8 +88,13 @@ export async function analyzeManual(
   // nenhum candidato sai recomendado firme (ver rankCandidates).
   const pendente_lineup = revisados.some((c: any) => c.titularidade === "provavel");
 
+  // Badge de população (texto, fora do money-path): o front mostra o selo + o
+  // porquê de uma linha não ganhar estrela. Derivado da liga, nunca do usuário.
+  const populacao = populacaoFor(leagueId);
   const result = {
     jogo: event.jogo,
+    populacao,
+    populacao_motivo: populacaoMotivo(populacao),
     pendente_lineup,
     candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],

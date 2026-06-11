@@ -65,16 +65,18 @@ describe("rankCandidates — gate de titularidade + mercado validado", () => {
     expect(r.find((c: any) => c.alerta_minutos)!.pronto_para_apostar).toBe(false);
   });
 
-  it("sot: recomenda na linha validada (0.5) e NÃO nas de atenção (1.5/2.5)", () => {
-    // Calibração na seleção: sot só tem skill em over 0.5; 1.5/2.5 reprovam.
-    const r05 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha: 0.5 }]);
-    expect(r05[0]!.pronto_para_apostar).toBe(true);
-    expect(r05[0]!.recomendado).toBe(true);
+  it("sot por população: seleção só 0.5; clube libera 1.5/2.5 (anti-lock-in)", () => {
+    // seleção (liga 27): só 0.5 ganha estrela (1.5/2.5 reprovam na calib de seleção)
+    const s05 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha: 0.5 }], 27);
+    expect(s05[0]!.pronto_para_apostar).toBe(true);
     for (const linha of [1.5, 2.5]) {
-      const r = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha }]);
+      const r = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha }], 27);
       expect(r[0]!.pronto_para_apostar).toBe(false);
-      expect(r[0]!.recomendado).toBe(false);
     }
+    // clube (liga 9): 1.5 ganha estrela → apertar a seleção NÃO trava o clube
+    const c15 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha: 1.5 }], 9);
+    expect(c15[0]!.pronto_para_apostar).toBe(true);
+    expect(c15[0]!.recomendado).toBe(true);
   });
 
   it("NÃO recomenda mercado NÃO-validado (gols) mesmo confirmado", () => {
@@ -85,13 +87,15 @@ describe("rankCandidates — gate de titularidade + mercado validado", () => {
     expect(r[0]!.pronto_para_apostar).toBe(false);
   });
 
-  it("desarme: recomenda nas linhas validadas (1.5) e NÃO na de observação (2.5)", () => {
-    const r15 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 1.5 }]);
+  it("desarme (seleção): recomenda 1.5 e NÃO 2.5; clube não valida (Fatia 1)", () => {
+    const r15 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 1.5 }], 27);
     expect(r15[0]!.pronto_para_apostar).toBe(true);
     expect(r15[0]!.recomendado).toBe(true);
-    const r25 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 2.5 }]);
+    const r25 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 2.5 }], 27);
     expect(r25[0]!.pronto_para_apostar).toBe(false);
-    expect(r25[0]!.recomendado).toBe(false);
+    // clube: desarme ainda não validado (validated_lines.clube ausente)
+    const club = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 1.5 }], 9);
+    expect(club[0]!.pronto_para_apostar).toBe(false);
   });
 
   it("entre validado e não-validado, a estrela vai pro validado (mesmo com EV menor)", () => {

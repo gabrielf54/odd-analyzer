@@ -20,11 +20,11 @@ const ORDEM: Record<Risco, number> = { seguro: 0, moderado: 1, tiro_longo: 2 };
  * ao mesmo tempo: titularidade confirmada (N1 — não recomendar quem pode ficar no
  * banco), sem alerta de minutos, e mercado VALIDADO (calibração provada —
  * desarmes/gols/etc seguem em validação). Falha em qualquer um → fora da estrela. */
-function prontoParaApostar(c: Record<string, unknown>): boolean {
+function prontoParaApostar(c: Record<string, unknown>, leagueId?: unknown): boolean {
   return (
     c["titularidade"] === "confirmado" &&
     c["alerta_minutos"] !== true &&
-    isValidated(String(c["market_type"] ?? ""), c["linha"] as number | undefined)
+    isValidated(String(c["market_type"] ?? ""), c["linha"] as number | undefined, leagueId)
   );
 }
 
@@ -35,6 +35,7 @@ function prontoParaApostar(c: Record<string, unknown>): boolean {
  * ninguém; o selo avisa). Não é o proibido "filtrar por prob alta". Vazia → vazia. */
 export function rankCandidates(
   approved: Record<string, unknown>[],
+  leagueId?: unknown,
 ): Record<string, unknown>[] {
   const withRisk = approved.map((c) => ({
     ...c,
@@ -47,10 +48,10 @@ export function rankCandidates(
     const br = b as Record<string, unknown>;
     return ((br["ev"] as number) ?? -Infinity) - ((ar["ev"] as number) ?? -Infinity);
   });
-  const starIdx = withRisk.findIndex((c) => prontoParaApostar(c as Record<string, unknown>));
+  const starIdx = withRisk.findIndex((c) => prontoParaApostar(c as Record<string, unknown>, leagueId));
   return withRisk.map((c, i) => ({
     ...c,
-    pronto_para_apostar: prontoParaApostar(c as Record<string, unknown>),
+    pronto_para_apostar: prontoParaApostar(c as Record<string, unknown>, leagueId),
     recomendado: starIdx !== -1 && i === starIdx,
   }));
 }
