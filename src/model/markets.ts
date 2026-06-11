@@ -120,15 +120,20 @@ export const MARKETS: Record<string, MarketSpec> = {
   // FALTAS cometidas (`fouls`). Confronto: o jogador comete falta × o adversário
   // PROVOCA falta (`was_fouled` — concede_field). Settlement = faltas COMETIDAS.
   // prior_rate/nb_dispersion/baseline MEDIDOS em 140 jogos de seleção (2026-06-11,
-  // scripts/measure-faltas-defesas-baseline.mts): prior 1.0/90, r=2.16, was_fouled
-  // 10.72/time/jogo. SEM validated_lines até a calibração provar BrierSkill>0 →
-  // nasce ANALISADA, sem estrela. clube = mesmo baseline provisório (re-mede pós-Copa).
+  // scripts/measure-faltas-defesas-baseline.mts): prior 1.0/90, was_fouled
+  // 10.72/time/jogo.
+  // Calibração leave-one-out (n=1816 jogos de seleção, 2026-06-11,
+  // scripts/recalibrate-faltas-defesas.mts): over 0.5 BrierSkill=+0.034 (R=2.5
+  // melhor ECE) → VALIDADO; over 1.5=-0.031 e 2.5=-0.060 (negativos) → analisadas,
+  // SEM estrela (forward pode regraduar). nb_dispersion=2.5 (calibrado).
+  // clube AUSENTE (re-mede pós-Copa).
   faltas: spec({
     key: "faltas", nivel: "jogador", kind: "contagem", stat_field: "fouls",
     concede_field: "was_fouled",
-    prior_rate: 1.0, prior_strength: 12.0, nb_dispersion: 2.16, lines: [0.5, 1.5, 2.5],
+    prior_rate: 1.0, prior_strength: 12.0, nb_dispersion: 2.5, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "faltas_provocadas_por_jogo", label: "Faltas (Cometidas)",
     concede_baseline: 10.72, concede_baseline_nacional: 10.72,
+    validated_lines: { selecao: [0.5] },
   }),
   escanteios: spec({
     key: "escanteios", nivel: "partida", kind: "contagem", stat_field: "corners",

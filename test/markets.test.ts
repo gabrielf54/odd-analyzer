@@ -8,11 +8,14 @@ describe("markets", () => {
     );
   });
 
-  it("faltas: jogador/contagem, comete fouls, concede was_fouled, NÃO validada ainda", () => {
+  it("faltas: comete fouls, concede was_fouled; validada SÓ em over 0.5 na seleção", () => {
     const m = MARKETS["faltas"]!;
     expect(m.stat_field).toBe("fouls");
     expect(m.concede_field).toBe("was_fouled");
-    expect(isValidated("faltas", 0.5, 27)).toBe(false); // sem validated_lines → diagnóstico
+    expect(isValidated("faltas", 0.5, 27)).toBe(true);  // over 0.5 graduou (BrierSkill +0.034)
+    expect(isValidated("faltas", 1.5, 27)).toBe(false); // reprovou
+    expect(isValidated("faltas", 2.5, 27)).toBe(false); // reprovou
+    expect(isValidated("faltas", 0.5, 9)).toBe(false);  // clube ausente (pós-Copa)
   });
 
   it("sot é nível jogador, contagem, campo shots_on_target", () => {
