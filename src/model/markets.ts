@@ -55,7 +55,7 @@ export function isValidated(marketType: string, linha?: number, leagueId?: unkno
  * O front mostra como selo + razão de uma linha não ter estrela. */
 export function populacaoMotivo(pop: Populacao): string {
   return pop === "selecao"
-    ? "Jogo de seleção: chutes a gol só viram aposta de valor na linha de 1+ (over 0.5) — linhas altas seguem analisadas, sem estrela. Finalizações (todas as linhas) e desarmes (1+/2+) valem."
+    ? "Jogo de seleção: chutes a gol só viram aposta de valor na linha de 1+ (over 0.5) — linhas altas seguem analisadas, sem estrela. Finalizações (todas as linhas), desarmes (1+/2+) e faltas (só 1+) valem."
     : "Jogo de clube: chutes a gol e finalizações viram aposta de valor em todas as linhas; desarme aguarda calibração de clube (ainda sem estrela).";
 }
 
