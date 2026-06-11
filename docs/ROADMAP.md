@@ -19,7 +19,7 @@
 
 **Escopo decidido (brainstorming):** só odds; sobrescreve por linha (sem versão/histórico); acúmulo por mercado (não wipe). Spec: `docs/superpowers/specs/2026-06-10-odds-persistencia-design.md` · plano: `docs/superpowers/plans/2026-06-10-odds-persistencia.md`.
 
-**Frontend:** wiring (carregar/salvar odds via os novos endpoints) é **follow-up** após a migração de tela única do front (`/coletar` → `/`) mergear — evita conflito entre as duas frentes.
+**Frontend:** wiring **FEITO** (2026-06-11, repo `odd-analyzer-frontend`, branch `feat/coletar-tela-unica`): a tela Coletar carrega odds do banco ao abrir o jogo (`GET /jogos/:id/odds`, fonte de verdade; localStorage vira fallback offline), persiste ao adicionar (`POST /odds`) e apaga ao limpar (`DELETE`). `analyze` segue mandando o lote (idempotente). 44 testes + build verdes. Spec/plano: `docs/superpowers/{specs,plans}/2026-06-11-coletar-odds-wiring*`.
 
 **Suíte: 232 testes verdes** (typecheck + paridade verdes; +13 sobre 219).
 
