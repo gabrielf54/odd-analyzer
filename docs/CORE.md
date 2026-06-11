@@ -7,7 +7,7 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-11 · **Suíte:** 281 testes Vitest verdes · **Custo até aqui:** $0 ·
+> **Atualizado:** 2026-06-11 · **Suíte:** 282 testes Vitest verdes · **Custo até aqui:** $0 ·
 > **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11.
 
 ---
