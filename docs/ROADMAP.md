@@ -15,7 +15,7 @@
 - **Port `Repo`** ganhou `saveOdds` (upsert por PK) / `getOdds` / `deleteOdds` / `listOddsEvents`, em `InMemoryRepo` e `SupabaseRepo`.
 - **Endpoints:** `POST /odds` (colar = salva, valida via `parseManualOdds`, devolve `salvas` + `linhas_rejeitadas`), `GET /jogos/:id/odds` (abrir = carrega), `DELETE /jogos/:id/odds` (limpa jogo ou 1 linha via query).
 - **`POST /analise/manual` agora lê do repo:** `odds[]` no corpo virou **opcional** — se vier, persiste (upsert) antes; a análise **sempre** carrega as odds do repo por `event_id`. Retrocompatível (corpo antigo segue funcionando) e fonte-de-verdade (front novo manda só `event_id`). `escopo_historico` continua parâmetro de análise, **fora da tabela**.
-- **Seed** `npm run seed:odds` (`scripts/seedOdds.ts` + `odds/manifest.json`): importa os `odds/*.json` existentes mapeando arquivo → `event_id`; entradas sem id são puladas com aviso.
+- **Seed inicial (migração one-shot, já executada e removida):** os arquivos legados `odds/*.json` foram semeados na tabela uma vez — England×Costa Rica (ev 9099, 175 linhas) e Portugal×Nigeria (ev 206719, 181 linhas), 3 mercados cada. Confirmado pela tela (colar→analisar grava na tabela pelo mesmo caminho do seed). Feito isso, os `odds/*.json`, o manifesto e o `scripts/seedOdds.ts` foram **apagados** — a tabela é a fonte e novas odds entram pela tela.
 
 **Escopo decidido (brainstorming):** só odds; sobrescreve por linha (sem versão/histórico); acúmulo por mercado (não wipe). Spec: `docs/superpowers/specs/2026-06-10-odds-persistencia-design.md` · plano: `docs/superpowers/plans/2026-06-10-odds-persistencia.md`.
 
