@@ -9,6 +9,7 @@ create table if not exists analises (
   ttl int,
   candidatos jsonb,
   llm_resultado jsonb,
+  resultado jsonb,  -- resultado COMPLETO da análise manual (market_type='manual_todos'); fonte de verdade do front
   primary key (event_id, market_type)
 );
 

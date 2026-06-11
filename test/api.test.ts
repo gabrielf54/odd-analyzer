@@ -109,6 +109,27 @@ describe("API — fluxo manual de odds", () => {
     expect(r.status).toBe(400);
   });
 
+  it("POST /analise/manual persiste e GET /jogos/:id/analise recupera o resultado completo", async () => {
+    const a = manualApp();
+    const post = await request(a).post("/analise/manual").send({
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    expect(post.status).toBe(200);
+    const get = await request(a).get("/jogos/e1/analise");
+    expect(get.status).toBe(200);
+    expect(get.body).not.toBeNull();
+    expect(typeof get.body.analisado_em).toBe("string");
+    expect(get.body.result.candidatos).toEqual(post.body.candidatos);
+    expect(get.body.result.jogadores_sem_match).toEqual(post.body.jogadores_sem_match);
+  });
+
+  it("GET /jogos/:id/analise sem análise → 200 null", async () => {
+    const r = await request(manualApp()).get("/jogos/inexistente/analise");
+    expect(r.status).toBe(200);
+    expect(r.body).toBeNull();
+  });
+
   it("POST /crosswalk → 200 e persiste", async () => {
     const r = await request(manualApp()).post("/crosswalk").send({ nome_casa: "CR7", player_id: "20" });
     expect(r.status).toBe(200);

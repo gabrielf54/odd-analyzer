@@ -201,6 +201,12 @@ export async function getOddsService(repo: any, eventId: string): Promise<OddsRo
   return repo.getOdds(eventId);
 }
 
+/** Resultado completo da última análise manual (ou null). Fonte de verdade pro
+ *  front recuperar na hidratação, independente do localStorage. */
+export async function getManualAnalysisService(repo: any, eventId: string): Promise<{ result: any; analisado_em: string } | null> {
+  return repo.getManualResult(eventId);
+}
+
 export async function deleteOddsService(repo: any, eventId: string, filter?: Partial<OddsRow>): Promise<{ ok: true }> {
   await repo.deleteOdds(eventId, filter);
   return { ok: true };

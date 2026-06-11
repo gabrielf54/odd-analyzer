@@ -51,6 +51,41 @@ describe("analyzeManual", () => {
     expect(out.linhas_rejeitadas.length).toBe(1);
   });
 
+  it("jogador descasado em várias linhas/mercados aparece UMA vez em jogadores_sem_match", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [
+        { market_type: "sot", entidade: "Lionel Messi", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" },
+        { market_type: "sot", entidade: "Lionel Messi", linha: 1.5, odd_over: 7.0, odd_under: null, book: "b" },
+        { market_type: "finalizacoes", entidade: "Lionel Messi", linha: 0.5, odd_over: 2.0, odd_under: null, book: "b" },
+        { market_type: "finalizacoes", entidade: "Lionel Messi", linha: 1.5, odd_over: 4.0, odd_under: null, book: "b" },
+      ],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+    expect(out.jogadores_sem_match.length).toBe(1);
+    expect(out.jogadores_sem_match[0]!.nome_casa).toBe("Lionel Messi");
+  });
+
+  it("persiste o resultado COMPLETO no repo e getManualResult o recupera", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [{ linha_crua: { x: 1 }, motivo: "teste" }], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+
+    const rec = repo.getManualResult("e1");
+    expect(rec).not.toBeNull();
+    expect(typeof rec!.analisado_em).toBe("string");
+    // o resultado salvo é o MESMO que volta na resposta (candidatos, sem_match, linhas, ia)
+    expect(rec!.result.candidatos).toEqual(out.candidatos);
+    expect(rec!.result.jogadores_sem_match).toEqual(out.jogadores_sem_match);
+    expect(rec!.result.linhas_rejeitadas).toEqual(out.linhas_rejeitadas);
+    expect(rec!.result.ia).toEqual(out.ia);
+    expect(repo.getManualResult("zzz")).toBeNull();
+  });
+
   it("auto-casa jogador via override salvo no crosswalk", async () => {
     const repo = new InMemoryRepo();
     repo.saveCrosswalk(1000, "cr7", { casa: "CR7" }, 1.0, true);

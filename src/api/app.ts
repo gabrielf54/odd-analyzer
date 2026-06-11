@@ -110,6 +110,10 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.getOddsService(deps.repo, String(req.params.eventId)));
   }));
 
+  app.get("/jogos/:eventId/analise", wrap(async (req, res) => {
+    res.json(await service.getManualAnalysisService(deps.repo, String(req.params.eventId)));
+  }));
+
   app.delete("/jogos/:eventId/odds", wrap(async (req, res) => {
     const q = oddsFilterQuery.safeParse(req.query);
     const filter = q.success ? q.data : {};

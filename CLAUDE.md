@@ -76,7 +76,7 @@ Quando for analisar/gerar candidatos, **raciocine sempre nesse formato confronto
 - **Project ref:** `pepizcpowzhtawzjnzui` · região `us-east-1`
 - **URL:** `https://pepizcpowzhtawzjnzui.supabase.co`
 - Persistência fica em [src/store/repo.ts](src/store/repo.ts) (`SupabaseRepo`). Fonte de verdade do schema: [src/store/schema.sql](src/store/schema.sql).
-- Tabelas: `analises` (cache de análise por `event_id`), `paper_ledger` (registro de apostas-papel + CLV), `jogadores_crosswalk` (mapeamento de IDs de jogador entre fontes), `odds` (odds coletadas — fonte de verdade das odds; PK `event_id,entidade,market_type,linha,book`; liga/jogo/jogador seguem vivos da BSD, não duplicados).
+- Tabelas: `analises` (análise por `event_id`+`market_type`; a linha `market_type='manual_todos'` guarda o **resultado COMPLETO** da análise manual na coluna `resultado jsonb` — fonte de verdade que o front recupera via `GET /jogos/:id/analise`, sobrevive a localStorage falho/cache limpo), `paper_ledger` (registro de apostas-papel + CLV), `jogadores_crosswalk` (mapeamento de IDs de jogador entre fontes), `odds` (odds coletadas — fonte de verdade das odds; PK `event_id,entidade,market_type,linha,book`; liga/jogo/jogador seguem vivos da BSD, não duplicados).
 
 ## Duas chaves diferentes — não confundir
 

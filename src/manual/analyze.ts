@@ -76,18 +76,24 @@ export async function analyzeManual(
   const ranked = rankCandidates(approved);
   const { candidatos: revisados, ia } = await reviewerFn(ranked, { jogo: event.jogo ?? event.id });
 
-  await repo.saveAnalysis(event.id, {
-    jogo: event.jogo, market_type: "manual_todos", candidatos: revisados, llm_resultado: ia,
-  });
+  // Dedup: 1 entrada por jogador descasado (várias linhas/mercados geram cópias
+  // idênticas — candidatos vêm do nome vs squad, não do mercado). Mantém a 1ª vista.
+  const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [j.nome_casa, j])).values()];
 
-  return {
+  const result = {
     jogo: event.jogo,
     candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],
-    jogadores_sem_match,
+    jogadores_sem_match: semMatchUnico,
     linhas_rejeitadas: input.linhas_rejeitadas,
     ia,
   };
+
+  // Persiste o resultado COMPLETO (fonte de verdade; o front recupera daqui na
+  // hidratação → sobrevive a localStorage falho / cache limpo / outro dispositivo).
+  await repo.saveManualResult(event.id, result, new Date().toISOString());
+
+  return result;
 }
 
 /** Calcula candidatos de UM mercado de jogador, anexando a odd específica de cada

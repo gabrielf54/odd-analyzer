@@ -20,8 +20,13 @@ export interface OddsEventSummary {
   ultimo_coletado_em: string | null;
 }
 
+export interface ManualResult { result: any; analisado_em: string; }
+
 export interface Repo {
   saveAnalysis(eventId: string, payload: any): Promise<void> | void;
+  // Resultado COMPLETO da análise manual (fonte de verdade; o front recupera daqui).
+  saveManualResult(eventId: string, result: any, analisadoEm: string): Promise<void> | void;
+  getManualResult(eventId: string): Promise<ManualResult | null> | (ManualResult | null);
   saveOdds(eventId: string, lines: OddsRow[]): Promise<void> | void;
   getOdds(eventId: string): Promise<OddsRow[]> | OddsRow[];
   deleteOdds(eventId: string, filter?: Partial<OddsRow>): Promise<void> | void;
@@ -37,12 +42,17 @@ export interface Repo {
 
 export class InMemoryRepo implements Repo {
   analyses = new Map<string, any>();
+  manualResults = new Map<string, ManualResult>();
   ledger: any[] = [];
   crosswalk = new Map<number, any>();
   odds = new Map<string, OddsRow[]>();
 
   saveAnalysis(eventId: string, payload: any) { this.analyses.set(eventId, payload); }
   getAnalysis(eventId: string) { return this.analyses.get(eventId) ?? null; }
+  saveManualResult(eventId: string, result: any, analisadoEm: string) {
+    this.manualResults.set(eventId, { result, analisado_em: analisadoEm });
+  }
+  getManualResult(eventId: string): ManualResult | null { return this.manualResults.get(eventId) ?? null; }
   saveLedger(rows: any[]) { this.ledger.push(...rows); }
 
   private oddsKey(r: OddsRow): string {
@@ -125,6 +135,19 @@ export class SupabaseRepo implements Repo {
 
   async saveAnalysis(eventId: string, payload: any) {
     await this.client.from("analises").upsert({ event_id: eventId, ...payload });
+  }
+
+  async saveManualResult(eventId: string, result: any, analisadoEm: string) {
+    await this.client.from("analises").upsert({
+      event_id: eventId, market_type: "manual_todos",
+      jogo: result?.jogo ?? null, resultado: result, data: analisadoEm,
+    });
+  }
+  async getManualResult(eventId: string): Promise<ManualResult | null> {
+    const { data } = await this.client.from("analises")
+      .select("resultado, data").eq("event_id", eventId).eq("market_type", "manual_todos");
+    const row = data && data.length ? data[0] : null;
+    return row && row.resultado ? { result: row.resultado, analisado_em: row.data } : null;
   }
 
   async saveOdds(eventId: string, lines: OddsRow[]) {
