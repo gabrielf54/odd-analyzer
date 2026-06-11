@@ -18,3 +18,5 @@ for (const r of rep) {
   );
 }
 console.log("\nBrierSkill>0 = melhor que chutar a média. Mercado só vira money_ready com prova consistente.");
+// Nota: no Windows pode aparecer um "Assertion failed ... async.c" no encerramento —
+// artefato do libuv/undici (handle keep-alive do supabase-js) APÓS o resultado; exit 0, benigno.
