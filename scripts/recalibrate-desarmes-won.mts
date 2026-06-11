@@ -11,7 +11,7 @@ import { opponentMultiplier, homeAwayMultiplier } from "../src/model/adjustments
 import { brierScore, expectedCalibrationError, brierSkillScore } from "../src/backtest/calibration.js";
 
 const LEAGUES = [31, 58, 59, 60, 61, 62, 64, 65, 66, 67];
-const EVENTS_PER_LEAGUE = 12, TARGET = 200, LINE = 1.5, R = 3.0, PRIOR_STRENGTH = 12;
+const EVENTS_PER_LEAGUE = 10, TARGET = 2000, LINE = 1.5, R = 3.0, PRIOR_STRENGTH = 12;
 const client = new BSDClient(getRequired("BZZOIRO_API_KEY"));
 
 async function concededWonBefore(oppId: string, beforeDate: string): Promise<number | null> {

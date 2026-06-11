@@ -53,9 +53,10 @@ export const MARKETS: Record<string, MarketSpec> = {
   }),
   // DESARME SELADO (2026-06-11): a casa liquida won_tackle (Opta "Tackles Won"),
   // mas o motor só tem skill em total_tackle (tentativas). won_tackle reprovou a
-  // calibração na seleção (BrierSkill≤0 em 0.5/1.5/2.5 — scripts/recalibrate-
-  // desarmes-won.mts). Modelo segue total_tackle (calibrado); settle liquida em
-  // won_tackle pra MEDIR forward. money_ready=false até a prova forward virar.
+  // calibração na seleção (scripts/recalibrate-desarmes-won.mts, n=1738, 10 ligas):
+  // BrierSkill won≈ +0.05/−0.02/−0.07 (over 0.5/1.5/2.5) e ECE sempre pior que
+  // total (+0.14/+0.08/+0.01). Modelo segue total_tackle (calibrado); settle_field
+  // liquida won_tackle pra MEDIR forward. money_ready=false até a prova forward virar.
   desarmes: spec({
     key: "desarmes", nivel: "jogador", kind: "contagem", stat_field: "total_tackle",
     prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
