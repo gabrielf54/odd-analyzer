@@ -57,12 +57,24 @@ describe("rankCandidates — gate de titularidade + mercado validado", () => {
 
   it("recomenda o melhor confirmado de mercado validado, sem alerta de minutos", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot", linha: 1.5 },
-      { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", linha: 1.5, alerta_minutos: true },
+      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot", linha: 0.5 },
+      { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", linha: 0.5, alerta_minutos: true },
     ]);
     const star = r.find((c: any) => c.recomendado === true);
     expect(star!.prob_modelo).toBe(0.6);
     expect(r.find((c: any) => c.alerta_minutos)!.pronto_para_apostar).toBe(false);
+  });
+
+  it("sot: recomenda na linha validada (0.5) e NÃO nas de atenção (1.5/2.5)", () => {
+    // Calibração na seleção: sot só tem skill em over 0.5; 1.5/2.5 reprovam.
+    const r05 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha: 0.5 }]);
+    expect(r05[0]!.pronto_para_apostar).toBe(true);
+    expect(r05[0]!.recomendado).toBe(true);
+    for (const linha of [1.5, 2.5]) {
+      const r = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "sot", linha }]);
+      expect(r[0]!.pronto_para_apostar).toBe(false);
+      expect(r[0]!.recomendado).toBe(false);
+    }
   });
 
   it("NÃO recomenda mercado NÃO-validado (gols) mesmo confirmado", () => {

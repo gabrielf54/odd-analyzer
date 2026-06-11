@@ -110,13 +110,13 @@ Ela pode usar esses sinais pra **reforçar** ou **ressalvar** uma recomendação
 
 O motor não entra no ar por fé — cada mercado passou (ou não) por uma calibração honesta em dados reais. Estado atual:
 
-- ✅ **Validados — podem virar aposta de valor recomendada — mercados de JOGADOR:** **chutes a gol (SOT)** e **finalizações**. O modelo acerta a probabilidade (calibração boa). São o núcleo do MVP.
-  - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e continuam acertando lá também.
+- ✅ **Validados — podem virar aposta de valor recomendada — mercados de JOGADOR:** **finalizações** (todas as linhas) e **chutes a gol (SOT)** — este último **só na linha de "1+" (ao menos um chute a gol)**. São o núcleo do MVP.
+  - **Provado na população certa:** primeiro a calibração rodou em jogos de clube (Brasileirão, ~3300 jogos). Como o alvo é a **Copa (seleções)**, re-testamos especificamente em **jogos de seleção** (eliminatórias, Nations League, amistosos, Euro, Copa América) — e o resultado foi honesto e diferente: **finalizações continua acertando em todas as linhas**, mas **chutes a gol só acerta na linha baixa (1+)**. Nas linhas altas (2+, 3+ chutes a gol) o modelo **não** bate a média na seleção — seleção chuta a gol pouco (jogo mais travado/desigual que clube). Então **chutes a gol 2+/3+ continua aparecendo na análise, mas SEM a estrela** de aposta recomendada (forward na Copa pode liberar depois).
   - **O que descobrimos no caminho (honestidade):** num primeiro teste pareceu que o modelo "errava" pra seleção. Investigando, o erro não era a conta de quanto o jogador produz — era assumir que **todo titular joga 90 minutos**. Ao **estimar os minutos esperados** de cada jogador, o acerto voltou ao normal.
 - ✅ **DESARME — RECUPERADO nas linhas 0.5 e 1.5 (2026-06-11):** a casa paga desarme pelos **GANHOS**, não pelas **tentativas**. Tentar adivinhar o "ganho" direto **não funcionou** (ganhar depende de lance/sorte). A virada: prever **tentativas** (que o modelo acerta bem) e multiplicar **pelo quanto o jogador costuma converter** (ganhos ÷ tentativas, ~62% na média). Provado em **1746 jogos de seleção** — fica tão bom quanto chutes a gol nas linhas de **1+ e 2+ desarmes ganhos** (0.5/1.5). A linha de **3+ (2.5) ainda não fecha** → segue em observação. Então desarme **volta a virar aposta de valor recomendada** em 0.5/1.5; 2.5 fica de fora por ora.
 - ⏳ **Em validação — mercados de PARTIDA:** **gols/vitória** e **escanteios**. O código existe, mas a calibração ainda **não passou no crivo** — então **não** entram como sinal confiável ainda.
 
-> Em uma frase: o produto **recomenda chutes a gol, finalizações e desarmes (0.5/1.5)**, com **desarme 2.5 e os mercados de partida em observação** — cada um vira **aposta de valor recomendada** **um a um**, só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
+> Em uma frase: o produto **recomenda finalizações (todas as linhas), chutes a gol só na linha 1+, e desarmes (0.5/1.5)**, com **chutes a gol 2+/3+, desarme 2.5 e os mercados de partida em observação** — cada um vira **aposta de valor recomendada** **um a um** (até por linha), só depois de provar. Veredito completo em [ROADMAP.md](ROADMAP.md).
 
 ### De onde vêm as odds (2026-06-09)
 
@@ -189,7 +189,7 @@ A Copa é população nova (seleções), e não dá pra provar o modelo no passa
 - **Depois do jogo, o sistema confere sozinho** o que de fato aconteff — lendo as estatísticas reais do jogo — e marca acertou/errou. **No desarme, ele confere pelo número que a casa paga (ganhos), não pelas tentativas** — é assim que vamos saber se o desarme um dia presta.
 - **Um relatório** mostra, por mercado, se o modelo está sendo honesto (as notas Brier/ECE) e se pegamos preço bom (CLV).
 
-E uma trava nova de segurança: **só mercado já provado pode receber a estrela de "aposte nesta"**. Hoje são **chutes a gol, finalizações e desarmes (linhas 0.5/1.5)**. Os outros (desarme 2.5, gols, escanteios, vitória) aparecem na análise mas **não** saem como aposta de valor recomendada — vão sendo **liberados um a um** (até por linha), só quando a medição provar que prestam. Nada de recomendar uma "aposta de valor" cuja vantagem a gente ainda não confirmou.
+E uma trava nova de segurança: **só mercado já provado pode receber a estrela de "aposte nesta"**. Hoje são **finalizações (todas as linhas), chutes a gol só na linha 1+, e desarmes (0.5/1.5)**. Os outros (chutes a gol 2+/3+, desarme 2.5, gols, escanteios, vitória) aparecem na análise mas **não** saem como aposta de valor recomendada — vão sendo **liberados um a um** (até por linha), só quando a medição provar que prestam. Nada de recomendar uma "aposta de valor" cuja vantagem a gente ainda não confirmou.
 
 ---
 

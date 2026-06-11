@@ -52,12 +52,25 @@ export function settleField(marketType: string): string | null {
 }
 
 export const MARKETS: Record<string, MarketSpec> = {
+  // SOT validado SÓ em 0.5 na população de SELEÇÃO. Calibração offline em 2071
+  // jogos de seleção (ligas 31,58-67: AFCON/amistoso/quali — a Copa passada é
+  // vazia, ver scripts/recalibrate-sot-fin-selecao.mts, leave-one-out): BrierSkill
+  // over 0.5 = +0.048, MAS over 1.5 = -0.047 e over 2.5 = -0.272 (NEGATIVO = pior
+  // que chutar a média). Seleção chuta a gol pouco (base só 6.4% fazem 2+, 1.6%
+  // fazem 3+) → o modelo não bate a média nas linhas altas. As linhas 1.5/2.5
+  // seguem ANALISADAS (lines abaixo), mas SEM estrela (fora de validated_lines);
+  // forward na Copa pode regraduar. (A validação antiga "todas as linhas" foi em
+  // clube — atacante de clube finaliza muito; seleção é jogo travado/desigual.)
   sot: spec({
     key: "sot", nivel: "jogador", kind: "contagem", stat_field: "shots_on_target",
     prior_rate: 0.4, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "chutes_a_gol_concedidos_por_jogo", label: "Chutes a Gol (SOT)",
-    concede_baseline: 4.55, concede_baseline_nacional: 4.28, validated: true,
+    concede_baseline: 4.55, concede_baseline_nacional: 4.28,
+    validated: true, validated_lines: [0.5],
   }),
+  // Finalizações TRANSFERIU limpo do clube p/ seleção: mesma calibração (n=2071,
+  // scripts/recalibrate-sot-fin-selecao.mts) deu BrierSkill positivo nas 3 linhas
+  // (+0.119/+0.088/+0.084 em 0.5/1.5/2.5) → validado em todas as linhas.
   finalizacoes: spec({
     key: "finalizacoes", nivel: "jogador", kind: "contagem", stat_field: "total_shots",
     prior_rate: 1.2, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
