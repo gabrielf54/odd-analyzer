@@ -47,3 +47,37 @@ describe("teamConceded won_tackle (player-aggregation)", () => {
     expect(v).toBeCloseTo(4.0, 9);
   });
 });
+
+describe("entityRate — decomposição do desarme (μ_ganhos = tentativas × aproveitamento)", () => {
+  function fakeClientDesarme(): any {
+    // 12 jogos: 4 tentados, 2 ganhos (aproveitamento bruto 0.5) — histórico do jogador.
+    const games = Array.from({ length: 12 }, () => ({
+      total_tackle: 4, won_tackle: 2, minutes_played: 90, event_id: "h", team_id: "100",
+    }));
+    return {
+      async playerStats() { return { results: games }; },
+      async events() { return { results: [] }; },   // sem concessão → oppMult neutro
+      async eventStats() { return { stats: {} }; },
+      async player() { return { position: "M" }; },
+    };
+  }
+
+  it("μ de ganhos = μ de tentativas × aproveitamento (< tentativas) e o trace mostra o passo", async () => {
+    const { MARKETS } = await import("../src/model/markets.js");
+    const p = new BSDStatsProvider(fakeClientDesarme());
+    const rate = await p.entityRate("1", MARKETS.desarmes!, {
+      is_home: true, opp_team_id: "200", league_avg_conceded: 13.97, escopo_historico: "todos",
+    });
+    expect(rate).not.toBeNull();
+    const passos = (rate!.trace as any).passos as any[];
+    const tent = passos.find((s) => s.passo === "esperado_tentativas");
+    const aprov = passos.find((s) => s.passo === "aproveitamento");
+    expect(tent).toBeDefined();
+    expect(aprov).toBeDefined();
+    // ganho < tentativa (aproveitamento < 1) e μ final bate com o passo de ganhos
+    expect(aprov.saida).toBeLessThan(tent.saida);
+    expect(rate!.mu).toBeCloseTo(aprov.saida, 2);
+    // aproveitamento encolhido p/ 0.622: (24 + 40×0.622)/(48+40) ≈ 0.555
+    expect(rate!.mu / tent.saida).toBeCloseTo(0.555, 2);
+  });
+});

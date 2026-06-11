@@ -48,8 +48,8 @@ describe("rankCandidates — ordenação", () => {
 describe("rankCandidates — gate de titularidade + mercado validado", () => {
   it("NÃO recomenda quando ninguém está confirmado (pré-lineup)", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.6, ev: 0.2, titularidade: "provavel", market_type: "sot" },
-      { prob_modelo: 0.5, ev: 0.1, titularidade: "provavel", market_type: "sot" },
+      { prob_modelo: 0.6, ev: 0.2, titularidade: "provavel", market_type: "sot", linha: 1.5 },
+      { prob_modelo: 0.5, ev: 0.1, titularidade: "provavel", market_type: "sot", linha: 0.5 },
     ]);
     expect(r.every((c: any) => c.recomendado === false)).toBe(true);
     expect(r.every((c: any) => c.pronto_para_apostar === false)).toBe(true);
@@ -57,26 +57,35 @@ describe("rankCandidates — gate de titularidade + mercado validado", () => {
 
   it("recomenda o melhor confirmado de mercado validado, sem alerta de minutos", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot" },
-      { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
+      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "sot", linha: 1.5 },
+      { prob_modelo: 0.55, ev: 0.2, titularidade: "confirmado", market_type: "sot", linha: 1.5, alerta_minutos: true },
     ]);
     const star = r.find((c: any) => c.recomendado === true);
     expect(star!.prob_modelo).toBe(0.6);
     expect(r.find((c: any) => c.alerta_minutos)!.pronto_para_apostar).toBe(false);
   });
 
-  it("NÃO recomenda mercado selado (desarmes) mesmo confirmado", () => {
+  it("NÃO recomenda mercado NÃO-validado (gols) mesmo confirmado", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes" },
+      { prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "gols", linha: 2.5 },
     ]);
     expect(r[0]!.recomendado).toBe(false);
     expect(r[0]!.pronto_para_apostar).toBe(false);
   });
 
-  it("entre validado e em-validação, a estrela vai pro validado (mesmo com EV menor)", () => {
+  it("desarme: recomenda nas linhas validadas (1.5) e NÃO na de observação (2.5)", () => {
+    const r15 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 1.5 }]);
+    expect(r15[0]!.pronto_para_apostar).toBe(true);
+    expect(r15[0]!.recomendado).toBe(true);
+    const r25 = rankCandidates([{ prob_modelo: 0.7, ev: 0.4, titularidade: "confirmado", market_type: "desarmes", linha: 2.5 }]);
+    expect(r25[0]!.pronto_para_apostar).toBe(false);
+    expect(r25[0]!.recomendado).toBe(false);
+  });
+
+  it("entre validado e não-validado, a estrela vai pro validado (mesmo com EV menor)", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.8, ev: 0.5, titularidade: "confirmado", market_type: "desarmes" },
-      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "finalizacoes" },
+      { prob_modelo: 0.8, ev: 0.5, titularidade: "confirmado", market_type: "gols", linha: 2.5 },
+      { prob_modelo: 0.6, ev: 0.3, titularidade: "confirmado", market_type: "finalizacoes", linha: 1.5 },
     ]);
     const star = r.find((c: any) => c.recomendado === true);
     expect(star!.market_type).toBe("finalizacoes");
@@ -84,8 +93,8 @@ describe("rankCandidates — gate de titularidade + mercado validado", () => {
 
   it("todos com alerta de minutos → ninguém recomendado", () => {
     const r = rankCandidates([
-      { prob_modelo: 0.6, ev: 0.5, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
-      { prob_modelo: 0.2, ev: 0.9, titularidade: "confirmado", market_type: "sot", alerta_minutos: true },
+      { prob_modelo: 0.6, ev: 0.5, titularidade: "confirmado", market_type: "sot", linha: 1.5, alerta_minutos: true },
+      { prob_modelo: 0.2, ev: 0.9, titularidade: "confirmado", market_type: "sot", linha: 0.5, alerta_minutos: true },
     ]);
     expect(r.every((c: any) => c.recomendado === false)).toBe(true);
   });

@@ -12,15 +12,22 @@ export interface MarketSpec {
   concede_baseline: number;
   concede_baseline_nacional: number;
   // Campo que a CASA usa pra LIQUIDAR (settle). Default = stat_field. Difere
-  // quando modelamos uma coisa e a casa paga outra (desarmes: modelamos
+  // quando modelamos uma coisa e a casa paga outra (desarmes: a base é
   // total_tackle, mas a casa liquida won_tackle — Opta "Tackles Won").
   settle_field?: string;
+  // DECOMPOSIÇÃO do μ: prever um evento via base × taxa de conversão, quando o
+  // alvo direto é mal previsto mas a base não. Desarme ganho: μ_ganhos =
+  // μ_tentativas(stat_field) × aproveitamento(won/total, encolhido p/ wr_prior).
+  // Recupera o sinal das tentativas (bem previstas) — backtest n=1746 (validação).
+  mu_decomp?: { num_field: string; wr_shrink: number; wr_prior: number; base_label: string; won_label: string };
   // GATE de aposta de valor: só mercado com calibração VALIDADA pode ser
   // sinalizado como "aposta de valor que vale a pena" (rank dá a estrela).
   // Política (CLAUDE.md): começa false; cada mercado vira true conforme a
-  // calibração/prova-forward o demonstrar. Hoje: sot/finalizações true; desarmes/
-  // gols/vitória/escanteios false (em validação). rank só recomenda mercado validado.
+  // calibração/prova-forward o demonstrar. rank só recomenda mercado validado.
   validated: boolean;
+  // Restringe a validação a CERTAS LINHAS (as que passaram no crivo). Vazio/ausente
+  // = todas as linhas valem. Ex.: desarme passa em 0.5/1.5, mas não em 2.5.
+  validated_lines?: number[];
 }
 
 function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_nacional" | "validated"> &
@@ -28,9 +35,14 @@ function spec(p: Omit<MarketSpec, "concede_baseline" | "concede_baseline_naciona
   return { concede_baseline: 0.0, concede_baseline_nacional: 0.0, validated: false, ...p };
 }
 
-/** Mercado validado (calibração provada) → pode ser sinalizado como aposta de valor? Default false. */
-export function isValidated(marketType: string): boolean {
-  return MARKETS[marketType]?.validated ?? false;
+/** Mercado validado (calibração provada) → pode virar aposta de valor recomendada?
+ * Se `validated_lines` existe, só essas linhas valem (ex.: desarme 0.5/1.5, não 2.5).
+ * Default false. */
+export function isValidated(marketType: string, linha?: number): boolean {
+  const m = MARKETS[marketType];
+  if (!m?.validated) return false;
+  if (!m.validated_lines || m.validated_lines.length === 0) return true;
+  return linha != null && m.validated_lines.includes(linha);
 }
 
 /** Campo que a casa usa para liquidar a aposta (default = stat_field). */
@@ -52,18 +64,20 @@ export const MARKETS: Record<string, MarketSpec> = {
     eixo_concessao: "finalizacoes_concedidas_por_jogo", label: "Finalizações Totais",
     concede_baseline: 13.46, concede_baseline_nacional: 12.22, validated: true,
   }),
-  // DESARME EM VALIDAÇÃO (2026-06-11): a casa liquida won_tackle (Opta "Tackles
-  // Won"), mas o motor só tem skill em total_tackle (tentativas). won_tackle
-  // reprovou a calibração na seleção (scripts/recalibrate-desarmes-won.mts, n=1738,
-  // 10 ligas): BrierSkill won≈ +0.05/−0.02/−0.07 (over 0.5/1.5/2.5) e ECE sempre
-  // pior que total (+0.14/+0.08/+0.01). Modelo segue total_tackle (calibrado);
-  // settle_field liquida won_tackle pra MEDIR forward. validated=false (não vira
-  // aposta de valor recomendada) até a prova forward demonstrar o contrário.
+  // DESARME GANHO via DECOMPOSIÇÃO (2026-06-11): a casa liquida won_tackle (Opta
+  // "Tackles Won"). Prever "ganho" direto reprovou (motor só prevê tentativas);
+  // mas μ_ganhos = μ_tentativas(total_tackle) × aproveitamento(won/total, encolhido)
+  // PASSA — backtest n=1746, 10 ligas (scripts/recalibrate-desarmes-decomp.mts):
+  // BrierSkill +0.085 (over 0.5, ECE 0.039) e +0.021 (over 1.5, ECE 0.044);
+  // over 2.5 ainda negativo (−0.023) → fora. base=total_tackle (μ tentativas,
+  // calibrado, prior 1.3); mu_decomp aplica o aproveitamento; settle_field=won_tackle.
+  // validated só nas linhas que passam (0.5/1.5); 2.5 segue em observação forward.
   desarmes: spec({
     key: "desarmes", nivel: "jogador", kind: "contagem", stat_field: "total_tackle",
     prior_rate: 1.3, prior_strength: 12.0, nb_dispersion: 3.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "desarmes_concedidos_por_jogo", label: "Desarmes",
-    settle_field: "won_tackle", validated: false,
+    settle_field: "won_tackle", validated: true, validated_lines: [0.5, 1.5],
+    mu_decomp: { num_field: "won_tackle", wr_shrink: 40, wr_prior: 0.622, base_label: "desarmes tentados", won_label: "desarmes ganhos" },
     concede_baseline: 14.64, concede_baseline_nacional: 13.97,
   }),
   escanteios: spec({
