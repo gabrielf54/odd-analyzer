@@ -35,11 +35,12 @@ ECE↓ e BrierSkill>0) + **confirmação forward**.
 
 ---
 
-## As 5 fichas deste tier
+## As 6 fichas deste tier
 
 | Ficha | O que muda | Toca o número? (paridade) | Validável offline hoje? |
 |---|---|---|---|
 | **[I3 — Novos mercados de contagem](I3-novos-mercados-contagem.md)** | Adiciona mercados (cross, dribles, faltas, duelos, interceptações) reusando o motor | Sim (μ novo por mercado) | Parcial (amistosos/eliminatórias recentes) + forward |
+| **[I9 — Faltas, passes e defesas de goleiro](I9-mercados-faltas-passes-defesas.md)** | Aplica a I3 a 3 mercados pedidos. Faltas = só config. Defesas = **2 patches de motor** (filtro de posição GK + eixo de produção invertido) | Sim (μ novo por mercado; patch do goleiro é aditivo) | Parcial (amistosos/eliminatórias recentes) + forward |
 | **[I2 — Matchup direcional dentro do μ](I2-matchup-direcional.md)** | Multiplicador **direcional** (lado de ataque × flanco do defensor) no μ — **o diferencial #1** | **Sim (alto risco)** | Não na Copa; harness de tilt + forward |
 | **[N5 — Mismatch / posse](N5-mismatch-posse.md)** | Fator de posse (favorito × zebra) — começa como **texto** p/ IA, depois μ | Texto: não · μ: sim | Parcial (leave-one-out de desarme) + forward |
 | **[N2 — Prior/shrinkage por força de liga](N2-prior-por-forca-de-liga.md)** | Encolher mais a forma de seleções fracas/heterogêneas | Sim (μ) | Parcial (jogos de seleção recentes) + forward |
@@ -56,6 +57,9 @@ ECE↓ e BrierSkill>0) + **confirmação forward**.
 1. **I3 (1 mercado-piloto)** — maior retorno por menor risco: o motor já é genérico; basta
    **config + baseline + calibração** de UM mercado de confronto limpo (sugestão: **dribles** ou
    **faltas**). Ganha-se cobertura de oportunidade sem mexer no estimador.
+   - **I9** é o caminho concreto dos 3 mercados pedidos (faltas, passes, defesas). Ordem **dentro**
+     da I9: **faltas** (só config, melhor cobertura) → **defesas** (vale os 2 patches de motor) →
+     **passes** (só se a casa precificar; senão, diagnóstico). Faltas é o piloto natural da I3.
 2. **N5 fase (a)** — fator de posse **como texto para a IA** (I5): seguro (fora do money-path),
    melhora a explicação e prepara o terreno para a fase (b).
 3. **I6 (b) — veto adversarial** — barato (+chamadas LLM irrisórias), pode **reduzir falso-positivo**
