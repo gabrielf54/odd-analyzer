@@ -10,7 +10,7 @@ O `oppMult` por-mercado captura parte disso, mas a interação **posse × desarm
 
 ## 2. Status
 - **Ajuda à meta:** **Médio** (na Copa, jogos desiguais são a regra na fase de grupos).
-- **Pronto p/ Copa:** ⏳ Fase (a) texto: quase pronta (depende de I5). Fase (b) μ: só com calibração + forward.
+- **Pronto p/ Copa:** ✅ Fase (a) texto **FEITA** — `posse_adversario` vai no candidato (`src/providers/stats.ts` `teamPossession`) e o `PROMPT_REVISOR` lê por-mercado (rival domina bola → menos finalização, mais desarme). Ver CORE §3.2. ⏳ Fase (b) μ: **adiada** (risco de dupla-contagem com `oppMult`) — só com calibração + forward.
 - **Esforço:** **Médio**.
 - **Risco de calibração/paridade:** Fase (a) **Baixo** (texto, fora do money-path). Fase (b) **Médio-Alto**
   (muda o μ → paridade + risco de **dupla contagem** com o `oppMult`).

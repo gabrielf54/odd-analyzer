@@ -7,7 +7,7 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-11 · **Suíte:** 279 testes Vitest verdes · **Custo até aqui:** $0 ·
+> **Atualizado:** 2026-06-11 · **Suíte:** 281 testes Vitest verdes · **Custo até aqui:** $0 ·
 > **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11.
 
 ---
@@ -61,6 +61,7 @@ validado** ganha a ⭐. **Anti-lock-in:** apertar a seleção não trava o clube
 | **finalizações** | todas as linhas ✅ | todas as linhas ✅ | transfere limpo (BrierSkill +0.119/+0.088/+0.084 em 0.5/1.5/2.5; seleção n=2071) |
 | **chutes a gol (sot)** | **só 0.5** ✅ | todas ✅ (legado, a re-confirmar) | seleção: 1.5 = **−0.047**, 2.5 = **−0.272** (chuta a gol pouco) → só 1+ |
 | **desarmes** | 0.5/1.5 ✅ | **ausente** (a medir) | via decomposição `μ_ganhos = μ_tentativas × aproveitamento(won/total)`; casa paga `won_tackle`; BrierSkill +0.085/+0.028 (R=2.0). **2.5 morto** |
+| **faltas** | **só 0.5** ✅ | a medir (pós-Copa) | comete `fouls` × adversário provoca (`was_fouled`, via `concede_field`); calib n=1816: over 0.5 BrierSkill **+0.034** (R=2.5) → ⭐; 1.5/2.5 negativos → analisadas, sem ⭐ |
 | **gols / vitória / escanteios** | em validação | em validação | mercados de PARTIDA não calibraram; sem ⭐ |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:
@@ -93,7 +94,7 @@ número).
 |---|---|---|---|
 | ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa) e pode regraduar sot 1.5. **Ação #1 hoje.** | já no Tier 0 |
 | ② | **N5 — mismatch/posse** | fase de grupos = jogos MUITO desiguais; favorito massacra → afeta os props direto | [`features/durante-copa/N5-mismatch-posse`](features/durante-copa/N5-mismatch-posse/) |
-| ③ | **I3 — novos mercados de contagem** | cross/dribles/faltas/duelos/intercept. = MAIS apostas de valor; reusa o motor; dado existe na seleção | [`features/durante-copa/I3-novos-mercados-contagem`](features/durante-copa/I3-novos-mercados-contagem/) |
+| ③ | **I3 — novos mercados de contagem** | **faltas SHIPOU** (validou over 0.5 seleção, §3.1); **defesas adiada** (reprovou calib → catálogo abaixo); leque restante (cross/dribles/duelos/intercept) segue candidato; reusa o motor | [`features/durante-copa/I3-novos-mercados-contagem`](features/durante-copa/I3-novos-mercados-contagem/) |
 | ④ | **N2 — prior por força de liga** | forma de seleção fraca é ruidosa → aperta a precisão nos times menores | [`features/durante-copa/N2-prior-forca-liga`](features/durante-copa/N2-prior-forca-liga/) |
 | ⑤ | **I6 — 2ª chamada de IA** (promotor × cético) | IA propõe hipótese, código decide; melhora explicação (fora do número) | [`features/durante-copa/I6-segunda-ia`](features/durante-copa/I6-segunda-ia/) |
 | ⑥ | **arbitro_tendencia** (resto do I5) | árbitro apita muito/pouco → contexto p/ a IA (texto) | [`features/durante-copa/arbitro-tendencia`](features/durante-copa/arbitro-tendencia/) |
@@ -102,6 +103,13 @@ número).
 | Feature | O quê | Detalhe |
 |---|---|---|
 | **Calibrar clube** | re-confirmar sot/finalizações + medir desarme na população de clube → preenche `validated_lines.clube`. **Destrava usar o produto nas ligas nacionais.** | [`features/pos-copa/calibrar-clube`](features/pos-copa/calibrar-clube/) |
+
+**Backlog de re-calibração ("outra maneira"):** os `(mercado, linha, população)` que **reprovaram
+a calibração ou não foram calibrados** (defesas, SOT 1.5/2.5 seleção, faltas 1.5/2.5, gols/vitória/
+escanteios, desarme/sot/fin no clube) ficam catalogados em
+[`features/mercados-nao-validados`](features/mercados-nao-validados/) — cada um com o **porquê** e a
+**hipótese de re-calibrar de outra maneira**. É backlog de ação; o estado vivo continua aqui (§3.1)
+e o que está morto de vez no §5.
 
 ## 5. Cemitério — NÃO re-tentar (sem perder o aprendizado)
 
@@ -116,6 +124,7 @@ número).
 | **`won_tackle` direto (sem decompor)** | reprovou (ganhar é alta-variância) | não reverter — usar a decomposição |
 | **tilt posicional** | degradou ECE em 2 dos 3 mercados | candidato só p/ finalizações, com re-teste |
 | **Calibrar na Copa LITERAL passada** | seasons 2018/2022 têm player-stats **VAZIO** na BSD | impossível offline → só forward |
+| **arbitro_tendencia** (sinal de árbitro p/ IA) | BSD não tem filtro `/events/?referee_id=` (param ignorado, listagem traz `referee_id=null` — spike 2026-06-11); agregar histórico do árbitro = varrer N eventos um a um, caro demais p/ um sinal de texto | só com fonte de **perfil de árbitro** pronta |
 
 ## 6. Glossário leigo (o dono não lê código)
 
