@@ -96,4 +96,33 @@ describe("buildOddsPrompt — formato compacto (pipe)", () => {
     expect(p).toContain("odd_under");
     expect(p).not.toContain("Kai Havertz");
   });
+
+  it("grupo 'tudo': UM prompt cobre os 8 mercados (partida + jogador) do jogo", () => {
+    const p = buildOddsPrompt({ jogo: "Germany x Scotland", home_team: "Germany", away_team: "Scotland" }, "tudo", lineup);
+    // partida
+    expect(p).toContain("gols|");
+    expect(p).toContain("escanteios|");
+    expect(p).toContain("vitoria|");
+    expect(p).toContain("odd_under"); // totais de partida têm 2 lados
+    // jogador
+    for (const m of ["sot", "finalizacoes", "desarmes", "faltas", "passes"]) {
+      expect(p, m).toContain(`${m}|`);
+    }
+    expect(p).toContain("Kai Havertz"); // embute a lista de jogadores
+    expect(p).toContain("Joshua Kimmich");
+    expect(p).toContain("^"); // alias entidade^nome_da_casa do bloco jogador
+  });
+
+  it("grupo 'tudo': UM ÚNICO header book= (não repete por família)", () => {
+    const p = buildOddsPrompt({ jogo: "Germany x Scotland", home_team: "Germany", away_team: "Scotland" }, "tudo", lineup);
+    const headers = p.match(/^book=/gm) ?? [];
+    expect(headers.length).toBe(1);
+  });
+
+  it("grupo 'tudo': saída compacta (sem JSON) e corta odds ≥ 10", () => {
+    const p = buildOddsPrompt({ jogo: "Germany x Scotland", home_team: "Germany", away_team: "Scotland" }, "tudo", lineup);
+    expect(p).toMatch(/NADA de JSON|formato compacto|sem JSON/i);
+    expect(p).not.toMatch(/APENAS JSON/);
+    expect(p).toMatch(/odd ≥ 10/);
+  });
 });
