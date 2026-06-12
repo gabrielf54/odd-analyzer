@@ -95,7 +95,6 @@ número).
 |---|---|---|---|
 | ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa) e pode regraduar sot 1.5. **Ação #1 hoje.** | já no Tier 0 |
 | ② | **N5 — mismatch/posse** | fase de grupos = jogos MUITO desiguais; favorito massacra → afeta os props direto | [`features/durante-copa/N5-mismatch-posse`](features/durante-copa/N5-mismatch-posse/) |
-| ③ | **I3 — novos mercados de contagem** | **faltas SHIPOU** (⭐ over 0.5 seleção, §3.1); **passes SHIPOU como diagnóstico** (reprovou calib, sem ⭐ — §3.1 + catálogo); **defesas adiada**; leque restante (dribles/duelos/intercept) segue candidato; reusa o motor | [`features/durante-copa/I3-novos-mercados-contagem`](features/durante-copa/I3-novos-mercados-contagem/) |
 | ④ | **N2 — prior por força de liga** | forma de seleção fraca é ruidosa → aperta a precisão nos times menores | [`features/durante-copa/N2-prior-forca-liga`](features/durante-copa/N2-prior-forca-liga/) |
 | ⑤ | **I6 — 2ª chamada de IA** (promotor × cético) | IA propõe hipótese, código decide; melhora explicação (fora do número) | [`features/durante-copa/I6-segunda-ia`](features/durante-copa/I6-segunda-ia/) |
 | ⑥ | **arbitro_tendencia** (resto do I5) | árbitro apita muito/pouco → contexto p/ a IA (texto) | [`features/durante-copa/arbitro-tendencia`](features/durante-copa/arbitro-tendencia/) |

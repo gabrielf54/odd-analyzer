@@ -292,7 +292,6 @@ No `entityRate`, após `haMult`, se `market.key==="passes"`: derivar `posseEsper
 **Files:**
 - Modify: `src/model/markets.ts` (`validated_lines.selecao` conforme veredito)
 - Modify: `docs/CORE.md` (§3.1 linha de passes; header contagem de testes)
-- Modify: `docs/features/durante-copa/I3-novos-mercados-contagem/README.md` (remover passes da lista)
 - Modify: `docs/features/mercados-nao-validados/README.md` (se reprovou)
 
 - [ ] **Step 1:** Setar `validated_lines.selecao` em `passes` conforme Task 1 (`[]` se calibrou na
