@@ -7,8 +7,9 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-11 · **Suíte:** 291 testes Vitest verdes · **Custo até aqui:** $0 ·
-> **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11.
+> **Atualizado:** 2026-06-11 (auditoria de calibração de TODOS os mercados, no ponto de aposta —
+> ver §3.1) · **Suíte:** 291 testes Vitest verdes · **Custo até aqui:** $0 ·
+> **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11; **clube ATIVO** (auditado).
 
 ---
 
@@ -56,14 +57,19 @@ arquivos (file:line) no [`CLAUDE.md`](../CLAUDE.md).
 `NATIONAL_LEAGUE_IDS` {27,31,58-67}; resto/desconhecida = clube). Só **(mercado, população, linha)
 validado** ganha a ⭐. **Anti-lock-in:** apertar a seleção não trava o clube.
 
-| Mercado | Seleção (Copa, ATIVO) | Clube (pós-Copa) | Veredito-chave |
+**AUDITORIA 2026-06-11** (`scripts/audit-player-markets.mts`, `audit-match-markets.mts`):
+leave-one-out, **medindo NO PONTO DE APOSTA** (banda `prob∈[0.35,0.65]`, onde a casa põe a linha)
+e no campo que a casa **liquida**. A banda separa estrela real de **fantasma** (full + mas banda
+−/ECE alto = miscalibrada na linha, artefato de pooling). seleção n=2392, clube n=2800.
+
+| Mercado | Seleção (Copa, ATIVO) | Clube (ATIVO) | Veredito-chave (no ponto de aposta) |
 |---|---|---|---|
-| **finalizações** | todas as linhas ✅ | todas as linhas ✅ | transfere limpo (BrierSkill +0.119/+0.088/+0.084 em 0.5/1.5/2.5; seleção n=2071) |
-| **chutes a gol (sot)** | **só 0.5** ✅ | todas ✅ (legado, a re-confirmar) | seleção: 1.5 = **−0.047**, 2.5 = **−0.272** (chuta a gol pouco) → só 1+ |
-| **desarmes** | 0.5/1.5 ✅ | **ausente** (a medir) | via decomposição `μ_ganhos = μ_tentativas × aproveitamento(won/total)`; casa paga `won_tackle`; BrierSkill +0.085/+0.028 (R=2.0). **2.5 morto** |
-| **faltas** | **só 0.5** ✅ | a medir (pós-Copa) | comete `fouls` × adversário provoca (`was_fouled`, via `concede_field`); calib n=1816: over 0.5 BrierSkill **+0.034** (R=2.5) → ⭐; 1.5/2.5 negativos → analisadas, sem ⭐ |
-| **passes** | ⬛ **diagnóstico** (sem ⭐) | a medir | Betano cota (escada `N+`; **de-vig de escada** `value/ladderDevig.ts`); calib n=1621 **REPROVOU no ponto de aposta** (BrierSkill **−0.014**; o +0.10 é artefato de pooling de linhas óbvias). Posse-dominado: a forma acerta a média, não bate o livro na linha. Settlement `total_pass`. Implementado p/ análise+forward → [`mercados-nao-validados`](features/mercados-nao-validados/) |
-| **gols / vitória / escanteios** | em validação | em validação | mercados de PARTIDA não calibraram; sem ⭐ |
+| **finalizações** | **0.5/1.5** ✅ | **todas as linhas** ✅ | o mercado mais forte. clube banda +0.028/+0.036 (0.5/1.5), 2.5 marginal-OK. seleção 2.5 era **fantasma** (full +0.111 MAS banda **−0.094**/ECE 0.13) → **DEMOVIDA** |
+| **chutes a gol (sot)** | **só 0.5** ✅ | **só 0.5** ✅ | SOT 2+ é raro/mal previsto. clube 1.5/2.5 era **legado fantasma** (1.5 banda **−0.32**/ECE 0.23) → **DEMOVIDO**. `nb_dispersion` 3.0→**2.0** (calibra 0.5 melhor nas 2 pops) |
+| **desarmes** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | decomp `μ_tentativas × aproveitamento(won/total)`, paga `won_tackle`. clube 0.5 full +0.110/banda +0.008. seleção 1.5 era fantasma (full +0.0085, banda **−0.081**/ECE 0.13) → **DEMOVIDA**. **2.5 morto** |
+| **faltas** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | comete `fouls` × adversário provoca `was_fouled`. clube 0.5 full +0.063/banda ~0. 1.5/2.5 negativos nas duas → sem ⭐ |
+| **passes** | ⬛ **diagnóstico** | ⬛ **diagnóstico** | off=0 ≈ 0 nas duas (sel −0.011, clube +0.003); posse-dominado. **de-vig de escada** `value/ladderDevig.ts`; acumula forward, SEM ⭐ → [`mercados-nao-validados`](features/mercados-nao-validados/) |
+| **gols / vitória / escanteios** | não calibram | não calibram | PARTIDA medido nas 2 pops: gols ECE 0.10-0.15; vitória mando ECE 0.13 (λ=média-gols cru); escanteios sem edge (clube) / corner ausente (seleção). sem ⭐ |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:
 `src/model/markets.ts`. O resultado carrega badge `populacao`/`populacao_motivo` (texto, fora do
@@ -93,23 +99,25 @@ número).
 ### 🔴 DURANTE a Copa (população seleção)
 | # | Feature | Por que na Copa | Detalhe |
 |---|---|---|---|
-| ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa) e pode regraduar sot 1.5. **Ação #1 hoje.** | já no Tier 0 |
+| ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa) e pode **regraduar as linhas demovidas** (fin 2.5, desarme 1.5, sot 1.5 na seleção) se mostrarem skill ao vivo. **Ação #1 hoje.** | já no Tier 0 |
 | ② | **N5 — mismatch/posse** | fase de grupos = jogos MUITO desiguais; favorito massacra → afeta os props direto | [`features/durante-copa/N5-mismatch-posse`](features/durante-copa/N5-mismatch-posse/) |
 | ④ | **N2 — prior por força de liga** | forma de seleção fraca é ruidosa → aperta a precisão nos times menores | [`features/durante-copa/N2-prior-forca-liga`](features/durante-copa/N2-prior-forca-liga/) |
 | ⑤ | **I6 — 2ª chamada de IA** (promotor × cético) | IA propõe hipótese, código decide; melhora explicação (fora do número) | [`features/durante-copa/I6-segunda-ia`](features/durante-copa/I6-segunda-ia/) |
-| ⑥ | **arbitro_tendencia** (resto do I5) | árbitro apita muito/pouco → contexto p/ a IA (texto) | [`features/durante-copa/arbitro-tendencia`](features/durante-copa/arbitro-tendencia/) |
+
+(`arbitro_tendencia` saiu daqui — está **morto por dado** no §5, não é próxima feature.)
 
 ### 🟢 PÓS-Copa (população clube)
-| Feature | O quê | Detalhe |
-|---|---|---|
-| **Calibrar clube** | re-confirmar sot/finalizações + medir desarme na população de clube → preenche `validated_lines.clube`. **Destrava usar o produto nas ligas nacionais.** | [`features/pos-copa/calibrar-clube`](features/pos-copa/calibrar-clube/) |
+A **calibração offline de clube está FEITA** (auditoria 2026-06-11, ver §3.1): sot **só 0.5**,
+finalizações **todas**, desarme **0.5** (graduou), faltas **0.5** (graduou) — `validated_lines.clube`
+preenchido. **Clube já é ATIVO.** Falta só **acumular forward de clube** (o `paper_ledger` é
+população-agnóstico: análise + `settle` em jogos de clube → CLI `report` mede Brier/ECE/CLV no clube).
 
 **Backlog de re-calibração ("outra maneira"):** os `(mercado, linha, população)` que **reprovaram
-a calibração ou não foram calibrados** (defesas, **passes**, SOT 1.5/2.5 seleção, faltas 1.5/2.5,
-gols/vitória/escanteios, desarme/sot/fin no clube) ficam catalogados em
-[`features/mercados-nao-validados`](features/mercados-nao-validados/) — cada um com o **porquê** e a
-**hipótese de re-calibrar de outra maneira**. É backlog de ação; o estado vivo continua aqui (§3.1)
-e o que está morto de vez no §5.
+a calibração** (defesas, **passes** nas duas, SOT 1.5/2.5 nas duas, finalizações 2.5 seleção,
+desarme 1.5 nas duas, faltas 1.5/2.5 nas duas, gols/vitória/escanteios nas duas) ficam catalogados em
+[`features/mercados-nao-validados`](features/mercados-nao-validados/) — cada um com o **porquê** (full
+vs banda de aposta) e a **hipótese de re-calibrar de outra maneira**. É backlog de ação; o estado vivo
+continua aqui (§3.1) e o que está morto de vez no §5.
 
 ## 5. Cemitério — NÃO re-tentar (sem perder o aprendizado)
 
@@ -119,7 +127,7 @@ e o que está morto de vez no §5.
 | **nota_confronto / lado de ataque** | mesma causa do I2 | idem |
 | **I4 — xG/xA no μ** | `expected_goals` vem **NULL** em seleção | só se a Copa ao vivo trouxer xG preenchido |
 | **N4 — odds automáticas BSD** | **descartado pelo dono**; BSD só dá mercado de partida não recomendável, zero player prop | — |
-| **SOT over 1.5 / 2.5 na SELEÇÃO** | BrierSkill negativo (seleção chuta a gol pouco) | forward na Copa pode regraduar; **no CLUBE já valem** |
+| **SOT over 1.5 / 2.5** (ambas pops) | seleção: BrierSkill negativo (chuta a gol pouco). clube: era legado, a auditoria 2026-06-11 mostrou fantasma (1.5 banda −0.32/ECE 0.23) → demovido nas DUAS. SOT 2+ é raro/mal previsto | forward pode regraduar; prior por posição (atacante) — ver [`mercados-nao-validados`](features/mercados-nao-validados/) |
 | **desarme over 2.5** | robustamente morto (18 combinações R×k, BrierSkill<0; evento raro) | só observação forward |
 | **`won_tackle` direto (sem decompor)** | reprovou (ganhar é alta-variância) | não reverter — usar a decomposição |
 | **tilt posicional** | degradou ECE em 2 dos 3 mercados | candidato só p/ finalizações, com re-teste |
