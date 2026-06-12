@@ -11,6 +11,7 @@ import { reviewCandidates, type ReviewerFn } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
 import { matchPlayerOdds, type OddsMatched } from "./matchOdds.js";
 import { ladderDevig } from "../value/ladderDevig.js";
+import { logInfo } from "../lib/log.js";
 import type { ManualOddsInput, ManualOddsLine } from "./schema.js";
 
 export interface AnalyzeManualOpts {
@@ -40,6 +41,7 @@ function groupByMarket(odds: ManualOddsLine[]): Map<string, ManualOddsLine[]> {
 export async function analyzeManual(
   client: any, input: ManualOddsInput, opts: AnalyzeManualOpts = {},
 ): Promise<any> {
+  const tStart = Date.now(); // p/ medir o tempo total da análise (achar gargalo)
   const repo = opts.repo ?? new InMemoryRepo();
   const reviewerFn = opts.reviewerFn ?? reviewCandidates;
 
@@ -55,12 +57,15 @@ export async function analyzeManual(
   const allCandidates: any[] = [];
   const jogadores_sem_match: any[] = [];
 
+  logInfo("analise", `analisando ${event.jogo ?? event.id}`, { event_id: event.id, mercados: [...byMarket.keys()] });
+
   for (const [marketKey, lines] of byMarket) {
     const market: MarketSpec | undefined = MARKETS[marketKey];
     if (market == null) continue; // schema já filtrou; defensivo
+    const t0 = Date.now();
+    let cands: any[];
     if (PLAYER_MARKETS.has(marketKey)) {
-      const cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match, input.escopo_historico);
-      allCandidates.push(...cands);
+      cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match, input.escopo_historico);
     } else {
       const provider = new ManualOdds(lines.map((l) => ({
         entidade: l.entidade, linha: l.linha, odd_over: l.odd_over,
@@ -69,16 +74,21 @@ export async function analyzeManual(
         // só-over, que isenta o under no schema (ver schema.ts) e quebrava a análise.
         odd_under: l.odd_under ?? null, book: l.book,
       })));
-      const cands = market.kind === "contagem"
+      cands = market.kind === "contagem"
         ? await matchCount(event, market, stats, await provider.lines())
         : await runMatch(event, market, stats, provider);
-      allCandidates.push(...cands);
     }
+    allCandidates.push(...cands);
+    // Checkpoint COM tempo: cada mercado vira uma linha após processar → você vê o
+    // andamento E o ms de cada um (acha o gargalo sem inundar o log).
+    logInfo("analise", `mercado analisado: ${market.label}`, { mercado: marketKey, linhas: lines.length, candidatos: cands.length, ms: Date.now() - t0 });
   }
 
   const { approved, rejected } = evaluateCandidates(allCandidates);
   const ranked = rankCandidates(approved, leagueId);
+  const tIa = Date.now();
   const { candidatos: revisados, ia } = await reviewerFn(ranked, { jogo: event.jogo ?? event.id });
+  logInfo("analise", "revisão da IA concluída", { candidatos_revisados: ranked.length, ms: Date.now() - tIa });
 
   // Dedup: 1 entrada por jogador descasado (várias linhas/mercados geram cópias
   // idênticas — candidatos vêm do nome vs squad, não do mercado). Mantém a 1ª vista.
@@ -119,6 +129,8 @@ export async function analyzeManual(
       prob_modelo: c.prob_modelo, prob_devig: c.prob_devig, edge: c.edge, ev: c.ev,
     }));
   if (ledgerRows.length) await repo.saveLedger(ledgerRows);
+
+  logInfo("analise", "análise concluída", { candidatos: revisados.length, sem_match: semMatchUnico.length, pendente_lineup, ms_total: Date.now() - tStart });
 
   return result;
 }

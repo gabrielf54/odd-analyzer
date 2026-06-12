@@ -8,11 +8,12 @@
  * único onde esses erros viram log visível. */
 type Ctx = Record<string, unknown> | undefined;
 
-function emit(stream: "error" | "warn", level: string, scope: string, msg: string, ctx: Ctx): void {
+function emit(stream: "error" | "warn" | "info", level: string, scope: string, msg: string, ctx: Ctx): void {
   const line: Record<string, unknown> = { level, scope, msg };
   if (ctx) for (const [k, v] of Object.entries(ctx)) line[k] = v;
   const text = `[odd-analyzer] ${JSON.stringify(line)}`;
   if (stream === "warn") console.warn(text);
+  else if (stream === "info") console.log(text);
   else console.error(text);
 }
 
@@ -28,4 +29,11 @@ export function logError(scope: string, err: unknown, ctx?: Ctx): void {
  * operador precisa enxergar. */
 export function logWarn(scope: string, msg: string, ctx?: Ctx): void {
   emit("warn", "warn", scope, msg, ctx);
+}
+
+/** Checkpoint de progresso (stdout) — p/ acompanhar o andamento de uma requisição
+ * longa (ex.: análise de jogo: mercado a mercado + chamada de IA). Use com PARCIMÔNIA:
+ * uma linha por etapa macro, não por item. */
+export function logInfo(scope: string, msg: string, ctx?: Ctx): void {
+  emit("info", "info", scope, msg, ctx);
 }

@@ -1,7 +1,7 @@
-import { chat as defaultChat, type Msg } from "./openrouter.js";
+import { chat as defaultChat, resolveModel, type Msg } from "./openrouter.js";
 import { validateReview } from "./reviewSchema.js";
 import { parseJsonLoose } from "./parseJson.js";
-import { logWarn } from "../lib/log.js";
+import { logInfo, logWarn } from "../lib/log.js";
 
 export const PROMPT_REVISOR =
   "Você é um analista de apostas cético que explica para uma pessoa LEIGA — entende de " +
@@ -95,6 +95,7 @@ export async function reviewCandidates(
     { role: "system", content: PROMPT_REVISOR },
     { role: "user", content: JSON.stringify({ contexto, candidatos }) },
   ];
+  logInfo("reviewer", `chamando IA (${resolveModel()}) para revisar candidatos`, { candidatos: candidatos.length });
   let ultimoMotivo = "sem tentativa";
   for (let i = 0; i < 2; i++) {
     let raw: string;
