@@ -87,12 +87,24 @@ export const MARKETS: Record<string, MarketSpec> = {
   // nb_dispersion 3.0→2.0: R=2.0 calibra over 0.5 melhor nas DUAS pops (sel +0.059/
   // ECE 0.060 vs +0.050/0.068; clube +0.101/0.034 vs +0.098/0.039). 1.5/2.5 seguem
   // ANALISADAS (lines), sem estrela; forward pode regraduar.
+  // SOT por DECOMPOSIÇÃO (igual ao desarme): a casa liquida shots_on_target, mas o
+  // motor prevê melhor total_shots (finalizações, o mercado mais forte) → modela
+  // μ_sot = μ_finalizações(total_shots) × taxa-no-alvo(sot/total_shots, encolhida p/
+  // a média da liga ~0.35). Productionizado 2026-06-12 (exp 2026-06-12d,
+  // recalibrate-sot-decomp.mts): a decomp é modelo estritamente MELHOR pro SOT —
+  // aprimora a estrela 0.5 (clube full BrierSkill +0.10→+0.15; banda +0.002→+0.046) e
+  // aproxima o 1.5 da virada (−0.6→−0.1, ainda sem ⭐; forward pode regraduar).
+  // stat_field=total_shots (base do modelo); settle/concessão/display seguem em
+  // shots_on_target (settle_field/concede_field). nb_dispersion=2.0 calibra o 0.5 nas
+  // 2 pops. O gate de paridade testa probOverLine com mu hardcoded → não lê stat_field.
   sot: spec({
-    key: "sot", nivel: "jogador", kind: "contagem", stat_field: "shots_on_target",
-    prior_rate: 0.4, prior_strength: 12.0, nb_dispersion: 2.0, lines: [0.5, 1.5, 2.5],
+    key: "sot", nivel: "jogador", kind: "contagem", stat_field: "total_shots",
+    settle_field: "shots_on_target", concede_field: "shots_on_target",
+    prior_rate: 1.2, prior_strength: 12.0, nb_dispersion: 2.0, lines: [0.5, 1.5, 2.5],
     eixo_concessao: "chutes_a_gol_concedidos_por_jogo", label: "Chutes a Gol (SOT)",
     concede_baseline: 4.55, concede_baseline_nacional: 4.28,
     validated_lines: { selecao: [0.5], clube: [0.5] },
+    mu_decomp: { num_field: "shots_on_target", wr_shrink: 40, wr_prior: 0.35, base_label: "finalizações", won_label: "chutes a gol" },
   }),
   // FINALIZAÇÕES — o mercado mais forte. AUDITORIA 2026-06-11
   // (audit-player-markets.mts, leave-one-out, banda de aposta):
@@ -206,6 +218,21 @@ export const PLAYER_MARKET_KEYS: string[] = Object.values(MARKETS)
 
 // Ligas de seleção (Copa e correlatas) → baseline nacional. WC2026 = 27.
 const NATIONAL_LEAGUE_IDS = new Set([58, 59, 60, 61, 62, 64, 65, 66, 67, 31, 27]);
+
+// Ligas de onde sai o POOL de RATINGS de força de uma SELEÇÃO (quali/amistoso/AFCON/
+// Nations/Euro/Copa América) — a forma RECENTE cross-competição, que foi onde a
+// calibração deu ECE 0.04 (recalibrate-match-strength.mts). Exclui a 27 (Copa) de
+// PROPÓSITO: ela mistura jogos de 2022 (elenco trocado, ruído) e mal começou em 2026.
+const SELECAO_RATING_LEAGUES = [31, 58, 59, 60, 61, 62, 64, 65, 66, 67];
+
+/** Ligas que alimentam o POOL de ratings de partida deste jogo. Seleção → forma
+ * recente cross-competição (SELECAO_RATING_LEAGUES); clube → a própria liga do jogo
+ * (densa, com adversários compartilhados). Liga inválida → []. */
+export function ratingsPoolLeagues(leagueId: unknown): number[] {
+  if (populacaoFor(leagueId) === "selecao") return [...SELECAO_RATING_LEAGUES];
+  const n = typeof leagueId === "number" ? leagueId : parseInt(String(leagueId), 10);
+  return Number.isNaN(n) ? [] : [n];
+}
 
 /** População do jogo pela liga: NATIONAL_LEAGUE_IDS → "selecao"; o resto (e liga
  * desconhecida/inválida) → "clube". Fonte ÚNICA de verdade de população — usada por

@@ -6,6 +6,7 @@ import { shrinkRate } from "../model/shrinkage.js";
 import { opponentMultiplier, homeAwayMultiplier, positionalTilt } from "../model/adjustments.js";
 import { POSITIONAL_SHARE_NACIONAL, POSITIONAL_TILT_ENABLED, POSITIONAL_MIN_GAMES } from "../model/params.js";
 import { buildTeamMap, resolve } from "../crosswalk/bsdIds.js";
+import type { ChronoGame } from "../model/ratings.js";
 import type { EntityRate } from "./types.js";
 import { buildRateTrace } from "../model/trace.js";
 import { detailedStats } from "../model/detailedStats.js";
@@ -281,7 +282,10 @@ export class BSDStatsProvider {
         ? { winRate: decompTrace.winRate, attemptsMu: decompTrace.attemptsMu, baseLabel: decompTrace.baseLabel, wonLabel: decompTrace.won_label }
         : undefined,
     });
-    const statsDetalhadas = detailedStats(games, market.stat_field, await this.homeAwayMap(games));
+    // stats_detalhadas é DESCRITIVO (drawer + IA): mostra o histórico DO QUE SE APOSTA
+    // (settle_field), não a base do modelo. Em decomposição (sot→shots_on_target,
+    // desarme→won_tackle) stat_field é a base interna (total_shots/total_tackle).
+    const statsDetalhadas = detailedStats(games, market.settle_field ?? market.stat_field, await this.homeAwayMap(games));
     const posseAdversario = await this.teamPossession(this.oppTeamId(ctx));
     return {
       mu, minutos_esperados: minutes,
@@ -348,6 +352,25 @@ export class BSDStatsProvider {
     };
   }
 
+  /** Pool cronológico de jogos finalizados da liga (1 chamada /events/, só placar —
+   * não busca stats). Alimenta os RATINGS de força (model/ratings) p/ o λ de partida. */
+  async leaguePool(leagueId: unknown, window = 150): Promise<ChronoGame[]> {
+    let evs: any;
+    try { evs = await this.client.events({ league_id: leagueId, status: "finished", limit: window }); }
+    catch { return []; }
+    const results: any[] = Array.isArray(evs?.results) ? evs.results : [];
+    const out: ChronoGame[] = [];
+    for (const e of results) {
+      if (e?.home_score == null || e?.away_score == null) continue;
+      out.push({
+        date: String(e.event_date ?? e.date ?? e.start_time ?? ""),
+        home: String(e.home_team_id), away: String(e.away_team_id),
+        homeScore: Number(e.home_score), awayScore: Number(e.away_score),
+      });
+    }
+    return out;
+  }
+
   async teamRates(teamId: unknown, _ctx: any, window = 10): Promise<{ lambda_for: number; lambda_against: number } | null> {
     const tid = String(teamId);
     let evs: any;
@@ -399,6 +422,7 @@ export class CrosswalkStatsProvider {
   entityRate(id: unknown, market: MarketSpec, ctx: any) { return this.inner.entityRate(id, market, ctx); }
   teamRate(...args: any[]) { return this.inner.teamRate(...args); }
   teamRates(...args: any[]) { return this.inner.teamRates(...args); }
+  leaguePool(...args: any[]) { return this.inner.leaguePool?.(...args); }
 }
 
 /** Restringe elenco() a UM jogador (id exato ou substring de nome). Delega o resto. */
@@ -420,5 +444,6 @@ export class OnlyPlayer {
   entityRate(id: unknown, market: MarketSpec, ctx: any) { return this.p.entityRate(id, market, ctx); }
   teamRate(...args: any[]) { return this.p.teamRate(...args); }
   teamRates(...args: any[]) { return this.p.teamRates(...args); }
+  leaguePool(...args: any[]) { return this.p.leaguePool?.(...args); }
   xiIds(event: any) { return typeof this.p.xiIds === "function" ? this.p.xiIds(event) : new Set<string>(); }
 }

@@ -2,7 +2,8 @@ import { buildCandidate } from "./candidates/builder.js";
 import { evaluateCandidates } from "./candidates/filter.js";
 import { probOverLine } from "./model/sotModel.js";
 import { scoreMatrix, probs1x2, probTotalOver } from "./model/matchModel.js";
-import { baselineFor, type MarketSpec } from "./model/markets.js";
+import { computeRatings, lambdaFromRatings, ratingsEligible, homeAdvFor } from "./model/ratings.js";
+import { baselineFor, populacaoFor, ratingsPoolLeagues, type MarketSpec } from "./model/markets.js";
 import { analyze as defaultAnalyst } from "./ai/analyst.js";
 import { type RateTrace } from "./model/trace.js";
 
@@ -70,17 +71,19 @@ async function runCount(event: any, market: MarketSpec, sp: any, op: any, scope:
   return playerCount(event, market, sp, lines, scope, leagueId);
 }
 
-/** Trace mínimo de partida: só o esperado final (sem evidência por-jogo). */
-function matchRateTrace(statField: string, mu: number): RateTrace {
+/** Trace mínimo de partida: só o esperado final (sem evidência por-jogo). `fonte`
+ * indica como o λ foi montado (ratings_forca | media_movel) — diagnóstico, fora do número. */
+function matchRateTrace(statField: string, mu: number, fonte = "media_movel"): RateTrace {
+  const m = Math.round(mu * 100) / 100;
   return {
     statField, mu,
     passos: [{
       passo: "esperado_final",
       titulo: "Total esperado na partida",
       formula: "soma dos esperados dos dois times",
-      entradas: { esperado: Math.round(mu * 100) / 100 },
-      saida: Math.round(mu * 100) / 100,
-      frase: `No total, esperamos ${Math.round(mu * 100) / 100} nesta partida.`,
+      entradas: { esperado: m, fonte },
+      saida: m,
+      frase: `No total, esperamos ${m} nesta partida.`,
     }],
   };
 }
@@ -106,13 +109,37 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
   const lines = await op.lines(event, market);
   if (!lines || lines.length === 0) return [];
   const home = event.home_team ?? {}, away = event.away_team ?? {};
-  const rh = await sp.teamRates(home.id, { event, is_home: true });
-  const ra = await sp.teamRates(away.id, { event, is_home: false });
-  if (rh == null || ra == null) return [];
   const league = market.concede_baseline || 1.3;
-  const lambdaHome = rh.lambda_for * ((ra.lambda_against ?? league) / league);
-  const lambdaAway = ra.lambda_for * ((rh.lambda_against ?? league) / league);
+
+  // RATINGS de força (Elo causal) — calibram gols/1X2 melhor que a média-crua
+  // (exp 2026-06-12b: ECE 0.13→0.04). Pré-requisitos: liga conhecida, provider com
+  // leaguePool, e os DOIS times com histórico suficiente. Senão → fallback média-crua.
+  let lambdaHome: number | null = null, lambdaAway: number | null = null;
+  let fonte = "media_movel";
+  const leagueId = event.league_id ?? null;
+  if (leagueId != null && typeof sp.leaguePool === "function") {
+    try {
+      const homeAdv = homeAdvFor(populacaoFor(leagueId));
+      // Pool population-aware: seleção = forma recente cross-competição (a liga da Copa
+      // é rasa/velha demais); clube = a própria liga. Une os jogos das ligas-fonte.
+      const pools = await Promise.all(ratingsPoolLeagues(leagueId).map((lg: number) => sp.leaguePool(lg)));
+      const ratings = computeRatings(pools.flat(), { mu0: league, homeAdv });
+      if (ratingsEligible(ratings, String(home.id), String(away.id))) {
+        const lam = lambdaFromRatings(ratings, String(home.id), String(away.id), { mu0: league, homeAdv });
+        if (lam) { lambdaHome = lam.lambdaHome; lambdaAway = lam.lambdaAway; fonte = "ratings_forca"; }
+      }
+    } catch { /* fall back p/ média-crua */ }
+  }
+  if (lambdaHome == null || lambdaAway == null) {
+    const rh = await sp.teamRates(home.id, { event, is_home: true });
+    const ra = await sp.teamRates(away.id, { event, is_home: false });
+    if (rh == null || ra == null) return [];
+    lambdaHome = rh.lambda_for * ((ra.lambda_against ?? league) / league);
+    lambdaAway = ra.lambda_for * ((rh.lambda_against ?? league) / league);
+  }
   const matrix = scoreMatrix(lambdaHome, lambdaAway);
+  const muTotal = lambdaHome + lambdaAway;
+  const fonteLambda = fonte;
   const label = event.jogo || `${home.name ?? ""} x ${away.name ?? ""}`.trim();
   const isTotals = market.kind === "partida_totais";
   return lines.map((li: any) => {
@@ -121,11 +148,11 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
     else { prob = probs1x2(matrix).home; jogador = `${label} (1)`; }
     return buildCandidate({
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
-      prob_modelo: prob, mu: lambdaHome + lambdaAway, minutos_esperados: 90.0,
+      prob_modelo: prob, mu: muTotal, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
       // 1x2: prob_modelo é vitória do mandante, não "over de gols" — anexar o trace
       // de gols contaria uma história falsa. Só totais (over genuíno) ganham trace.
-      trace: isTotals ? matchRateTrace(market.stat_field, lambdaHome + lambdaAway) : undefined,
+      trace: isTotals ? matchRateTrace(market.stat_field, muTotal, fonteLambda) : undefined,
     });
   });
 }

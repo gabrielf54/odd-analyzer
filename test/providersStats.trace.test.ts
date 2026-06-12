@@ -6,10 +6,10 @@ import { MARKETS } from "../src/model/markets.js";
 function fakeClient() {
   return {
     async playerStats() {
-      return { results: [
-        { shots_on_target: 2, minutes_played: 90, team_id: "T1" },
-        { shots_on_target: 0, minutes_played: 90, team_id: "T1" },
-        { shots_on_target: 1, minutes_played: 90, team_id: "T1" },
+      return { results: [ // total_shots = base do modelo (sot por decomposição); shots_on_target = numerador
+        { shots_on_target: 2, total_shots: 4, minutes_played: 90, team_id: "T1" },
+        { shots_on_target: 0, total_shots: 3, minutes_played: 90, team_id: "T1" },
+        { shots_on_target: 1, total_shots: 2, minutes_played: 90, team_id: "T1" },
       ] };
     },
     async events() { return { results: [] }; },
@@ -26,7 +26,7 @@ describe("entityRate trace", () => {
     expect(rate).not.toBeNull();
     expect(rate!.trace).toBeDefined();
     expect(rate!.trace!.mu).toBeCloseTo(rate!.mu, 6);
-    expect(rate!.trace!.statField).toBe("shots_on_target");
+    expect(rate!.trace!.statField).toBe("total_shots"); // base da decomposição do sot
     expect(rate!.trace!.passos[0]!.passo).toBe("taxa_base");
   });
 });

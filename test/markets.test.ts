@@ -35,11 +35,14 @@ describe("markets", () => {
     expect(isValidated("faltas", 0.5, 9)).toBe(true);   // clube over 0.5 GRADUOU (auditoria 2026-06-11, full +0.063)
   });
 
-  it("sot é nível jogador, contagem, campo shots_on_target", () => {
+  it("sot é nível jogador, contagem, por DECOMPOSIÇÃO (base total_shots → liquida shots_on_target)", () => {
     const m = MARKETS["sot"]!;
     expect(m.nivel).toBe("jogador");
     expect(m.kind).toBe("contagem");
-    expect(m.stat_field).toBe("shots_on_target");
+    expect(m.stat_field).toBe("total_shots");        // base do modelo (finalizações)
+    expect(m.settle_field).toBe("shots_on_target");  // a casa liquida chutes a gol
+    expect(m.concede_field).toBe("shots_on_target");  // eixo: chutes a gol concedidos
+    expect(m.mu_decomp?.num_field).toBe("shots_on_target");
   });
 
   it("baselineFor: liga de seleção (27=WC2026) usa baseline nacional", () => {

@@ -47,9 +47,10 @@ export function fakeClient(): any {
       const e = Object.values(byEv).find((x) => x.statsId === Number(pid));
       return { name: e?.name ?? "x" };
     },
-    // Stats do jogador por stats-id (rate). 12 jogos com SOT 3 → mu alto.
+    // Stats do jogador por stats-id (rate). 12 jogos: 6 finalizações, 3 no alvo
+    // (sot por decomposição usa total_shots como base) → mu alto.
     async playerStats() {
-      const g = Array.from({ length: 12 }, () => ({ shots_on_target: 3, minutes_played: 90 }));
+      const g = Array.from({ length: 12 }, () => ({ shots_on_target: 3, total_shots: 6, minutes_played: 90 }));
       return { results: g };
     },
     async eventStats() { return { stats: {} }; },

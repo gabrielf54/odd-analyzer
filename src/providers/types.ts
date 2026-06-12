@@ -38,4 +38,7 @@ export interface StatsProvider {
   squad(event: any): any[] | Promise<any[]>;
   entityRate(id: unknown, market: MarketSpec, ctx: any): (EntityRate | null) | Promise<EntityRate | null>;
   teamRates(teamId: unknown, ctx: any): any | Promise<any>;
+  // Pool cronológico de jogos da liga p/ os RATINGS de força (λ de partida). Opcional:
+  // ausente → runMatch cai pro baseline de média-crua (fail-safe).
+  leaguePool?(leagueId: unknown, window?: number): any[] | Promise<any[]>;
 }

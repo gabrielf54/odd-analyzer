@@ -1,6 +1,6 @@
 // Camada de serviço: contrato estável entre a UI (Next) e o motor. Funções puras de
 // orquestração, sem framework; recebem client/repo injetados → testáveis com fakes.
-import { MARKETS } from "./model/markets.js";
+import { MARKETS, settleField } from "./model/markets.js";
 import { runAnalyze } from "./runner.js";
 import { buildTeamMap, resolve } from "./crosswalk/bsdIds.js";
 import { parseManualOdds } from "./manual/schema.js";
@@ -132,7 +132,10 @@ export async function probableLineup(client: any, eventId: unknown): Promise<any
 
 export async function recentPlayerAverage(client: any, _eventId: unknown, marketKey: string, playerId: unknown): Promise<any> {
   if (!(marketKey in MARKETS)) throw new Error(`mercado desconhecido: ${marketKey}. Opções: ${Object.keys(MARKETS).join(", ")}`);
-  const field = MARKETS[marketKey]!.stat_field;
+  // settleField (não stat_field): o usuário vê a média DO QUE APOSTA. Em mercados de
+  // decomposição (sot→shots_on_target, desarme→won_tackle) o stat_field é a BASE do
+  // modelo (total_shots/total_tackle), não o que a casa liquida.
+  const field = settleField(marketKey) ?? MARKETS[marketKey]!.stat_field;
   const raw = await client.playerStats(playerId);
   const results: any[] = Array.isArray(raw?.results) ? raw.results : [];
   const values = results.filter((r) => r[field] != null).map((r) => Number(r[field]));
@@ -262,7 +265,9 @@ export async function paperBet(repo: any, eventId: string, candidate: any, inVal
 }
 
 export async function realPlayerResult(client: any, eventId: unknown, marketKey: string, linha: number): Promise<Record<string, any>> {
-  const field = MARKETS[marketKey]!.stat_field;
+  // settleField: o resultado real é o que a casa LIQUIDA (sot→shots_on_target,
+  // desarme→won_tackle), não a base do modelo (stat_field).
+  const field = settleField(marketKey) ?? MARKETS[marketKey]!.stat_field;
   const data = await client.eventPlayerStats(eventId);
   const rows: any[] = Array.isArray(data?.player_stats) ? data.player_stats : [];
   const out: Record<string, any> = {};

@@ -15,10 +15,10 @@ function makeClient(): any {
       };
     },
     async playerStats() {
-      return { results: [ // recente-primeiro
-        { shots_on_target: 2, minutes_played: 90, team_id: "H" },
-        { shots_on_target: 1, minutes_played: 90, team_id: "H" },
-        { shots_on_target: 3, minutes_played: 80, team_id: "H" },
+      return { results: [ // recente-primeiro; total_shots = base do sot por decomposição
+        { shots_on_target: 2, total_shots: 4, minutes_played: 90, team_id: "H" },
+        { shots_on_target: 1, total_shots: 3, minutes_played: 90, team_id: "H" },
+        { shots_on_target: 3, total_shots: 5, minutes_played: 80, team_id: "H" },
       ] };
     },
     async events() {
@@ -51,6 +51,16 @@ describe("BSDStatsProvider", () => {
     expect(t!.mu).toBeGreaterThan(0);
     expect(t!.amostra_jogos).toBe(3);
     expect(["alta", "media", "baixa"]).toContain(t!.incerteza);
+  });
+
+  it("sot por DECOMPOSIÇÃO: μ_sot = μ_finalizações × taxa-no-alvo (< μ_finalizações)", async () => {
+    const p = new BSDStatsProvider(makeClient());
+    const ctx = { event: evento, is_home: true, opp_team_id: "A", entity_team_id: "H" };
+    const fin = await p.entityRate(1, MARKETS["finalizacoes"]!, { ...ctx, league_avg_conceded: 13.46 });
+    const sot = await p.entityRate(1, MARKETS["sot"]!, { ...ctx, league_avg_conceded: 4.55 });
+    expect(sot!.mu).toBeGreaterThan(0);
+    // a taxa-no-alvo (<1) encolhe o μ de finalizações → SOT sempre menor
+    expect(sot!.mu).toBeLessThan(fin!.mu);
   });
 
   it("entity_taxa: sem histórico → null", async () => {
@@ -187,10 +197,10 @@ describe("tilt posicional no entityRate", () => {
 describe("stats_detalhadas", () => {
   it("computa médias e casa/fora via mapa de eventos do time", async () => {
     const client: any = {
-      playerStats: async () => ({ results: [ // BSD entrega recente-primeiro
-        { total_tackle: 6, minutes_played: 90, event_id: "e3", team_id: "100" },
-        { total_tackle: 4, minutes_played: 90, event_id: "e2", team_id: "100" },
-        { total_tackle: 2, minutes_played: 90, event_id: "e1", team_id: "100" },
+      playerStats: async () => ({ results: [ // recente-primeiro; won_tackle = settle do desarme (o drawer mostra ganhos)
+        { total_tackle: 8, won_tackle: 6, minutes_played: 90, event_id: "e3", team_id: "100" },
+        { total_tackle: 6, won_tackle: 4, minutes_played: 90, event_id: "e2", team_id: "100" },
+        { total_tackle: 3, won_tackle: 2, minutes_played: 90, event_id: "e1", team_id: "100" },
       ] }),
       events: async (filtros: any) => {
         if (String(filtros.team_id) === "100") {
@@ -224,7 +234,7 @@ describe("stats_detalhadas", () => {
   it("client.events falhando → split null, resto preenchido (degrada, não quebra)", async () => {
     const client: any = {
       playerStats: async () => ({ results: [
-        { total_tackle: 3, minutes_played: 90, event_id: "e1", team_id: "100" },
+        { total_tackle: 4, won_tackle: 3, minutes_played: 90, event_id: "e1", team_id: "100" },
       ] }),
       events: async () => { throw new Error("rede"); },
       eventStats: async () => ({ stats: {} }),
@@ -246,8 +256,8 @@ describe("posse_adversario (I5: descritivo, fora do money-path)", () => {
     return {
       async playerStats() {
         return { results: [
-          { shots_on_target: 2, minutes_played: 90, team_id: "H", event_id: "p1" },
-          { shots_on_target: 1, minutes_played: 90, team_id: "H", event_id: "p2" },
+          { shots_on_target: 2, total_shots: 4, minutes_played: 90, team_id: "H", event_id: "p1" },
+          { shots_on_target: 1, total_shots: 3, minutes_played: 90, team_id: "H", event_id: "p2" },
         ] };
       },
       async events({ team_id }: any) {
