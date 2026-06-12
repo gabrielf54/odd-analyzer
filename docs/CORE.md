@@ -10,9 +10,12 @@
 > **Atualizado:** 2026-06-12 (varredura de calibração: **prior+dispersão por posição REPROVADO** p/
 > as linhas mortas de jogador — é variância de cauda, não posição; **RATINGS tipo Elo no λ de partida
 > VENCE** — primeira alavanca que calibra gols/1X2, candidatos a graduar pós-productionização+forward;
-> escanteios-concessão reprovado. Provas em [`mercados-nao-validados`](features/mercados-nao-validados/))
+> escanteios-concessão reprovado; **COMBINADO de contexto (posse/mismatch/mando) testado out-of-fold:
+> só finalização CLUBE ganha (posse+mando), desarme/falta/SOT redundantes → §5; finalização na
+> prateleira pro clube + registro-sombra forward na Copa**. Provas em
+> [`mercados-nao-validados`](features/mercados-nao-validados/))
 > · 2026-06-11 (auditoria de
-> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 312 testes Vitest
+> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 322 testes Vitest
 > verdes (gate de paridade intacto) · **Custo até aqui:** $0 · **Arena ativa:** Copa do Mundo 2026
 > (seleções), abriu 2026-06-11; **clube ATIVO** (auditado). **Ratings de força no λ de partida
 > PRODUCTIONIZADOS 2026-06-12** (`src/model/ratings.ts` + `pipeline.runMatch`, com fallback) ·
@@ -130,6 +133,14 @@ finalizações **todas**, desarme **0.5** (graduou), faltas **0.5** (graduou) �
 preenchido. **Clube já é ATIVO.** Falta só **acumular forward de clube** (o `paper_ledger` é
 população-agnóstico: análise + `settle` em jogos de clube → CLI `report` mede Brier/ECE/CLV no clube).
 
+**Fator de CONTEXTO na finalização (posse+mando) — PRONTO PRA CLUBE, na prateleira:** o combinado
+de contexto (testado out-of-fold 2026-06-12f) **afia a finalização no clube** (over 1.5 BrierSkill
++0.012→+0.025, via posse +1.15× e mando +1.27×). Na Copa o dado de posse não existe → fica **só pro
+clube**: ao virar a chave pós-Copa, implementar o fator calibrado no μ de finalização (+ re-freeze de
+paridade). Detalhe/prova em [`mercados-nao-validados`](features/mercados-nao-validados/) (exp. 12f).
+Durante a Copa, um **registro-sombra forward** (`src/cli/forwardShadowFinalizacao.ts`, diagnóstico
+isolado) acumula se o mismatch ajuda a finalização ao vivo.
+
 **Backlog de re-calibração ("outra maneira"):** os `(mercado, linha, população)` que **reprovaram
 a calibração** (defesas, **passes** nas duas, SOT 1.5/2.5 nas duas, finalizações 2.5 seleção,
 desarme 1.5 nas duas, faltas 1.5/2.5 nas duas, gols/vitória/escanteios nas duas) ficam catalogados em
@@ -151,6 +162,7 @@ continua aqui (§3.1) e o que está morto de vez no §5.
 | **tilt posicional** | degradou ECE em 2 dos 3 mercados | candidato só p/ finalizações, com re-teste |
 | **prior/dispersão por posição** (D/M/F no μ do jogador) | TESTADO nas 2 pops 2026-06-12 (`recalibrate-position-conditioned.mts`): não gradua NENHUMA linha morta (a causa é variância de cauda, não pooling de posição) e ainda PIORA as vivas | não re-tentar; só forward regrada as linhas mortas de jogador |
 | **escanteios — eixo de concessão** | TESTADO 2026-06-12: pior que baseline (n=917) | não re-tentar; escanteios = forward |
+| **combinar CONTEXTO (posse/mismatch/mando) em desarme/falta/SOT** | TESTADO out-of-fold 2026-06-12f (regressão Poisson, 5-fold, ~40k obs): redundante com a forma — o "sinal" agregado é **viés de elenco**, some no teste intra-jogador. Fecha o "desarme condicionado" | não re-tentar nesses mercados; **só finalização ganha** (posse+mando, CLUBE) — ver [`mercados-nao-validados`](features/mercados-nao-validados/) |
 | **Calibrar na Copa LITERAL passada** | seasons 2018/2022 têm player-stats **VAZIO** na BSD | impossível offline → só forward |
 | **arbitro_tendencia** (sinal de árbitro p/ IA) | BSD não tem filtro `/events/?referee_id=` (param ignorado, listagem traz `referee_id=null` — spike 2026-06-11); agregar histórico do árbitro = varrer N eventos um a um, caro demais p/ um sinal de texto | só com fonte de **perfil de árbitro** pronta |
 

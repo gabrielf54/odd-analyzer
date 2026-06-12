@@ -31,6 +31,19 @@ npx tsx src/cli/report.ts
 
 Depois do passo 3, **leia a tabela** e aplique o **critério de graduação** abaixo.
 
+### Opcional — registro-sombra da finalização (diagnóstico, NÃO toca produção)
+
+```bash
+# Mede AO VIVO se combinar a forma com o MISMATCH de força afia a finalização (a calibração
+# offline provou isso no CLUBE; na Copa o dado não existe → só forward decide). Isolado:
+# recomputa do BSD, não grava no ledger, não muda nenhum prob_modelo. Idempotente; acumula.
+npx tsx src/cli/forwardShadowFinalizacao.ts
+```
+
+Veredito (forma vs forma×mismatch) só quando `n≥30` na banda. Se a **sombra** vencer consistente
+(BrierSkill↑, ECE↓) ao longo da Copa → vira candidata a fator calibrado na finalização (com re-freeze
+de paridade). Contexto: [`mercados-nao-validados`](../mercados-nao-validados/) (exp. 12f).
+
 ## Critério de GRADUAÇÃO (quando dar a ⭐ a gols/vitória)
 
 Flipar `validated_lines` em `src/model/markets.ts` para um `(mercado, população)` **só quando**, no

@@ -33,6 +33,7 @@ com prova (script + número). Detalhe nas seções "Experimento" abaixo.
 | **Prior + dispersão por posição** | linhas mortas de jogador | 🔴 **REPROVADO** nas 2 pops — é variância de cauda, não posição; ainda piora as vivas | riscado → Cemitério (CORE §5) |
 | **Escanteios: eixo de concessão** | escanteios (clube) | 🔴 **REPROVADO** — pior que baseline (n=917) | riscado; escanteios = forward |
 | **Passes: accurate_pass + R<8** | passes | 🔴 **sem edge** (off=0 BrierSkill +0.0005) | diagnóstico; só N5 (posse) resta |
+| **Combinado de contexto** (posse+mando+mismatch, pesos fitados) | finalização / desarme / falta / SOT | 🟡 **só finalização CLUBE over 1.5** (out-of-fold +0.012→+0.025); resto redundante | prateleira **pós-Copa** (clube) + **registro-sombra forward** na Copa; desarme/falta/SOT → §5 |
 
 **Saldo:** 1 vitória clara (ratings → destrava o grupo de partida), 1 melhoria (SOT decomp), 3
 alavancas mortas-com-prova, 1 marginal. As linhas mortas de **jogador** (sot 1.5/2.5, fin 2.5 sel,
@@ -203,6 +204,41 @@ médio ~0.94 **encolhe** o μ → reduz a super-previsão 2+: **SOT 1.5** banda 
 positiva** → gradua nada. **Faltas 1.5 / desarme 1.5:** sem ganho. Como o eixo **já está ligado na
 produção**, isto confirma que o confronto está na direção certa (ajuda, não atrapalha) — só não
 resgata cauda. Combinado com a decomp (exp d), aproxima SOT 1.5 da virada, mas segue **forward-only**.
+
+## Experimento 2026-06-12f: COMBINADO de contexto (posse+mando+mismatch, pesos fitados) — só finalização ganha, e é de CLUBE 🟡
+
+**Pergunta (do dono):** combinar VÁRIAS estatísticas — não uma só — deixa a análise mais inteligente?
+Ex.: time domina a posse + atacante finalizador → finalização; ou time ataca pela esquerda +
+lateral-direito do rival faz falta → falta do lateral. A ideia do **combinado**, não do fator isolado.
+
+**Método** (3 screens, `scripts/probe-posse-conditional.mts`, `probe-mismatch-conditional.mts`,
+`recalibrate-combined-context.mts`): (1) **intra-jogador** — a contagem do MESMO jogador varia com
+posse/mismatch (controla viés de elenco)? (2) **regressão de Poisson** com offset=log(μ_forma) e
+covariáveis [posse, supremacia λ_meu−λ_adv via ratings, mando], pesos fitados **FORA-DA-AMOSTRA**
+(5-fold), banda de aposta, settleField, por mercado. ~40k obs (clube 10.685 / seleção 835).
+
+**Resultado:**
+1. **Viés de elenco desmascarado:** no agregado quase tudo "responde" ao contexto; no teste
+   **intra-jogador** só **finalização** sobrevive (clube 55-61% dos jogadores, swing 26-33%).
+   SOT/desarme/falta = o craque já está no time forte → o contexto **não muda o mesmo jogador**.
+2. **Pesos aprendidos (clube):** posse +10% = **1.15×** chutes · mando = **1.27×** · favoritismo
+   ≈ **1.00×** (redundante com posse — colinear; o mismatch é a posse por baixo).
+3. **Veredito out-of-fold (clube):** finalização **over 1.5 VENCE** (BrierSkill +0.012→**+0.025**,
+   ECE 0.038→0.033); over 2.5 melhora (−0.030→−0.008, ainda <0); over 0.5 empata (forma já acerta).
+   **desarme/falta = empate/pior (redundante)**; **SOT 0.5 pior** (a decomp já é melhor modelo).
+4. **Seleção (Copa) NÃO prova offline:** amostra utilizável cai p/ 835 — **posse quase ausente**
+   (69/392 eventos têm `ball_possession`) e seleção joga pouco → **0 poder intra**. O mando vem de
+   eliminatória (≠ campo neutro da Copa). Toda "vitória" da seleção aqui é ruído de n pequeno.
+
+**Veredito:** o combinado deixa mais inteligente em **UM lugar — finalização na linha de aposta —
+via posse+mando, e é alavanca de CLUBE.** O favorito×zebra é redundante com a posse; sua melhor
+colheita já está nos **ratings de gols/1X2** (productionizados 2026-06-12b).
+- **Desarme/falta/SOT condicionados a contexto = REDUNDANTE, provado out-of-fold → Cemitério (CORE
+  §5).** Fecha com prova o exemplo do "desarme condicionado à posse".
+- **Finalização posse+mando = na PRATELEIRA pro pós-Copa (clube)** — implementar ao virar a chave
+  pro clube (fator calibrado no μ + re-freeze de paridade). Na Copa o dado não existe → vai pro
+  **registro-sombra forward** (`src/cli/forwardShadowFinalizacao.ts`, diagnóstico ISOLADO, não toca
+  produção) que acumula o veredito ao vivo conforme a Copa anda.
 
 ---
 
