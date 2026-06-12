@@ -24,6 +24,10 @@ export interface BuildCandidateArgs {
   concedido_posicao?: string | null;
   stats_detalhadas?: StatsDetalhadas | null;
   posse_adversario?: number | null;
+  // Override de de-vig (de-vig de escada one-sided, ver value/ladderDevig). Quando
+  // presente, usa esta prob justa em vez de calcular da odd_under (que não existe na
+  // escada). sem_devig acompanha (false = a escada ajustou; true = fallback conservador).
+  devig?: { prob: number; sem_devig: boolean } | null;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -34,8 +38,8 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
   // mais difícil de passar), nunca sinaliza valor-fantasma vindo só da margem.
   // O `<= 1.0` é defesa em profundidade: blinda contra um 0/lado-ausente que vaze de
   // qualquer borda (evita o throw de impliedProb numa odd inválida).
-  const semDevig = a.odd_under == null || a.odd_under <= 1.0;
-  const prob_devig = semDevig ? impliedProb(a.odd_over) : fairProbOver(a.odd_over, a.odd_under as number);
+  const semDevig = a.devig ? a.devig.sem_devig : (a.odd_under == null || a.odd_under <= 1.0);
+  const prob_devig = a.devig ? a.devig.prob : (semDevig ? impliedProb(a.odd_over) : fairProbOver(a.odd_over, a.odd_under as number));
   const m = edgeEv(a.prob_modelo, prob_devig, a.odd_over);
   const out: Record<string, unknown> = {
     jogador: a.jogador,

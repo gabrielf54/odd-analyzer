@@ -123,4 +123,22 @@ describe("buildCandidate", () => {
     expect(buildCandidate({ ...base, stats_detalhadas: sd }).stats_detalhadas).toEqual(sd);
     expect(buildCandidate(base).stats_detalhadas).toBeNull();
   });
+
+  it("respeita o override `devig` (de-vig de escada): usa a prob justa, não a crua", () => {
+    const base = {
+      jogador: "K. Havertz", linha: 0.5, odd_over: 2.0, odd_under: null, prob_modelo: 0.6,
+      mu: 1.0, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 12,
+      concedido_adversario: "n/d", incerteza: "baixa", market_type: "passes",
+    };
+    // com devig (escada ajustou) → prob_devig vem do override, NÃO a crua 1/odd_over=0.5
+    const c = buildCandidate({ ...base, devig: { prob: 0.42, sem_devig: false } });
+    expect(c["prob_devig"]).toBe(0.42);
+    expect(c["sem_devig"]).toBe(false);
+    expect(c["edge"]).toBeCloseTo(0.6 - 0.42, 12);
+    expect(c["ev"]).toBeCloseTo(0.6 * 2.0 - 1.0, 12);
+    // sem devig → comportamento atual (one-sided → sem_devig:true, prob_devig=1/odd_over)
+    const cBare = buildCandidate(base);
+    expect(cBare["sem_devig"]).toBe(true);
+    expect(cBare["prob_devig"]).toBeCloseTo(impliedProb(2.0), 12);
+  });
 });

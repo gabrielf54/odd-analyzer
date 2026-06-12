@@ -22,6 +22,18 @@ function fakeClientNoXi(): any {
   };
 }
 
+/** Variante do fakeClient com playerStats de PASSES (total_pass) p/ a escada de passes.
+ * 12 jogos, ~45 passes em 90 min → μ de passes ~45 (no entorno das linhas testadas). */
+function fakeClientPasses(): any {
+  const base = fakeClient();
+  return {
+    ...base,
+    async playerStats() {
+      return { results: Array.from({ length: 12 }, () => ({ total_pass: 45, minutes_played: 90 })) };
+    },
+  };
+}
+
 describe("analyzeManual", () => {
   it("roda mercado de jogador com odd por-jogador e marca sem_devig", async () => {
     const repo = new InMemoryRepo();
@@ -196,5 +208,37 @@ describe("analyzeManual", () => {
       expect(row).toHaveProperty("player_id");
       expect(row).toHaveProperty("odd_flag");
     }
+  });
+
+  it("escada de passes: agrupa degraus por jogador e de-viga a escada inteira (ladderDevig)", async () => {
+    const repo = new InMemoryRepo();
+    // 5 degraus "N+" (convenção linha=N-0.5) p/ o MESMO jogador, odds crescentes
+    // (implícitas decrescentes = monótono) → ladderDevig AJUSTA (sem_devig=false).
+    const degraus = [
+      { linha: 39.5, odd_over: 1.7 },
+      { linha: 44.5, odd_over: 1.9 },
+      { linha: 49.5, odd_over: 2.1 },
+      { linha: 54.5, odd_over: 2.4 },
+      { linha: 59.5, odd_over: 2.8 },
+    ];
+    const out = await analyzeManual(fakeClientPasses(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: degraus.map((d) => ({
+        market_type: "passes", entidade: "K. Havertz", linha: d.linha,
+        odd_over: d.odd_over, odd_under: null, book: "b",
+      })),
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+
+    const all = [...out.candidatos, ...out.reprovados];
+    const passes = all.filter((c: any) => c.market_type === "passes");
+    // saem os 5 degraus, todos do mercado passes
+    expect(passes.length).toBe(5);
+    // a escada ajustou → sem_devig=false em TODOS (não caiu no fallback conservador)
+    expect(passes.every((c: any) => c.sem_devig === false)).toBe(true);
+    // e o prob_devig é a prob JUSTA da escada — diferente da implícita crua 1/odd_over
+    expect(passes.some((c: any) => Math.abs(c.prob_devig - 1 / c.odd) > 1e-6)).toBe(true);
+    // passes é DIAGNÓSTICO (sem validated_lines) → nunca ganha estrela
+    expect(out.candidatos.every((c: any) => c.recomendado !== true)).toBe(true);
   });
 });

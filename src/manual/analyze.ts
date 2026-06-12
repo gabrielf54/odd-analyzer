@@ -9,7 +9,8 @@ import { InMemoryRepo } from "../store/repo.js";
 import { rankCandidates } from "../candidates/rank.js";
 import { reviewCandidates, type ReviewerFn } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
-import { matchPlayerOdds } from "./matchOdds.js";
+import { matchPlayerOdds, type OddsMatched } from "./matchOdds.js";
+import { ladderDevig } from "../value/ladderDevig.js";
 import type { ManualOddsInput, ManualOddsLine } from "./schema.js";
 
 export interface AnalyzeManualOpts {
@@ -140,6 +141,48 @@ async function playerCandidates(
   const base = baselineFor(market, leagueId);
   const byId = new Map(squad.map((p) => [String(p.id), p]));
   const out: any[] = [];
+
+  if (market.ladder) {
+    // Escada one-sided (passes): a casa dá vários degraus "N+" por jogador. Agrupa os
+    // degraus por jogador, computa a forma UMA vez, e de-viga a escada inteira p/ a prob
+    // justa de cada degrau (em vez da implícita crua, que subestima o edge).
+    const rungsByPlayer = new Map<string, OddsMatched[]>();
+    for (const od of casados) {
+      const arr = rungsByPlayer.get(od.player_id);
+      if (arr) arr.push(od); else rungsByPlayer.set(od.player_id, [od]);
+    }
+    for (const [pid, rungs] of rungsByPlayer) {
+      const entity = byId.get(pid);
+      if (!entity) continue;
+      const isHome = entity.team_id === homeId;
+      const titularidade = xiTeamIds.size > 0 ? (xiTeamIds.has(pid) ? "confirmado" : "fora_do_xi") : "provavel";
+      const ctx = {
+        event, entity_team_id: entity.team_id ?? entity.id, is_home: isHome,
+        opp_team_id: isHome ? awayId : homeId, league_avg_conceded: base,
+        xi_team_ids: xiTeamIds, escopo_historico: scope, posicao: entity.posicao ?? "",
+      };
+      const rate = await stats.entityRate(entity.id, market, ctx);
+      if (rate == null) continue;
+      const ladder = ladderDevig(rungs.map((r) => ({ linha: r.linha, odd: r.odd_over })));
+      const devigByLinha = new Map(ladder.rungs.map((dr) => [dr.linha, dr]));
+      for (const od of rungs) {
+        const dr = devigByLinha.get(od.linha);
+        out.push(buildCandidate({
+          jogador: entity.name, linha: od.linha, odd_over: od.odd_over, odd_under: od.odd_under,
+          prob_modelo: probOverLine(rate.mu, od.linha, market.nb_dispersion), mu: rate.mu,
+          minutos_esperados: rate.minutos_esperados, xi_confirmado: rate.xi_confirmado,
+          amostra_jogos: rate.amostra_jogos, concedido_adversario: rate.concedido_adversario,
+          incerteza: rate.incerteza, market_type: market.key, player_id: entity.id, trace: rate.trace,
+          posicao: entity.posicao ?? null, titularidade,
+          concedido_posicao: rate.concedido_posicao ?? null,
+          stats_detalhadas: rate.stats_detalhadas ?? null,
+          posse_adversario: rate.posse_adversario ?? null,
+          devig: dr ? { prob: dr.prob_devig, sem_devig: dr.sem_devig } : null,
+        }));
+      }
+    }
+    return out;
+  }
 
   for (const od of casados) {
     const entity = byId.get(od.player_id);

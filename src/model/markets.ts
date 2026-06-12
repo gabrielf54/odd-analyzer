@@ -31,6 +31,9 @@ export interface MarketSpec {
   // teria SINAL INVERTIDO (somaria a posse do rival → infla quando deveria desinflar),
   // então é neutralizado.
   opp_mode?: "concession" | "none";
+  // Mercado vem em ESCADA one-sided (vários degraus "N+" por jogador, ex.: passes).
+  // O wiring agrupa os degraus por jogador e de-viga a escada inteira (ladderDevig).
+  ladder?: boolean;
   // GATE de aposta de valor (estrela), CIENTE DE POPULAÇÃO. Roteado por
   // populacaoFor(leagueId): um mercado/linha pode valer na seleção e não no clube
   // (ou vice-versa). chave AUSENTE → não validado nessa população; [] → TODAS as
@@ -150,7 +153,7 @@ export const MARKETS: Record<string, MarketSpec> = {
   // ser honesto). lines:[] (passe não tem linha fixa; a escada vem por jogador da casa).
   passes: spec({
     key: "passes", nivel: "jogador", kind: "contagem", stat_field: "total_pass",
-    opp_mode: "none", settle_field: "total_pass",
+    opp_mode: "none", settle_field: "total_pass", ladder: true,
     prior_rate: 30.0, prior_strength: 8.0, nb_dispersion: 20.0, lines: [],
     eixo_concessao: "passes_(posse_dominado)", label: "Passes (Total)",
   }),
