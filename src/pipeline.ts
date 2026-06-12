@@ -6,6 +6,34 @@ import { computeRatings, lambdaFromRatings, ratingsEligible, homeAdvFor } from "
 import { baselineFor, populacaoFor, ratingsPoolLeagues, type MarketSpec } from "./model/markets.js";
 import { analyze as defaultAnalyst } from "./ai/analyst.js";
 import { type RateTrace } from "./model/trace.js";
+import { logWarn } from "./lib/log.js";
+
+const DRAW_TOKENS = new Set(["empate", "draw", "x", "tie", "drawn", "nulo"]);
+
+/** Normaliza p/ casar nome de time: tira acento/pontuação, baixa caixa, colapsa espaços. */
+function norm1x2(s: unknown): string {
+  return String(s ?? "").normalize("NFD").replace(/\p{Diacritic}/gu, "")
+    .toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+/** Casa a entidade de uma linha 1X2 ao desfecho (mandante/empate/visitante). Empate
+ * por palavra-chave; time por igualdade normalizada e, em último caso, por
+ * sobreposição de tokens (cobre "Bosnia & Herzegovina" vs "Bosnia and Herzegovina").
+ * Retorna null quando não reconhece — o chamador decide o fallback. */
+function outcome1x2(entidade: unknown, homeName: unknown, awayName: unknown): "home" | "draw" | "away" | null {
+  const e = norm1x2(entidade);
+  if (!e) return null;
+  if (DRAW_TOKENS.has(e)) return "draw";
+  const h = norm1x2(homeName), a = norm1x2(awayName);
+  if (e === h) return "home";
+  if (e === a) return "away";
+  const et = new Set(e.split(" ").filter(Boolean));
+  const overlap = (x: string) => x.split(" ").filter((t) => t && et.has(t)).length;
+  const oh = overlap(h), oa = overlap(a);
+  if (oh > oa) return "home";
+  if (oa > oh) return "away";
+  return null;
+}
 
 const UNCERTAINTY_ORDER: Record<string, number> = { baixa: 0, media: 1, alta: 2 };
 
@@ -128,7 +156,10 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
         const lam = lambdaFromRatings(ratings, String(home.id), String(away.id), { mu0: league, homeAdv });
         if (lam) { lambdaHome = lam.lambdaHome; lambdaAway = lam.lambdaAway; fonte = "ratings_forca"; }
       }
-    } catch { /* fall back p/ média-crua */ }
+    } catch (e) {
+      // Antes engolia em silêncio — o operador não via que os ratings falharam.
+      logWarn("runMatch:ratings", "ratings falharam; caindo p/ média-crua", { event_id: event.id, err: e instanceof Error ? e.message : String(e) });
+    }
   }
   if (lambdaHome == null || lambdaAway == null) {
     const rh = await sp.teamRates(home.id, { event, is_home: true });
@@ -142,15 +173,35 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
   const fonteLambda = fonte;
   const label = event.jogo || `${home.name ?? ""} x ${away.name ?? ""}`.trim();
   const isTotals = market.kind === "partida_totais";
+  const p1x2 = isTotals ? null : probs1x2(matrix);
+  const SUFIXO = { home: "(1)", draw: "(X)", away: "(2)" } as const;
   return lines.map((li: any) => {
     let prob: number, jogador: string;
-    if (isTotals) { prob = probTotalOver(matrix, li.linha); jogador = label; }
-    else { prob = probs1x2(matrix).home; jogador = `${label} (1)`; }
+    if (isTotals) {
+      prob = probTotalOver(matrix, li.linha); jogador = label;
+    } else {
+      // 1X2: CADA linha é um resultado distinto (mandante/empate/visitante). Casa a
+      // entidade colada ao desfecho e usa a prob daquele lado. Sem isso, TODAS as
+      // linhas viravam "vitória do mandante" — número errado E, como `jogador`/`linha`
+      // ficavam idênticos, o upsert do paper_ledger colidia na chave
+      // (event_id,jogador,linha,market_type) → "ON CONFLICT ... cannot affect row a
+      // second time" (bug 2026-06-12). `entidade="partida"` (placeholder da rota legada
+      // /analisar, linha única) cai no mandante sem ruído; qualquer outro nome não
+      // reconhecido vira mandante MAS é logado (suspeita de nome torto da casa).
+      const lado = outcome1x2(li.entidade, home.name, away.name);
+      if (lado == null && norm1x2(li.entidade) !== "partida") {
+        logWarn("runMatch:1x2", "entidade de vitória não reconhecida — assumindo mandante", {
+          event_id: event.id, entidade: li.entidade, home: home.name, away: away.name,
+        });
+      }
+      const ladoFinal = lado ?? "home";
+      prob = p1x2![ladoFinal]; jogador = `${label} ${SUFIXO[ladoFinal]}`;
+    }
     return buildCandidate({
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
       prob_modelo: prob, mu: muTotal, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
-      // 1x2: prob_modelo é vitória do mandante, não "over de gols" — anexar o trace
+      // 1x2: prob_modelo é a prob DAQUELE resultado, não "over de gols" — anexar o trace
       // de gols contaria uma história falsa. Só totais (over genuíno) ganham trace.
       trace: isTotals ? matchRateTrace(market.stat_field, muTotal, fonteLambda) : undefined,
     });

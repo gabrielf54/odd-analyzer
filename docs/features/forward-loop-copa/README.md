@@ -66,9 +66,14 @@ rodando — o loop acumula.
 
 ## Estado atual (atualize a cada rodada)
 
-- **2026-06-12:** loop criado e provado ao vivo. **40 previsões logadas** (10 jogos da Copa, gols
-  1.5/2.5/3.5 + vitória). 0 liquidadas ainda (jogos não aconteceram). Fase 1 (calibração) ligada;
-  Fase 2 (CLV) pendente. Nenhum mercado de partida graduado ainda.
+- **2026-06-12:** loop criado, provado e **PERSISTINDO**. Bug achado e corrigido: `odd_flag` era
+  `NOT NULL` (linha de calibração não tem odd) e o `saveLedger` engolia o erro → previsões NÃO
+  gravavam. Fix: migração `paper_ledger_odd_flag_nullable` (odd_flag nullable) + `saveLedger` agora
+  **falha alto** (não engole). **13 jogos logados** (2 liquidados — as aberturas; 11 pendentes).
+  Liquidados: **gols n=6, vitória n=2**. ⚠️ **Os números do report (BrierSkill/ECE) são RUÍDO a
+  n<10 — IGNORAR até a amostra passar de ~30.** O modelo acertou os 2 jogos (resultado 2/2, direção
+  dos gols 2/2), mas n=2 é anedota. Fase 1 (calibração) ligada; Fase 2 (CLV) pendente. Nenhum
+  mercado de partida graduado.
 
 ## Automação
 

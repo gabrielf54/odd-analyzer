@@ -192,6 +192,30 @@ describe("analyzeManual", () => {
     expect(vit!.sem_devig).toBe(true); // conservador: 1/odd_over, sem inventar margem
   });
 
+  it("vitoria com 3 resultados (1X2) gera candidatos DISTINTOS — não colide no paper_ledger", async () => {
+    // Regressão do erro "ON CONFLICT DO UPDATE command cannot affect row a second time"
+    // (2026-06-12): as 3 linhas de vitória (mandante/empate/visitante) viravam todas
+    // "mandante" com a MESMA chave (jogador,linha,market) → o upsert do ledger quebrava.
+    // fakeClient: home_team="Germany", away_team="Scotland".
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [
+        { market_type: "vitoria", entidade: "Germany", linha: 0, odd_over: 1.5, odd_under: null, book: "b" },
+        { market_type: "vitoria", entidade: "empate", linha: 0, odd_over: 3.4, odd_under: null, book: "b" },
+        { market_type: "vitoria", entidade: "Scotland", linha: 0, odd_over: 6.0, odd_under: null, book: "b" },
+      ],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+
+    const vit = [...out.candidatos, ...out.reprovados].filter((c: any) => c.market_type === "vitoria");
+    expect(vit).toHaveLength(3);
+    expect(new Set(vit.map((c: any) => c.jogador)).size).toBe(3); // 3 desfechos distintos
+    // O que entrou no ledger (edge>0) não pode ter chave repetida.
+    const led = repo.ledger.filter((r: any) => r.market_type === "vitoria");
+    expect(new Set(led.map((r: any) => `${r.jogador}|${r.linha}`)).size).toBe(led.length);
+  });
+
   it("grava no paper_ledger os candidatos com edge>0 (calibração forward)", async () => {
     const repo = new InMemoryRepo();
     await analyzeManual(fakeClient(), {

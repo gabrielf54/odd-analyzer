@@ -1,4 +1,5 @@
 import { getRequired } from "../config.js";
+import { logError } from "../lib/log.js";
 
 const URL = "https://openrouter.ai/api/v1/chat/completions";
 const DEFAULT_MODEL = "anthropic/claude-sonnet-4.6";
@@ -19,7 +20,13 @@ export async function chat(
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({ model: mdl, messages, temperature: opts.temperature ?? 0.0 }),
   });
-  if (!r.ok) throw new Error(`OpenRouter ${r.status}`);
+  if (!r.ok) {
+    // Loga o CORPO da resposta (chave inválida, rate-limit, modelo errado…) — antes
+    // só subia "OpenRouter 4xx" e o motivo real ficava invisível no servidor.
+    const body = await r.text().catch(() => "");
+    logError("openrouter", `HTTP ${r.status}`, { model: mdl, body: body.slice(0, 500) });
+    throw new Error(`OpenRouter ${r.status}`);
+  }
   const data = await r.json();
   return data.choices[0].message.content;
 }

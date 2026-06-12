@@ -2,6 +2,7 @@ import express, { type Request, type Response, type NextFunction } from "express
 import { z } from "zod";
 import { AppError } from "./errors.js";
 import * as service from "../service.js";
+import { logError } from "../lib/log.js";
 import type { ReviewerFn } from "../ai/reviewer.js";
 
 export interface Deps {
@@ -134,11 +135,16 @@ export function createApp(deps: Deps): express.Express {
   }));
 
   // Middleware de erro: AppError → status/codigo; erro de domínio → 400; senão 500.
-  app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  // LOGA todo erro inesperado (e AppError 5xx) — antes o backend ficava mudo: o erro
+  // virava só um 400 pro front e NADA no console do servidor (ex.: o crash do
+  // saveLedger por chave duplicada). AppError 4xx (validação) não loga — é esperado.
+  app.use((err: unknown, req: Request, res: Response, _next: NextFunction) => {
     if (err instanceof AppError) {
+      if (err.status >= 500) logError("api", err, { path: req.path, method: req.method, codigo: err.codigo });
       res.status(err.status).json({ erro: err.message, codigo: err.codigo });
       return;
     }
+    logError("api", err, { path: req.path, method: req.method });
     const msg = err instanceof Error ? err.message : String(err);
     res.status(400).json({ erro: msg, codigo: "erro_requisicao" });
   });

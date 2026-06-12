@@ -1,6 +1,7 @@
 import { chat as defaultChat, type Msg } from "./openrouter.js";
 import { validateReview } from "./reviewSchema.js";
 import { parseJsonLoose } from "./parseJson.js";
+import { logWarn } from "../lib/log.js";
 
 export const PROMPT_REVISOR =
   "Você é um analista de apostas cético que explica para uma pessoa LEIGA — entende de " +
@@ -98,10 +99,14 @@ export async function reviewCandidates(
   for (let i = 0; i < 2; i++) {
     let raw: string;
     try { raw = await chatFn(messages, { temperature: 0.0 }); }
-    catch (e) { ultimoMotivo = `chamada falhou: ${e instanceof Error ? e.message : String(e)}`; continue; }
+    catch (e) {
+      ultimoMotivo = `chamada falhou: ${e instanceof Error ? e.message : String(e)}`;
+      logWarn("reviewer", "tentativa de IA falhou", { tentativa: i + 1, motivo: ultimoMotivo });
+      continue;
+    }
     const obj = parseJsonLoose(raw);
-    if (obj == null) { ultimoMotivo = "saída não é JSON"; continue; }
-    if (!validateReview(obj, candidatos)) { ultimoMotivo = "JSON fora do schema esperado"; continue; }
+    if (obj == null) { ultimoMotivo = "saída não é JSON"; logWarn("reviewer", "tentativa de IA inválida", { tentativa: i + 1, motivo: ultimoMotivo }); continue; }
+    if (!validateReview(obj, candidatos)) { ultimoMotivo = "JSON fora do schema esperado"; logWarn("reviewer", "tentativa de IA inválida", { tentativa: i + 1, motivo: ultimoMotivo }); continue; }
     {
       const byKey = new Map<string, Revisao>();
       for (const r of obj.revisoes) {
@@ -114,7 +119,7 @@ export async function reviewCandidates(
       return { candidatos: merged, ia: { topo_explicacao: obj.topo_explicacao ?? null, alertas: obj.alertas ?? [] } };
     }
   }
-  console.warn(`[reviewer] IA degradou após 2 tentativas — motivo: ${ultimoMotivo}`);
+  logWarn("reviewer", "IA degradou após 2 tentativas — exibindo só o veredito do código", { motivo: ultimoMotivo });
   return {
     candidatos: candidatos.map((c) => ({ ...c, ia_revisao: null })),
     ia: { topo_explicacao: null, alertas: ["IA indisponível — exibindo só o veredito do código"] },

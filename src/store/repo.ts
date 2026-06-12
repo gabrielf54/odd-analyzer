@@ -1,3 +1,5 @@
+import { logError, logWarn } from "../lib/log.js";
+
 /** Closing Line Value: positivo = peguei preço melhor que o fechamento. */
 export function clv(oddFlag: number, closingOdd: number): number {
   return oddFlag / closingOdd - 1.0;
@@ -159,19 +161,39 @@ export class SupabaseRepo implements Repo {
     this.client = client;
   }
 
+  /** Escrita (upsert/update/delete): se o Supabase devolver `error`, LOGA com
+   * contexto e RELANÇA — antes o erro era engolido e a linha sumia em silêncio
+   * (bug do loop forward, 2026-06-12). Fail-loud. */
+  private async mutate(label: string, q: any, ctx?: Record<string, unknown>): Promise<any> {
+    const { data, error } = await q;
+    if (error) {
+      logError(`db:${label}`, error, ctx);
+      throw new Error(`${label} falhou: ${error.message ?? error}`);
+    }
+    return data;
+  }
+
+  /** Leitura: se vier `error`, LOGA e devolve o fallback (uma leitura que falha não
+   * deve derrubar a requisição inteira — mas não pode mais ser silenciosa). */
+  private async query<T>(label: string, q: any, fallback: T, ctx?: Record<string, unknown>): Promise<T> {
+    const { data, error } = await q;
+    if (error) { logError(`db:${label}`, error, ctx); return fallback; }
+    return (data ?? fallback) as T;
+  }
+
   async saveAnalysis(eventId: string, payload: any) {
-    await this.client.from("analises").upsert({ event_id: eventId, ...payload });
+    await this.mutate("saveAnalysis", this.client.from("analises").upsert({ event_id: eventId, ...payload }), { eventId });
   }
 
   async saveManualResult(eventId: string, result: any, analisadoEm: string) {
-    await this.client.from("analises").upsert({
+    await this.mutate("saveManualResult", this.client.from("analises").upsert({
       event_id: eventId, market_type: "manual_todos",
       jogo: result?.jogo ?? null, resultado: result, data: analisadoEm,
-    });
+    }), { eventId });
   }
   async getManualResult(eventId: string): Promise<ManualResult | null> {
-    const { data } = await this.client.from("analises")
-      .select("resultado, data").eq("event_id", eventId).eq("market_type", "manual_todos");
+    const data = await this.query<any[]>("getManualResult", this.client.from("analises")
+      .select("resultado, data").eq("event_id", eventId).eq("market_type", "manual_todos"), [], { eventId });
     const row = data && data.length ? data[0] : null;
     return row && row.resultado ? { result: row.resultado, analisado_em: row.data } : null;
   }
@@ -179,21 +201,20 @@ export class SupabaseRepo implements Repo {
   async saveOdds(eventId: string, lines: OddsRow[]) {
     if (!lines.length) return;
     const rows = lines.map((l) => ({ ...l, event_id: eventId }));
-    await this.client.from("odds").upsert(rows, { onConflict: "event_id,entidade,market_type,linha,book" });
+    await this.mutate("saveOdds", this.client.from("odds").upsert(rows, { onConflict: "event_id,entidade,market_type,linha,book" }), { eventId, linhas: rows.length });
   }
   async getOdds(eventId: string): Promise<OddsRow[]> {
-    const { data } = await this.client.from("odds").select("*").eq("event_id", eventId);
-    return (data ?? []) as OddsRow[];
+    return this.query<OddsRow[]>("getOdds", this.client.from("odds").select("*").eq("event_id", eventId), [], { eventId });
   }
   async deleteOdds(eventId: string, filter?: Partial<OddsRow>) {
     let q = this.client.from("odds").delete().eq("event_id", eventId);
     for (const [k, v] of Object.entries(filter ?? {})) q = q.eq(k, v);
-    await q;
+    await this.mutate("deleteOdds", q, { eventId, filter });
   }
   async listOddsEvents(): Promise<OddsEventSummary[]> {
-    const { data } = await this.client.from("odds").select("event_id, coletado_em");
+    const data = await this.query<any[]>("listOddsEvents", this.client.from("odds").select("event_id, coletado_em"), []);
     const map = new Map<string, { total: number; last: string | null }>();
-    for (const r of (data ?? []) as any[]) {
+    for (const r of data) {
       const cur = map.get(r.event_id) ?? { total: 0, last: null };
       cur.total++;
       if (r.coletado_em && (!cur.last || r.coletado_em > cur.last)) cur.last = r.coletado_em;
@@ -202,64 +223,73 @@ export class SupabaseRepo implements Repo {
     return [...map].map(([event_id, v]) => ({ event_id, total_linhas: v.total, ultimo_coletado_em: v.last }));
   }
   async getAnalysis(eventId: string) {
-    const { data } = await this.client.from("analises").select("*").eq("event_id", eventId);
+    const data = await this.query<any[]>("getAnalysis", this.client.from("analises").select("*").eq("event_id", eventId), [], { eventId });
     return data && data.length ? data[0] : null;
   }
   async saveLedger(rows: any[]) {
-    if (rows.length) await this.client.from("paper_ledger").upsert(rows, { onConflict: "event_id,jogador,linha,market_type" });
+    if (!rows.length) return;
+    // DEDUP in-batch por chave (event,jogador,linha,market): o upsert do Postgres
+    // recusa atualizar a MESMA linha 2x no mesmo comando ("ON CONFLICT DO UPDATE
+    // command cannot affect row a second time"). Last-wins, igual ao InMemoryRepo —
+    // blinda contra qualquer bug upstream que gere chave repetida (ex.: 1X2 mal-mapeado).
+    const byKey = new Map<string, any>();
+    for (const r of rows) byKey.set(`${r.event_id}|${r.jogador}|${r.linha}|${r.market_type}`, r);
+    const deduped = [...byKey.values()];
+    if (deduped.length !== rows.length) {
+      logWarn("db:saveLedger", "lote tinha chaves duplicadas — colapsadas (last-wins)", { recebidas: rows.length, apos_dedup: deduped.length });
+    }
+    await this.mutate("saveLedger", this.client.from("paper_ledger").upsert(deduped, { onConflict: "event_id,jogador,linha,market_type" }), { linhas: deduped.length });
   }
   async getLedger(eventId: string): Promise<any[]> {
-    const { data } = await this.client.from("paper_ledger").select("*").eq("event_id", eventId);
-    return data ?? [];
+    return this.query<any[]>("getLedger", this.client.from("paper_ledger").select("*").eq("event_id", eventId), [], { eventId });
   }
   async allLedger(): Promise<any[]> {
-    const { data } = await this.client.from("paper_ledger").select("*");
-    return data ?? [];
+    return this.query<any[]>("allLedger", this.client.from("paper_ledger").select("*"), []);
   }
   async settleResult(eventId: string, jogador: string, linha: number, marketType: string | null, resultado: number) {
     let upd = this.client.from("paper_ledger").update({ resultado })
       .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) upd = upd.eq("market_type", marketType);
-    await upd;
+    await this.mutate("settleResult", upd, { eventId, jogador, linha, marketType });
   }
   async updateClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number, resultado: number) {
     let q = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) q = q.eq("market_type", marketType);
-    const { data } = await q;
+    const data = await this.query<any[]>("updateClosing:select", q, [], { eventId, jogador, linha, marketType });
     if (!data || !data.length) return;
     if (data.length > 1) throw new Error(`paper_ledger duplicado (${eventId}, ${jogador}, ${linha}, ${marketType})`);
     const c = clv(data[0].odd_flag, closingOdd);
     let upd = this.client.from("paper_ledger").update({ odd_fechamento: closingOdd, resultado, clv: c })
       .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) upd = upd.eq("market_type", marketType);
-    await upd;
+    await this.mutate("updateClosing", upd, { eventId, jogador, linha, marketType });
   }
   async saveCrosswalk(canonicalId: number, normalizedName: string, sourceIds: any, confidence: number, manuallyVerified = false) {
-    await this.client.from("jogadores_crosswalk").upsert({
+    await this.mutate("saveCrosswalk", this.client.from("jogadores_crosswalk").upsert({
       id_canonico: canonicalId, nome_normalizado: normalizedName,
       fontes_ids: sourceIds, confianca: confidence, verificado_manual: manuallyVerified,
-    });
+    }), { canonicalId, normalizedName });
   }
   async getCrosswalk(canonicalId: number) {
-    const { data } = await this.client.from("jogadores_crosswalk").select("*").eq("id_canonico", canonicalId);
+    const data = await this.query<any[]>("getCrosswalk", this.client.from("jogadores_crosswalk").select("*").eq("id_canonico", canonicalId), [], { canonicalId });
     return data && data.length ? data[0] : null;
   }
   async listCrosswalk(): Promise<Record<string, string>> {
-    const { data } = await this.client.from("jogadores_crosswalk").select("nome_normalizado,id_canonico");
+    const data = await this.query<any[]>("listCrosswalk", this.client.from("jogadores_crosswalk").select("nome_normalizado,id_canonico"), []);
     const out: Record<string, string> = {};
-    for (const row of data ?? []) out[row.nome_normalizado] = String(row.id_canonico);
+    for (const row of data) out[row.nome_normalizado] = String(row.id_canonico);
     return out;
   }
   async snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number) {
     let sel = this.client.from("paper_ledger").select("odd_flag").eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) sel = sel.eq("market_type", marketType);
-    const { data } = await sel;
+    const data = await this.query<any[]>("snapshotClosing:select", sel, [], { eventId, jogador, linha, marketType });
     if (!data || !data.length) return;
     const c = clv(data[0].odd_flag, closingOdd);
     let upd = this.client.from("paper_ledger").update({ odd_fechamento: closingOdd, clv: c })
       .eq("event_id", eventId).eq("jogador", jogador).eq("linha", linha);
     if (marketType != null) upd = upd.eq("market_type", marketType);
-    await upd;
+    await this.mutate("snapshotClosing", upd, { eventId, jogador, linha, marketType });
   }
 }
 

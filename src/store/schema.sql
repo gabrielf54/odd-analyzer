@@ -22,7 +22,7 @@ create table if not exists paper_ledger (
   player_id text,          -- stats-id (mesmo namespace do /player-stats/); usado no settle
   linha numeric not null,
   market_type text not null default 'sot',
-  odd_flag numeric not null,
+  odd_flag numeric,        -- nullable: linha de calibração forward (forwardLog) loga só prob_modelo, sem odd (CLV vem na fase 2)
   prob_modelo numeric,
   prob_devig numeric,
   edge numeric,
