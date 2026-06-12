@@ -5,7 +5,7 @@ import { scoreMatrix, probs1x2, probTotalOver } from "./model/matchModel.js";
 import { computeRatings, lambdaFromRatings, ratingsEligible, homeAdvFor } from "./model/ratings.js";
 import { baselineFor, populacaoFor, ratingsPoolLeagues, type MarketSpec } from "./model/markets.js";
 import { analyze as defaultAnalyst } from "./ai/analyst.js";
-import { type RateTrace } from "./model/trace.js";
+import { buildMatch1x2Trace, type RateTrace } from "./model/trace.js";
 import { logWarn } from "./lib/log.js";
 
 const DRAW_TOKENS = new Set(["empate", "draw", "x", "tie", "drawn", "nulo"]);
@@ -176,9 +176,10 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
   const p1x2 = isTotals ? null : probs1x2(matrix);
   const SUFIXO = { home: "(1)", draw: "(X)", away: "(2)" } as const;
   return lines.map((li: any) => {
-    let prob: number, jogador: string;
+    let prob: number, jogador: string, trace: RateTrace | undefined;
     if (isTotals) {
       prob = probTotalOver(matrix, li.linha); jogador = label;
+      trace = matchRateTrace(market.stat_field, muTotal, fonteLambda);
     } else {
       // 1X2: CADA linha é um resultado distinto (mandante/empate/visitante). Casa a
       // entidade colada ao desfecho e usa a prob daquele lado. Sem isso, TODAS as
@@ -196,14 +197,20 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
       }
       const ladoFinal = lado ?? "home";
       prob = p1x2![ladoFinal]; jogador = `${label} ${SUFIXO[ladoFinal]}`;
+      // 1x2: trace PRÓPRIO (gols esperados de cada time → P do desfecho), não o de
+      // "over de gols" — esse contaria uma história falsa pra uma prob de resultado.
+      trace = buildMatch1x2Trace({
+        homeName: home.name ?? "mandante", awayName: away.name ?? "visitante",
+        lambdaHome: lambdaHome!, lambdaAway: lambdaAway!,
+        pHome: p1x2!.home, pDraw: p1x2!.draw, pAway: p1x2!.away,
+        outcome: ladoFinal, fonte: fonteLambda,
+      });
     }
     return buildCandidate({
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
       prob_modelo: prob, mu: muTotal, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
-      // 1x2: prob_modelo é a prob DAQUELE resultado, não "over de gols" — anexar o trace
-      // de gols contaria uma história falsa. Só totais (over genuíno) ganham trace.
-      trace: isTotals ? matchRateTrace(market.stat_field, muTotal, fonteLambda) : undefined,
+      trace,
     });
   });
 }

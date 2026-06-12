@@ -21,6 +21,10 @@ export interface RateTrace {
   statField: string;
   mu: number;
   passos: TraceStep[];
+  // Presente só em candidato 1X2 (resultado): finalizeTrace descreve a chance
+  // DAQUELE desfecho (vitória/empate), não "N ou mais gols". Carrega os gols
+  // esperados pra montar o veredito leigo.
+  match1x2?: { outcomeLabel: string; homeName: string; awayName: string; lambdaHome: number; lambdaAway: number };
 }
 
 const STAT_LABEL: Record<string, string> = {
@@ -153,6 +157,56 @@ export function buildRateTrace(a: RateTraceArgs): RateTrace {
   return { statField: a.statField, mu: a.mu, passos };
 }
 
+export interface Match1x2TraceArgs {
+  homeName: string;
+  awayName: string;
+  lambdaHome: number;
+  lambdaAway: number;
+  pHome: number;
+  pDraw: number;
+  pAway: number;
+  outcome: "home" | "draw" | "away";
+  fonte: string; // "ratings_forca" | "media_movel" — como o λ foi montado
+}
+
+/** Trace de RESULTADO (1X2): explica os gols esperados de cada time → as chances
+ * de mandante/empate/visitante. `finalizeTrace` fecha com de-vig/comparação SEM a
+ * moldura de "N ou mais" (que só faz sentido em mercado de contagem). */
+export function buildMatch1x2Trace(a: Match1x2TraceArgs): RateTrace {
+  const outcomeLabel =
+    a.outcome === "draw" ? "empate"
+      : a.outcome === "home" ? `${a.homeName} vencer`
+        : `${a.awayName} vencer`;
+  const pChosen = a.outcome === "home" ? a.pHome : a.outcome === "away" ? a.pAway : a.pDraw;
+  const fonteFrase = a.fonte === "ratings_forca"
+    ? "pela força recente dos dois times (ataque × fragilidade defensiva do rival)"
+    : "pela média de gols recente dos dois times";
+  const passos: TraceStep[] = [
+    {
+      passo: "gols_esperados",
+      titulo: "Gols esperados de cada time",
+      formula: "força de ataque × fragilidade defensiva do rival, com mando",
+      entradas: { mandante: r2(a.lambdaHome), visitante: r2(a.lambdaAway), fonte: a.fonte },
+      saida: r2(a.lambdaHome),
+      frase: `Estimando ${fonteFrase}: ${a.homeName} faz ~${r2(a.lambdaHome)} gols, ${a.awayName} ~${r2(a.lambdaAway)}.`,
+    },
+    {
+      passo: "probabilidades_1x2",
+      titulo: "Chance de cada resultado",
+      formula: "Poisson sobre os gols esperados → P(mandante) / P(empate) / P(visitante)",
+      entradas: { mandante: pct(a.pHome), empate: pct(a.pDraw), visitante: pct(a.pAway) },
+      saida: pChosen,
+      frase: `Disso sai: ${a.homeName} ${pct(a.pHome)} · empate ${pct(a.pDraw)} · ${a.awayName} ${pct(a.pAway)}.`,
+    },
+  ];
+  return {
+    statField: "goals",
+    mu: a.lambdaHome + a.lambdaAway,
+    passos,
+    match1x2: { outcomeLabel, homeName: a.homeName, awayName: a.awayName, lambdaHome: a.lambdaHome, lambdaAway: a.lambdaAway },
+  };
+}
+
 export interface FinalizeArgs {
   alvo: string;
   linha: number;
@@ -162,7 +216,44 @@ export interface FinalizeArgs {
   ev: number;
 }
 
+/** Fecha o trace de 1X2: chance do desfecho → de-vig → comparação, sem "N ou mais". */
+function finalize1x2(rt: RateTrace, mx: NonNullable<RateTrace["match1x2"]>, v: FinalizeArgs): Trace {
+  const passos = [...rt.passos];
+  passos.push({
+    passo: "probabilidade",
+    titulo: `Chance de ${mx.outcomeLabel}`,
+    formula: "probabilidade do desfecho escolhido (do passo anterior)",
+    entradas: { desfecho: mx.outcomeLabel, chance: pct(v.probModelo) },
+    saida: v.probModelo,
+    frase: `Nosso número pra ${mx.outcomeLabel}: ${pct(v.probModelo)}.`,
+  });
+  passos.push({
+    passo: "casa_devig",
+    titulo: "Chance que a casa embute",
+    formula: "odd justa, tirando a margem da casa",
+    entradas: { prob_casa: v.probDevig },
+    saida: v.probDevig,
+    frase: `A casa, tirando o lucro dela, dá ${pct(v.probDevig)} pra isso acontecer.`,
+  });
+  passos.push({
+    passo: "comparacao",
+    titulo: "Nosso número vs a casa",
+    formula: "edge = nossa chance − chance da casa",
+    entradas: { nossa_chance: v.probModelo, chance_casa: v.probDevig, edge: r2(v.edge), ev: r2(v.ev) },
+    saida: r2(v.edge),
+    frase: v.edge > 0
+      ? `Achamos ${pct(v.probModelo)} contra ${pct(v.probDevig)} da casa — vantagem a favor.`
+      : `Achamos só ${pct(v.probModelo)} contra ${pct(v.probDevig)} da casa — sem vantagem.`,
+  });
+  const golsFrase = `${mx.homeName} ${r2(mx.lambdaHome)} × ${r2(mx.lambdaAway)} ${mx.awayName}`;
+  const veredito_leigo = v.edge > 0
+    ? `Pelos gols esperados (${golsFrase}), a chance de ${mx.outcomeLabel} é ${pct(v.probModelo)}, acima dos ${pct(v.probDevig)} da casa. Tem valor.`
+    : `Pelos gols esperados (${golsFrase}), a chance de ${mx.outcomeLabel} é ${pct(v.probModelo)}, abaixo dos ${pct(v.probDevig)} da casa. Sem valor — a odd não paga o risco.`;
+  return { alvo: v.alvo, linha: v.linha, precisa: mx.outcomeLabel, passos, veredito_leigo };
+}
+
 export function finalizeTrace(rt: RateTrace, v: FinalizeArgs): Trace {
+  if (rt.match1x2) return finalize1x2(rt, rt.match1x2, v);
   const label = statLabelFor(rt.statField);
   const k = Math.floor(v.linha) + 1;
   const precisa = `${k} ou mais`;

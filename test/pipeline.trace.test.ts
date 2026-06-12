@@ -63,14 +63,22 @@ describe("match trace minimo", () => {
     expect(all.find((c) => c.trace)).toBeDefined();
   });
 
-  it("vitoria (1x2): candidato NÃO traz trace — prob_modelo é vitória, não over de gols", async () => {
+  it("vitoria (1x2): traz trace PRÓPRIO de resultado (gols esperados → P do desfecho), não over de gols", async () => {
     const sp = { async teamRates() { return { lambda_for: 1.5, lambda_against: 1.2 }; } };
-    const op = { lines() { return [{ entidade: "partida", linha: 2.5, odd_over: 2.0, odd_under: 1.8, book: "manual" }]; } };
+    const op = { lines() { return [{ entidade: "A", linha: 0, odd_over: 2.0, odd_under: null, book: "manual" }]; } };
     const repo = { async saveAnalysis() {}, async saveLedger() {} };
     const ev = { id: "e3", jogo: "A x B", home_team: { id: "H", name: "A" }, away_team: { id: "A2", name: "B" } };
     const out = await analyzeMatch(ev, MARKETS.vitoria!, sp, op, repo, { analystFn: () => ({ melhor_aposta: null, outras: [], alertas: [] }), diagnostics: true });
     const all = [...out.candidatos, ...out.reprovados] as any[];
     expect(all.length).toBeGreaterThan(0);
-    expect(all.every((c) => c.trace === undefined)).toBe(true);
+    const c = all.find((x) => x.trace);
+    expect(c).toBeDefined();
+    // passos de 1X2, NUNCA a moldura de contagem "probabilidade" de "N ou mais"
+    expect(c.trace.passos.map((p: any) => p.passo)).toEqual(
+      expect.arrayContaining(["gols_esperados", "probabilidades_1x2", "comparacao"]),
+    );
+    // o desfecho ("A vencer") aparece no veredito leigo, não "gols a mais"
+    expect(c.trace.veredito_leigo).toMatch(/A vencer/);
+    expect(c.trace.veredito_leigo).not.toMatch(/ou mais/);
   });
 });
