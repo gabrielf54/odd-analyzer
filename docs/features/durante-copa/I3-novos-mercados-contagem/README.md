@@ -3,12 +3,14 @@
 > **Índice/estado vivo:** [`docs/CORE.md`](../../../CORE.md) (esta pasta é o detalhe da feature). Refs a `ROADMAP`/`PITCH`/`proximos-passos` abaixo são **históricas** — unificados no CORE (conteúdo no git). Ao mexer no estado, atualize o **CORE**.
 >
 > **STATUS (2026-06-11):** o piloto **faltas SHIPOU** (validou over 0.5 na seleção — ver CORE §3.1).
-> **defesas foi ADIADA** após reprovar a calibração → [`mercados-nao-validados`](../../mercados-nao-validados/).
+> **passes SHIPOU como diagnóstico** (Betano CONTA cotar — cobertura não era ~zero; mas a calib n=1621
+> reprovou no ponto de aposta → sem ⭐, ver CORE §3.1 + [`mercados-nao-validados`](../../mercados-nao-validados/);
+> introduziu o **de-vig de escada** `src/value/ladderDevig.ts`). **defesas foi ADIADA** após reprovar
+> a calibração → [`mercados-nao-validados`](../../mercados-nao-validados/).
 > Esta ficha cobre agora só o **leque restante NÃO implementado**: dribles (`total_contest`),
-> cruzamentos (`total_cross`), duelos aéreos (`aerial_won`), interceptações (`interception`) e passes
-> (`total_pass` — cobertura de casa ~zero, provável só diagnóstico). A mecânica genérica abaixo vale
-> pra todos. `PLANO-faltas-defesas.md` e `I9-extra-mercados.md` foram removidos (faltas/defesas já
-> resolvidos; o git guarda o detalhe técnico).
+> cruzamentos (`total_cross`), duelos aéreos (`aerial_won`), interceptações (`interception`). A
+> mecânica genérica abaixo vale pra todos. `PLANO-faltas-defesas.md` e `I9-extra-mercados.md` foram
+> removidos (faltas/defesas já resolvidos; o git guarda o detalhe técnico).
 
 ## 1. TL;DR
 O motor de contagem (per90 → shrink → oppMult → NB2 → de-vig → EV) é **genérico sobre qualquer

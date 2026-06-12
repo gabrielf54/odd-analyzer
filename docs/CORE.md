@@ -7,7 +7,7 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-11 · **Suíte:** 282 testes Vitest verdes · **Custo até aqui:** $0 ·
+> **Atualizado:** 2026-06-11 · **Suíte:** 291 testes Vitest verdes · **Custo até aqui:** $0 ·
 > **Arena ativa:** Copa do Mundo 2026 (seleções), abriu 2026-06-11.
 
 ---
@@ -62,6 +62,7 @@ validado** ganha a ⭐. **Anti-lock-in:** apertar a seleção não trava o clube
 | **chutes a gol (sot)** | **só 0.5** ✅ | todas ✅ (legado, a re-confirmar) | seleção: 1.5 = **−0.047**, 2.5 = **−0.272** (chuta a gol pouco) → só 1+ |
 | **desarmes** | 0.5/1.5 ✅ | **ausente** (a medir) | via decomposição `μ_ganhos = μ_tentativas × aproveitamento(won/total)`; casa paga `won_tackle`; BrierSkill +0.085/+0.028 (R=2.0). **2.5 morto** |
 | **faltas** | **só 0.5** ✅ | a medir (pós-Copa) | comete `fouls` × adversário provoca (`was_fouled`, via `concede_field`); calib n=1816: over 0.5 BrierSkill **+0.034** (R=2.5) → ⭐; 1.5/2.5 negativos → analisadas, sem ⭐ |
+| **passes** | ⬛ **diagnóstico** (sem ⭐) | a medir | Betano cota (escada `N+`; **de-vig de escada** `value/ladderDevig.ts`); calib n=1621 **REPROVOU no ponto de aposta** (BrierSkill **−0.014**; o +0.10 é artefato de pooling de linhas óbvias). Posse-dominado: a forma acerta a média, não bate o livro na linha. Settlement `total_pass`. Implementado p/ análise+forward → [`mercados-nao-validados`](features/mercados-nao-validados/) |
 | **gols / vitória / escanteios** | em validação | em validação | mercados de PARTIDA não calibraram; sem ⭐ |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:
@@ -94,7 +95,7 @@ número).
 |---|---|---|---|
 | ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa) e pode regraduar sot 1.5. **Ação #1 hoje.** | já no Tier 0 |
 | ② | **N5 — mismatch/posse** | fase de grupos = jogos MUITO desiguais; favorito massacra → afeta os props direto | [`features/durante-copa/N5-mismatch-posse`](features/durante-copa/N5-mismatch-posse/) |
-| ③ | **I3 — novos mercados de contagem** | **faltas SHIPOU** (validou over 0.5 seleção, §3.1); **defesas adiada** (reprovou calib → catálogo abaixo); leque restante (cross/dribles/duelos/intercept) segue candidato; reusa o motor | [`features/durante-copa/I3-novos-mercados-contagem`](features/durante-copa/I3-novos-mercados-contagem/) |
+| ③ | **I3 — novos mercados de contagem** | **faltas SHIPOU** (⭐ over 0.5 seleção, §3.1); **passes SHIPOU como diagnóstico** (reprovou calib, sem ⭐ — §3.1 + catálogo); **defesas adiada**; leque restante (dribles/duelos/intercept) segue candidato; reusa o motor | [`features/durante-copa/I3-novos-mercados-contagem`](features/durante-copa/I3-novos-mercados-contagem/) |
 | ④ | **N2 — prior por força de liga** | forma de seleção fraca é ruidosa → aperta a precisão nos times menores | [`features/durante-copa/N2-prior-forca-liga`](features/durante-copa/N2-prior-forca-liga/) |
 | ⑤ | **I6 — 2ª chamada de IA** (promotor × cético) | IA propõe hipótese, código decide; melhora explicação (fora do número) | [`features/durante-copa/I6-segunda-ia`](features/durante-copa/I6-segunda-ia/) |
 | ⑥ | **arbitro_tendencia** (resto do I5) | árbitro apita muito/pouco → contexto p/ a IA (texto) | [`features/durante-copa/arbitro-tendencia`](features/durante-copa/arbitro-tendencia/) |
@@ -105,8 +106,8 @@ número).
 | **Calibrar clube** | re-confirmar sot/finalizações + medir desarme na população de clube → preenche `validated_lines.clube`. **Destrava usar o produto nas ligas nacionais.** | [`features/pos-copa/calibrar-clube`](features/pos-copa/calibrar-clube/) |
 
 **Backlog de re-calibração ("outra maneira"):** os `(mercado, linha, população)` que **reprovaram
-a calibração ou não foram calibrados** (defesas, SOT 1.5/2.5 seleção, faltas 1.5/2.5, gols/vitória/
-escanteios, desarme/sot/fin no clube) ficam catalogados em
+a calibração ou não foram calibrados** (defesas, **passes**, SOT 1.5/2.5 seleção, faltas 1.5/2.5,
+gols/vitória/escanteios, desarme/sot/fin no clube) ficam catalogados em
 [`features/mercados-nao-validados`](features/mercados-nao-validados/) — cada um com o **porquê** e a
 **hipótese de re-calibrar de outra maneira**. É backlog de ação; o estado vivo continua aqui (§3.1)
 e o que está morto de vez no §5.
