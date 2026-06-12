@@ -4,11 +4,14 @@ const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes", "faltas", "pa
 
 /** Teto de odd: células com odd ≥ 10 (prob implícita < 10%) são linhas-limiar
  * muito improváveis — quase nunca têm valor nos nossos mercados de contagem e
- * só incham o JSON. Em jogos de Copa com muitas linhas isso estoura o limite de
- * resposta da IA externa. Cortamos na coleta. */
+ * só incham a resposta. Em jogos de Copa com muitas linhas isso estoura o limite
+ * de saída da IA externa. Cortamos na coleta. */
 const ODD_CAP = 10;
-const ODD_CAP_RULE = `LIMITE DE ODD: IGNORE qualquer célula com odd ≥ ${ODD_CAP} (linhas muito improváveis) — não a colete, não a inclua no JSON.`;
+const ODD_CAP_RULE = `LIMITE DE ODD: IGNORE qualquer célula com odd ≥ ${ODD_CAP} (linhas muito improváveis) — não a colete, não a inclua na resposta.`;
 
+/** Saída ENXUTA: em vez de JSON (nomes de chave repetidos em toda linha), a IA
+ * devolve texto delimitado por "|". `book` aparece UMA vez no cabeçalho. Corta
+ * ~2/3 dos tokens de output sem perder nenhum dado que o motor usa. */
 function playerNames(lineup: any): string[] {
   const out: string[] = [];
   for (const side of ["home", "away"]) {
@@ -22,9 +25,9 @@ function gameLabel(event: any): string {
 }
 
 /** UM prompt cobrindo TODOS os mercados de jogador (SOT + finalizações +
- * desarmes) de uma vez. Calibrado pela realidade da bet365 (auditoria
- * 2026-06-09): linhas são colunas-limiar "N+" (não "Mais de X.5"), não há lado
- * Under, nomes vêm sem acento/islandês, e cada mercado é opcional por jogo. */
+ * desarmes + faltas + passes) de uma vez. Calibrado pela realidade da bet365
+ * (auditoria 2026-06-09): linhas são colunas-limiar "N+" (não "Mais de X.5"),
+ * não há lado Under, nomes vêm sem acento/islandês, cada mercado é opcional. */
 export function buildPlayerGroupPrompt(event: any, lineup: any): string {
   const jogo = gameLabel(event);
   const lista = playerNames(lineup).map((n) => `- ${n}`).join("\n");
@@ -34,22 +37,20 @@ ${lista}
 
 MERCADOS-ALVO (todos OPCIONAIS — se a casa não tiver um NESTE jogo, simplesmente
 não gere linhas dele; outros jogos podem ter):
-- Chutes a Gol / "Player Shots On Target"     → "market_type": "sot"
-- Finalizações Totais / "Player Shots"        → "market_type": "finalizacoes"
-- Desarmes / "Tackles"                        → "market_type": "desarmes"
-- Faltas Cometidas / "Player Fouls" / "Fouls" → "market_type": "faltas"
-- Passes / "Player Passes" / "Total de Passes" → "market_type": "passes"
+- Chutes a Gol / "Player Shots On Target"     → market_type "sot"
+- Finalizações Totais / "Player Shots"        → market_type "finalizacoes"
+- Desarmes / "Tackles"                        → market_type "desarmes"
+- Faltas Cometidas / "Player Fouls" / "Fouls" → market_type "faltas"
+- Passes / "Player Passes" / "Total de Passes" → market_type "passes"
 ATENÇÃO: "Player Shots On Target" (sot) e "Player Shots" (finalizacoes) têm rótulos
 quase idênticos — NÃO troque um pelo outro. Idem "Faltas Cometidas" (faltas, o que o
-jogador comete) vs "Faltas Sofridas" (NÃO é nosso mercado — ignore). Sempre grave o
-rótulo cru da casa em "market_label_casa" para conferência.
+jogador comete) vs "Faltas Sofridas" (NÃO é nosso mercado — ignore).
 
 COMO LER AS LINHAS: nesta casa NÃO existe botão "Mais de"/"Over"/"Under". As linhas
 são COLUNAS-LIMIAR acumulativas "1+", "2+", "3+"… — cada célula com odd já é, por
 definição, um over ("aquele número OU MAIS"). Para cada célula com odd:
-  - "linha"       = (número da coluna) − 0.5   → "2+" vira 1.5, "3+" vira 2.5
-  - "linha_label" = o rótulo cru da coluna ("2+")
-  - "odd_over"    = a odd da célula
+  - "linha"    = (número da coluna) − 0.5   → "2+" vira 1.5, "3+" vira 2.5
+  - "odd_over" = a odd da célula
 Só se a casa usar o estilo clássico "Mais de X.5", use esse X.5 direto como "linha".
 IGNORE células com cadeado/suspensas (sem odd). NÃO confunda colunas de desfecho
 ("Score"/"Assist"/"Score or Assist") com linhas — não são mercado de contagem.
@@ -59,35 +60,27 @@ NOMES — case com a MINHA lista, não com o texto cru da casa. A casa remove ac
 caracteres islandeses e às vezes muda o nome do meio. Para casar: tire acentos;
 þ→th, ð→d, æ→ae, ö/ø→o; ignore caixa; case por sobrenome + primeiro nome aceitando
 nome do meio ausente OU extra ("Mikael Egill Ellertsson" = "Mikael Ellertsson").
-Em "entidade" devolva o nome EXATAMENTE como está na minha lista acima; em
-"entidade_casa", o nome como exibido na casa. Sem match seguro → OMITA, não invente.
 Cuidado: em mercados de goleiro a casa pode exibir outro goleiro (reserva) — só
-inclua se casar com a lista.
+inclua se casar com a lista. Sem match seguro → OMITA a linha, não invente.
 
 EXECUÇÃO: garanta a aba "Player". Em cada mercado-alvo, abra o acordeão se fechado e
 clique "Mostrar Mais"/"Show more" REPETIDAMENTE até sumir — ele revela mais JOGADORES
 em uns mercados e mais COLUNAS em outros. Ignore blocos "Outras por Pedido"/sob
 demanda. Não chute nenhuma odd que você não viu.
 
-Devolva APENAS JSON, um único array com TODAS as linhas, nada mais. Um exemplo por
-market_type:
-[
-  { "market_type": "sot", "market_label_casa": "Player Shots On Target",
-    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 1.5, "linha_label": "2+", "odd_over": 1.72, "book": "<nome da casa>" },
-  { "market_type": "finalizacoes", "market_label_casa": "Player Shots",
-    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 2.5, "linha_label": "3+", "odd_over": 2.10, "book": "<nome da casa>" },
-  { "market_type": "desarmes", "market_label_casa": "Tackles",
-    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 1.5, "linha_label": "2+", "odd_over": 1.90, "book": "<nome da casa>" },
-  { "market_type": "faltas", "market_label_casa": "Player Fouls",
-    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 0.5, "linha_label": "1+", "odd_over": 1.55, "book": "<nome da casa>" },
-  { "market_type": "passes", "market_label_casa": "Total de Passes",
-    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 29.5, "linha_label": "30+", "odd_over": 1.80, "book": "<nome da casa>" }
-]`;
+SAÍDA — formato compacto, NADA de JSON e nada de explicação. A PRIMEIRA linha é o
+nome da casa: book=<nome da casa>. Depois UMA linha por odd, campos separados por "|":
+  market_type|entidade|linha|odd_over
+- "entidade": o nome EXATAMENTE como está na MINHA lista acima. Se a casa exibir um
+  nome DIFERENTE do meu, escreva  entidade^nome_exibido_na_casa  (com "^"); se forem
+  IGUAIS, escreva só entidade (sem "^"). Isso me deixa conferir matches duvidosos.
+Exemplo (um por market_type; o "^" só aparece quando o nome difere):
+book=bet365
+sot|<jogador da lista>|1.5|1.72
+finalizacoes|<jogador da lista>|2.5|2.10
+desarmes|<jogador da lista>|1.5|1.90
+faltas|<jogador da lista>|0.5|1.55
+passes|<jogador da lista>^<nome na casa>|29.5|1.80`;
 }
 
 /** UM prompt cobrindo TODOS os mercados de partida (gols + escanteios + 1X2). */
@@ -95,20 +88,25 @@ export function buildMatchGroupPrompt(event: any): string {
   const jogo = gameLabel(event);
   return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
 Colete as odds dos MERCADOS DE PARTIDA abaixo, para cada linha visível:
-- Gols (Total): Over/Under, OS DOIS LADOS → "market_type": "gols", "entidade": "partida"
-- Escanteios (Total): Over/Under, OS DOIS LADOS → "market_type": "escanteios", "entidade": "partida"
-- Resultado (1X2): uma entrada por resultado → "market_type": "vitoria", "entidade": "<nome do time ou \\"empate\\">"
+- Gols (Total): Over/Under, OS DOIS LADOS → market_type "gols", entidade "partida"
+- Escanteios (Total): Over/Under, OS DOIS LADOS → market_type "escanteios", entidade "partida"
+- Resultado (1X2): uma entrada por resultado → market_type "vitoria", entidade <time ou "empate">
 
 Expanda TODAS as seções/abas/acordeões antes de ler. Não invente. Não chute odd
 que você não viu. Nos totais (gols/escanteios) sempre traga os dois lados.
 ${ODD_CAP_RULE} Nos totais, use a odd do lado Over para decidir o corte.
 
-Devolva APENAS JSON, um único array com TODAS as linhas, nada mais:
-[
-  { "market_type": "gols", "entidade": "partida", "linha": <number>, "odd_over": <number>, "odd_under": <number>, "book": "<nome da casa>" },
-  { "market_type": "escanteios", "entidade": "partida", "linha": <number>, "odd_over": <number>, "odd_under": <number>, "book": "<nome da casa>" },
-  { "market_type": "vitoria", "entidade": "<time ou empate>", "odd_over": <number>, "book": "<nome da casa>" }
-]`;
+SAÍDA — formato compacto, NADA de JSON. A PRIMEIRA linha é book=<nome da casa>.
+Depois UMA linha por odd, campos separados por "|":
+- gols e escanteios (DOIS lados):  market_type|partida|linha|odd_over|odd_under
+- vitoria (uma por resultado, SEM linha):  vitoria|<time ou "empate">|odd_over
+Exemplo:
+book=bet365
+gols|partida|2.5|1.90|1.95
+escanteios|partida|9.5|1.85|1.95
+vitoria|${event.home_team ?? "Mandante"}|1.80
+vitoria|empate|3.40
+vitoria|${event.away_team ?? "Visitante"}|4.20`;
 }
 
 /** Monta o prompt pronto pra colar na IA externa. `marketKey` aceita os grupos
@@ -130,21 +128,37 @@ Aba: "${market.label}" (mercado de jogador).
 Colete SOMENTE as odds OVER ("Mais de") de cada jogador desta lista:
 ${lista}
 
-Para CADA jogador e CADA linha visível, devolva uma entrada.
-Expanda TODAS as seções/acordeões antes de ler. Se um jogador da lista
-não aparecer, OMITA — não invente. Não chute odd que você não viu.
+Para CADA jogador e CADA linha visível, gere uma linha. Expanda TODAS as seções/
+acordeões antes de ler. Se um jogador da lista não aparecer, OMITA — não invente.
+Não chute odd que você não viu.
 ${ODD_CAP_RULE}
 
-Devolva APENAS JSON neste formato, nada mais:
-[ { "market_type": "${marketKey}", "entidade": "<nome exato da lista>",
-    "linha": <number>, "odd_over": <number>, "book": "<nome da casa>" } ]`;
+SAÍDA — formato compacto, NADA de JSON. A PRIMEIRA linha é book=<nome da casa>.
+Depois UMA linha por odd, campos separados por "|":
+  ${marketKey}|entidade|linha|odd_over
+"entidade" = o nome exato da minha lista; se a casa exibir nome DIFERENTE, escreva
+entidade^nome_na_casa (com "^"), senão só entidade.
+Exemplo:
+book=bet365
+${marketKey}|<nome exato da lista>|1.5|1.72`;
   }
 
-  const exemplo = marketKey === "vitoria"
-    ? `[ { "market_type": "vitoria", "entidade": "<nome do time ou empate>",
-    "odd_over": <number>, "book": "<nome da casa>" } ]  (uma entrada por resultado: mandante, visitante, empate)`
-    : `[ { "market_type": "${marketKey}", "entidade": "partida", "linha": <number>,
-    "odd_over": <number>, "odd_under": <number>, "book": "<nome da casa>" } ]`;
+  if (marketKey === "vitoria") {
+    return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
+Aba: "${market.label}" (mercado de partida).
+
+Colete o Resultado (1X2): uma entrada por resultado (mandante, visitante, empate).
+Expanda TODAS as seções antes de ler. Não invente. Não chute odd que você não viu.
+${ODD_CAP_RULE}
+
+SAÍDA — formato compacto, NADA de JSON. A PRIMEIRA linha é book=<nome da casa>.
+Depois UMA linha por resultado (SEM linha numérica):
+  vitoria|<time ou "empate">|odd_over
+Exemplo:
+book=bet365
+vitoria|${event.home_team ?? "Mandante"}|1.80
+vitoria|empate|3.40`;
+  }
 
   return `Você está na página de apostas do jogo ${jogo} na casa de apostas.
 Aba: "${market.label}" (mercado de partida).
@@ -153,6 +167,10 @@ Colete as odds com OS DOIS LADOS (Over/Under, "Mais de"/"Menos de") de cada linh
 Expanda TODAS as seções antes de ler. Não invente. Não chute odd que você não viu.
 ${ODD_CAP_RULE} Nos totais, use a odd do lado Over para decidir o corte.
 
-Devolva APENAS JSON neste formato, nada mais:
-${exemplo}`;
+SAÍDA — formato compacto, NADA de JSON. A PRIMEIRA linha é book=<nome da casa>.
+Depois UMA linha por odd, campos separados por "|":
+  ${marketKey}|partida|linha|odd_over|odd_under
+Exemplo:
+book=bet365
+${marketKey}|partida|2.5|1.90|1.95`;
 }
