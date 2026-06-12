@@ -26,6 +26,11 @@ export interface MarketSpec {
   // produz `fouls`, mas o confronto é com `was_fouled` do adversário (faltas que ele
   // PROVOCA). Default = stat_field (comportamento atual). Só afeta o byPlayer path.
   concede_field?: string;
+  // Modo do multiplicador de concessão. "concession" (default) = lê teamConceded
+  // (comportamento atual). "none" = oppMult fixo em 1.0: em PASSE o eixo de concessão
+  // teria SINAL INVERTIDO (somaria a posse do rival → infla quando deveria desinflar),
+  // então é neutralizado.
+  opp_mode?: "concession" | "none";
   // GATE de aposta de valor (estrela), CIENTE DE POPULAÇÃO. Roteado por
   // populacaoFor(leagueId): um mercado/linha pode valer na seleção e não no clube
   // (ou vice-versa). chave AUSENTE → não validado nessa população; [] → TODAS as
@@ -134,6 +139,20 @@ export const MARKETS: Record<string, MarketSpec> = {
     eixo_concessao: "faltas_provocadas_por_jogo", label: "Faltas (Cometidas)",
     concede_baseline: 10.72, concede_baseline_nacional: 10.72,
     validated_lines: { selecao: [0.5] },
+  }),
+  // PASSES tentados (`total_pass`). Betano liquida "Total de Passes" pela Opta. Confronto
+  // FRACO (posse/estado-de-jogo dominado) → oppMult NEUTRALIZADO (opp_mode:"none").
+  // CALIBROU MAL na seleção (n=1621, 2026-06-11): no ponto de aposta (linha≈μ do jogador)
+  // BrierSkill NEGATIVO em todas as 24 combos (melhor −0.014, PS=8/R=20); positivo só no
+  // agregado (artefato de pooling de linhas óbvias). Mesmo desfecho do defesas →
+  // DIAGNÓSTICO, SEM validated_lines (nunca ganha estrela). prior_rate=30 (mediana
+  // total_pass/90), prior_strength=8, nb_dispersion=20 (melhor config medida — p/ o forward
+  // ser honesto). lines:[] (passe não tem linha fixa; a escada vem por jogador da casa).
+  passes: spec({
+    key: "passes", nivel: "jogador", kind: "contagem", stat_field: "total_pass",
+    opp_mode: "none", settle_field: "total_pass",
+    prior_rate: 30.0, prior_strength: 8.0, nb_dispersion: 20.0, lines: [],
+    eixo_concessao: "passes_(posse_dominado)", label: "Passes (Total)",
   }),
   escanteios: spec({
     key: "escanteios", nivel: "partida", kind: "contagem", stat_field: "corners",

@@ -204,12 +204,19 @@ export class BSDStatsProvider {
     games = filterGamesByScope(games, scope, entityTeamId);
     if (games.length === 0) return null;
 
-    const concedeField = market.concede_field ?? market.stat_field;
-    const teamField = TEAM_STAT_FIELD[concedeField] ?? concedeField;
-    // Sem campo de TIME (ex.: won_tackle, was_fouled) → agregar dos jogadores adversários.
-    const byPlayer = !(concedeField in TEAM_STAT_FIELD);
-    const oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, 10, { byPlayer });
-    const oppMult = this.oppMult(oppConceded, leagueAvg);
+    // opp_mode "none" (passes): NÃO consulta a concessão do adversário — o eixo teria
+    // sinal invertido (somaria a posse do rival), então oppMult é neutro (1.0) e
+    // concedido_adversario fica null (não há confronto, vs "n/d (neutro)" = sem dado).
+    let oppConceded: number | null = null;
+    let oppMult = 1.0;
+    if ((market.opp_mode ?? "concession") !== "none") {
+      const concedeField = market.concede_field ?? market.stat_field;
+      const teamField = TEAM_STAT_FIELD[concedeField] ?? concedeField;
+      // Sem campo de TIME (ex.: won_tackle, was_fouled) → agregar dos jogadores adversários.
+      const byPlayer = !(concedeField in TEAM_STAT_FIELD);
+      oppConceded = await this.teamConceded(this.oppTeamId(ctx), teamField, 10, { byPlayer });
+      oppMult = this.oppMult(oppConceded, leagueAvg);
+    }
 
     let tilt = 1.0;
     let positionalNote: string | null = null;
@@ -279,7 +286,9 @@ export class BSDStatsProvider {
     return {
       mu, minutos_esperados: minutes,
       xi_confirmado: xiConfirmed, amostra_jogos: n,
-      concedido_adversario: oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
+      concedido_adversario: (market.opp_mode ?? "concession") === "none"
+        ? null // sem eixo de confronto (passes): null, não "n/d (neutro)" (que = sem dado)
+        : oppConceded != null ? oppConceded.toFixed(1) : "n/d (neutro)",
       incerteza: uncertaintyFor(n),
       trace,
       concedido_posicao: positionalNote,

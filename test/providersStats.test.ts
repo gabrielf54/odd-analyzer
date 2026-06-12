@@ -304,6 +304,46 @@ describe("OnlyPlayer", () => {
   });
 });
 
+describe("opp_mode: none (passes — multiplicador de concessão neutralizado)", () => {
+  // Mercado fake com opp_mode "none": NÃO deve consultar a concessão do adversário.
+  const passesMarket: any = {
+    key: "passes", nivel: "jogador", kind: "contagem", stat_field: "total_pass",
+    opp_mode: "none", settle_field: "total_pass",
+    prior_rate: 30.0, prior_strength: 8.0, nb_dispersion: 20.0, lines: [],
+    eixo_concessao: "passes_(posse_dominado)", label: "Passes (Total)",
+    concede_baseline: 0, concede_baseline_nacional: 0,
+  };
+  it("não consulta teamConceded; concedido_adversario null e oppMult efetivo 1.0", async () => {
+    // teamConceded p/ total_pass (campo sem TEAM_STAT_FIELD) iria pela rota byPlayer =
+    // eventPlayerStats. Se NUNCA for chamado, a concessão do adversário não foi consultada.
+    // (teamPossession/homeAwayMap usam eventStats/events — outra rota, descritiva, ok.)
+    let concededCalls = 0;
+    const client: any = {
+      playerStats: async () => ({ results: [
+        { total_pass: 60, minutes_played: 90, event_id: "h1", team_id: "100" },
+        { total_pass: 50, minutes_played: 90, event_id: "h2", team_id: "100" },
+      ] }),
+      events: async (f: any) =>
+        String(f.team_id) === "100"
+          ? { results: [{ id: "h1", home_team_id: "100" }, { id: "h2", home_team_id: "999" }] }
+          : { results: [{ id: "o1", home_team_id: "200", away_team_id: "Z" }] },
+      eventPlayerStats: async () => { concededCalls++; return { player_stats: [] }; },
+      eventStats: async () => ({ stats: { home: { ball_possession: 50 }, away: { ball_possession: 50 } } }),
+    };
+    const p = new BSDStatsProvider(client, { positionalTilt: false });
+    const rate = await p.entityRate("p1", passesMarket, {
+      event: { home_team: { id: "100" }, away_team: { id: "200" } },
+      entity_team_id: "100", is_home: true, opp_team_id: "200",
+      league_avg_conceded: 30, escopo_historico: "todos",
+    });
+    expect(rate).not.toBeNull();
+    expect(rate!.concedido_adversario).toBeNull();
+    expect(concededCalls).toBe(0); // teamConceded (byPlayer) nunca tocou o adversário
+    // oppMult neutro (1.0): mu = shrunk * haMult (1.08 em casa) — sem desvio de concessão.
+    expect(rate!.mu).toBeGreaterThan(0);
+  });
+});
+
 describe("concede_field (eixo de concessão != stat_field)", () => {
   // Mercado fake: jogador produz "fouls"; concessão soma "was_fouled" dos adversários.
   const faltasMarket: any = {

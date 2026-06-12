@@ -1,11 +1,28 @@
 import { describe, it, expect } from "vitest";
-import { MARKETS, baselineFor, populacaoFor, isValidated, populacaoMotivo } from "../src/model/markets.js";
+import { MARKETS, baselineFor, populacaoFor, isValidated, populacaoMotivo, settleField, PLAYER_MARKET_KEYS } from "../src/model/markets.js";
 
 describe("markets", () => {
-  it("registry tem os mercados do MVP (faltas inclusa, sem estrela ainda)", () => {
+  it("registry tem os mercados do MVP (faltas + passes inclusas, sem estrela ainda)", () => {
     expect(Object.keys(MARKETS).sort()).toEqual(
-      ["desarmes", "escanteios", "faltas", "finalizacoes", "gols", "sot", "vitoria"]
+      ["desarmes", "escanteios", "faltas", "finalizacoes", "gols", "passes", "sot", "vitoria"]
     );
+  });
+
+  it("registry tem 8 mercados", () => {
+    expect(Object.keys(MARKETS).length).toBe(8);
+  });
+
+  it("passes: diagnóstico (opp_mode none, sem estrela em nenhuma população)", () => {
+    const m = MARKETS["passes"]!;
+    expect(m.nivel).toBe("jogador");
+    expect(m.opp_mode).toBe("none");
+    expect(m.settle_field).toBe("total_pass");
+    expect(m.stat_field).toBe("total_pass");
+    // diagnóstico: calibração reprovou → nunca ganha estrela (nenhuma população)
+    expect(isValidated("passes", 84.5, 27)).toBe(false);   // seleção
+    expect(isValidated("passes", 84.5, 7171)).toBe(false); // clube
+    expect(settleField("passes")).toBe("total_pass");
+    expect(PLAYER_MARKET_KEYS).toContain("passes");
   });
 
   it("faltas: comete fouls, concede was_fouled; validada SÓ em over 0.5 na seleção", () => {

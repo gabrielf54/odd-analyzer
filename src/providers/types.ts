@@ -22,7 +22,9 @@ export interface EntityRate {
   minutos_esperados: number;
   xi_confirmado: boolean;
   amostra_jogos: number;
-  concedido_adversario: string;
+  // texto leigo da concessão do adversário ("17.0", "n/d (neutro)") OU null quando
+  // o mercado neutraliza o confronto (opp_mode "none", ex.: passes — não há eixo).
+  concedido_adversario: string | null;
   incerteza: string;
   trace?: RateTrace;
   concedido_posicao?: string | null;
