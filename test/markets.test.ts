@@ -29,10 +29,10 @@ describe("markets", () => {
     const m = MARKETS["faltas"]!;
     expect(m.stat_field).toBe("fouls");
     expect(m.concede_field).toBe("was_fouled");
-    expect(isValidated("faltas", 0.5, 27)).toBe(true);  // over 0.5 graduou (BrierSkill +0.034)
+    expect(isValidated("faltas", 0.5, 27)).toBe(true);  // seleção over 0.5 (BrierSkill full +0.033)
     expect(isValidated("faltas", 1.5, 27)).toBe(false); // reprovou
     expect(isValidated("faltas", 2.5, 27)).toBe(false); // reprovou
-    expect(isValidated("faltas", 0.5, 9)).toBe(false);  // clube ausente (pós-Copa)
+    expect(isValidated("faltas", 0.5, 9)).toBe(true);   // clube over 0.5 GRADUOU (auditoria 2026-06-11, full +0.063)
   });
 
   it("sot é nível jogador, contagem, campo shots_on_target", () => {
@@ -67,24 +67,29 @@ describe("markets", () => {
 });
 
 describe("isValidated — por população", () => {
-  it("seleção (27): finalizações todas; SOT só 0.5; desarme 0.5/1.5", () => {
-    expect(isValidated("finalizacoes", 2.5, 27)).toBe(true);
+  it("seleção (27): finalizações 0.5/1.5; SOT só 0.5; desarme só 0.5 (auditoria 2026-06-11)", () => {
+    expect(isValidated("finalizacoes", 0.5, 27)).toBe(true);
+    expect(isValidated("finalizacoes", 1.5, 27)).toBe(true);
+    expect(isValidated("finalizacoes", 2.5, 27)).toBe(false); // DEMOVIDO (banda -0.094/ECE 0.13)
     expect(isValidated("sot", 0.5, 27)).toBe(true);
     expect(isValidated("sot", 1.5, 27)).toBe(false);
     expect(isValidated("sot", 2.5, 27)).toBe(false);
-    expect(isValidated("desarmes", 1.5, 27)).toBe(true);
+    expect(isValidated("desarmes", 0.5, 27)).toBe(true);
+    expect(isValidated("desarmes", 1.5, 27)).toBe(false); // DEMOVIDO (banda -0.081/ECE 0.13)
     expect(isValidated("desarmes", 2.5, 27)).toBe(false);
   });
-  it("clube (9): SOT e finalizações todas; desarme NÃO validado (aguarda Fatia 1)", () => {
-    expect(isValidated("sot", 1.5, 9)).toBe(true);
-    expect(isValidated("sot", 2.5, 9)).toBe(true);
+  it("clube (9): SOT só 0.5; finalizações todas; desarme/faltas 0.5 (auditoria 2026-06-11)", () => {
+    expect(isValidated("sot", 0.5, 9)).toBe(true);
+    expect(isValidated("sot", 1.5, 9)).toBe(false);  // DEMOVIDO (legado fantasma, banda -0.32)
+    expect(isValidated("sot", 2.5, 9)).toBe(false);  // DEMOVIDO
     expect(isValidated("finalizacoes", 2.5, 9)).toBe(true);
-    expect(isValidated("desarmes", 0.5, 9)).toBe(false);
-    expect(isValidated("desarmes", 1.5, 9)).toBe(false);
+    expect(isValidated("desarmes", 0.5, 9)).toBe(true);  // GRADUOU no clube (full +0.110)
+    expect(isValidated("desarmes", 1.5, 9)).toBe(false); // marginal, sem estrela
   });
   it("liga desconhecida → clube", () => {
-    expect(isValidated("sot", 1.5, null)).toBe(true);
-    expect(isValidated("desarmes", 0.5, null)).toBe(false);
+    expect(isValidated("sot", 0.5, null)).toBe(true);
+    expect(isValidated("sot", 1.5, null)).toBe(false);
+    expect(isValidated("desarmes", 0.5, null)).toBe(true);
   });
   it("gols/vitória/escanteios: nunca validados", () => {
     expect(isValidated("gols", 2.5, 9)).toBe(false);
