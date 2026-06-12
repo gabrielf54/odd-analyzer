@@ -1,6 +1,6 @@
 import { MARKETS } from "../model/markets.js";
 
-const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes"]);
+const PLAYER_MARKETS = new Set(["sot", "finalizacoes", "desarmes", "faltas", "passes"]);
 
 /** Teto de odd: células com odd ≥ 10 (prob implícita < 10%) são linhas-limiar
  * muito improváveis — quase nunca têm valor nos nossos mercados de contagem e
@@ -34,12 +34,15 @@ ${lista}
 
 MERCADOS-ALVO (todos OPCIONAIS — se a casa não tiver um NESTE jogo, simplesmente
 não gere linhas dele; outros jogos podem ter):
-- Chutes a Gol / "Player Shots On Target"  → "market_type": "sot"
-- Finalizações Totais / "Player Shots"     → "market_type": "finalizacoes"
-- Desarmes / "Tackles"                     → "market_type": "desarmes"
+- Chutes a Gol / "Player Shots On Target"     → "market_type": "sot"
+- Finalizações Totais / "Player Shots"        → "market_type": "finalizacoes"
+- Desarmes / "Tackles"                        → "market_type": "desarmes"
+- Faltas Cometidas / "Player Fouls" / "Fouls" → "market_type": "faltas"
+- Passes / "Player Passes" / "Total de Passes" → "market_type": "passes"
 ATENÇÃO: "Player Shots On Target" (sot) e "Player Shots" (finalizacoes) têm rótulos
-quase idênticos — NÃO troque um pelo outro. Sempre grave o rótulo cru da casa em
-"market_label_casa" para conferência.
+quase idênticos — NÃO troque um pelo outro. Idem "Faltas Cometidas" (faltas, o que o
+jogador comete) vs "Faltas Sofridas" (NÃO é nosso mercado — ignore). Sempre grave o
+rótulo cru da casa em "market_label_casa" para conferência.
 
 COMO LER AS LINHAS: nesta casa NÃO existe botão "Mais de"/"Over"/"Under". As linhas
 são COLUNAS-LIMIAR acumulativas "1+", "2+", "3+"… — cada célula com odd já é, por
@@ -77,7 +80,13 @@ market_type:
     "linha": 2.5, "linha_label": "3+", "odd_over": 2.10, "book": "<nome da casa>" },
   { "market_type": "desarmes", "market_label_casa": "Tackles",
     "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
-    "linha": 1.5, "linha_label": "2+", "odd_over": 1.90, "book": "<nome da casa>" }
+    "linha": 1.5, "linha_label": "2+", "odd_over": 1.90, "book": "<nome da casa>" },
+  { "market_type": "faltas", "market_label_casa": "Player Fouls",
+    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
+    "linha": 0.5, "linha_label": "1+", "odd_over": 1.55, "book": "<nome da casa>" },
+  { "market_type": "passes", "market_label_casa": "Total de Passes",
+    "entidade": "<nome da minha lista>", "entidade_casa": "<nome exibido na casa>",
+    "linha": 29.5, "linha_label": "30+", "odd_over": 1.80, "book": "<nome da casa>" }
 ]`;
 }
 

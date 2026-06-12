@@ -41,13 +41,24 @@ describe("buildOddsPrompt", () => {
     expect(() => buildOddsPrompt({ jogo: "x" }, "cartoes", lineup)).toThrow(/desconhecido/);
   });
 
-  it("grupo 'jogador': lista + 3 mercados, modelo coluna N+ e matching normalizado", () => {
+  it("faltas e passes (jogador) roteiam como mercado de JOGADOR, não de partida", () => {
+    for (const key of ["faltas", "passes"]) {
+      const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, key, lineup);
+      expect(p, key).toContain("Kai Havertz"); // embute a lista → é player
+      expect(p, key).toContain(`"market_type": "${key}"`);
+      expect(p, key).not.toContain('"odd_under"'); // player path é só over
+    }
+  });
+
+  it("grupo 'jogador': lista + 5 mercados, modelo coluna N+ e matching normalizado", () => {
     const p = buildOddsPrompt({ jogo: "Germany x Scotland" }, "jogador", lineup);
     expect(p).toContain("Kai Havertz");
     expect(p).toContain("Joshua Kimmich");
     expect(p).toContain('"sot"');
     expect(p).toContain('"finalizacoes"');
     expect(p).toContain('"desarmes"');
+    expect(p).toContain('"faltas"');
+    expect(p).toContain('"passes"');
     // bet365: linhas são colunas-limiar "N+", não "Mais de X.5"
     expect(p).toMatch(/2\+/);
     expect(p).toContain('"linha_label"');
