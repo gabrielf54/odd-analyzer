@@ -148,6 +148,26 @@ desarme 1.5 nas duas, faltas 1.5/2.5 nas duas, gols/vitória/escanteios nas duas
 vs banda de aposta) e a **hipótese de re-calibrar de outra maneira**. É backlog de ação; o estado vivo
 continua aqui (§3.1) e o que está morto de vez no §5.
 
+### 🔵 INFRA — Coleta automática de odds (em andamento)
+Trocar a coleta MANUAL (colar prompt no Claude do Chrome, 1 casa) por **coleta server-side
+multi-casa** + **line shopping** (apostar no melhor preço). Avaliação de viabilidade FEITA
+(2026-06-13): legal no BR (odd pública deslogado); **rodar local no BR mata o geoblock**; as 4
+"casas moles" **não são iguais** — **KTO** (Kambi) e **Betnacional** (Sportradar) = GO, **Superbet**
+(Fastly) = 2ª onda, **Betano** (Kaizen, geoblock+Turnstile+props em camada GameplAI separada) = FORA
+do v1 (vai pro balde manual, junto da bet365). **Motor de coleta + KTO + Betnacional FUNCIONANDO ao
+vivo (2026-06-14, 378 testes, gate de paridade intacto).** `src/collect/`: normalizer fail-closed,
+line shopping, anti-armadilha cross-casa, orquestração "pula e avisa", parsers KTO (Kambi, `fetch`
+puro) e Betnacional (Bet6/REST — **não** era GraphQL), crosswalk de jogo `matchEventByName` +
+`teamNames.canonicalTeam` (PT/EN/FR de seleção). **Cloudflare da Betnacional** vencido por **Chromium
+headless local** (Playwright, `src/cli/browserFetch.ts`). **CLI `src/cli/collectOdds.ts <event_id_BSD>`**
+acha as 2 casas sozinho (listView KTO `world_cup_2026` + events-by-seasons Bet6 `950049532`), coleta,
+line-shop, flaga divergência → grava no `odds` (a análise manual já lê daí). PROVADO em `--dry` no
+8295 (Germany×Curaçao): KTO+Bet6 conf 1.0, 666→602 linhas cross-casa, 6 divergências reais.
+**Liquidação confirmada:** desarme=won_tackle (só KTO), faltas=cometidas, SOT/finalizações Opta.
+**Resta:** rodar **sem `--dry`** (grava em produção — exige OK explícito do dono); Superbet/Betano 2ª
+onda (mesmo headless serve). Fichas: [`features/coleta-odds-automatica/`](features/coleta-odds-automatica/)
+(NÃO apagar até shipar de vez). N4 (odds de PARTIDA via BSD) segue morto no §5 — esta é PROP multi-casa.
+
 ## 5. Cemitério — NÃO re-tentar (sem perder o aprendizado)
 
 | Item | Por que está morto | Quando reviver |

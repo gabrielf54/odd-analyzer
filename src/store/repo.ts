@@ -204,7 +204,23 @@ export class SupabaseRepo implements Repo {
     await this.mutate("saveOdds", this.client.from("odds").upsert(rows, { onConflict: "event_id,entidade,market_type,linha,book" }), { eventId, linhas: rows.length });
   }
   async getOdds(eventId: string): Promise<OddsRow[]> {
-    return this.query<OddsRow[]>("getOdds", this.client.from("odds").select("*").eq("event_id", eventId), [], { eventId });
+    // PostgREST corta em 1000 linhas por padrão. Coleta multi-casa passa de 1000 num só
+    // jogo (Betnacional ~587 + KTO + Betano) → linhas sumiam em SILÊNCIO. Pagina com
+    // .range() até a página vir incompleta. .order() pela PK p/ paginação determinística.
+    const PAGE = 1000;
+    const out: OddsRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const page = await this.query<OddsRow[]>(
+        "getOdds",
+        this.client.from("odds").select("*").eq("event_id", eventId)
+          .order("entidade").order("market_type").order("linha").order("book")
+          .range(from, from + PAGE - 1),
+        [], { eventId, from },
+      );
+      out.push(...page);
+      if (page.length < PAGE) break;
+    }
+    return out;
   }
   async deleteOdds(eventId: string, filter?: Partial<OddsRow>) {
     let q = this.client.from("odds").delete().eq("event_id", eventId);

@@ -31,6 +31,27 @@ export function sim(a: string, b: string): number {
   return (2 * inter) / (ba.length + bb.length);
 }
 
+// Score de nome jogador-a-jogador entre fontes (lar canônico; usado pelo crosswalk de
+// stats-id e pelo casamento de odds). As fontes abreviam ("K. Havertz", "J. Kimmich");
+// média 50/50 do primeiro nome (tolerante a inicial) com o sobrenome (último token).
+function nameTokens(n: string): string[] { return n.split(" ").filter(Boolean); }
+function firstTok(n: string): string { const t = nameTokens(n); return t.length ? t[0]! : n; }
+function lastTok(n: string): string { const t = nameTokens(n); return t.length ? t[t.length - 1]! : n; }
+function firstNameSim(a: string, b: string): number {
+  const sa = a.replace(/[^a-z0-9]/g, ""), sb = b.replace(/[^a-z0-9]/g, "");
+  if (sa.length === 0 || sb.length === 0) return 0;
+  if (sa.length <= 1 || sb.length <= 1) return sa[0] === sb[0] ? 1 : 0; // inicial: mesma 1ª letra
+  return sim(sa, sb);
+}
+/** Score de nome (0..1): casa o abreviado "K. Havertz" ao "Kai Havertz" e desempata
+ * sobrenomes iguais (Emiliano vs Lautaro Martínez) pelo primeiro nome. */
+export function scoreName(a: string, b: string): number {
+  const na = normalize(a), nb = normalize(b);
+  const first = firstNameSim(firstTok(na), firstTok(nb));
+  const last = sim(lastTok(na), lastTok(nb));
+  return 0.5 * first + 0.5 * last;
+}
+
 export interface MatchResult { id: string; name: string; confianca: number; }
 
 /** Casa `oddName` contra `elenco` ([{id,name}]). overrides por nome normalizado têm

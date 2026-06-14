@@ -234,6 +234,26 @@ describe("analyzeManual", () => {
     }
   });
 
+  it("line shopping: 2 casas da MESMA linha colapsam em 1 candidato com o melhor book + casas_comparadas", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [
+        { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "betano" },
+        { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.5, odd_under: null, book: "kto" },
+      ],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+
+    const havertzSot = [...out.candidatos, ...out.reprovados]
+      .filter((c: any) => String(c.jogador).includes("Havertz") && c.market_type === "sot" && c.linha === 0.5);
+    expect(havertzSot).toHaveLength(1);               // colapsou, não duplicou
+    expect(havertzSot[0]!.book).toBe("kto");          // melhor preço (3.5 > 3.0)
+    expect(havertzSot[0]!.odd).toBe(3.5);
+    expect(havertzSot[0]!.casas_comparadas).toHaveLength(2);
+    expect(Array.isArray(out.divergencias)).toBe(true); // detector cross-casa presente no resultado
+  });
+
   it("escada de passes: agrupa degraus por jogador e de-viga a escada inteira (ladderDevig)", async () => {
     const repo = new InMemoryRepo();
     // 5 degraus "N+" (convenção linha=N-0.5) p/ o MESMO jogador, odds crescentes

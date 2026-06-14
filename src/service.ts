@@ -1,13 +1,15 @@
 // Camada de serviço: contrato estável entre a UI (Next) e o motor. Funções puras de
 // orquestração, sem framework; recebem client/repo injetados → testáveis com fakes.
 import { MARKETS, settleField } from "./model/markets.js";
-import { runAnalyze } from "./runner.js";
+import { runAnalyze, normalizeEvent } from "./runner.js";
 import { buildTeamMap, resolve } from "./crosswalk/bsdIds.js";
 import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
 import { InMemoryRepo, type OddsRow } from "./store/repo.js";
+import { runCollection, type RunCollectionOpts, type RunCollectionResult } from "./collect/run.js";
+import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
 
@@ -27,6 +29,10 @@ export async function listLeagues(client: any, limit = 200): Promise<any[]> {
 // de grupos (ids baixos) fora da janela. Puxamos largo e ordenamos/cortamos aqui.
 const WIDE_FETCH = 200;
 
+// Janela de graça pós-horário: jogo "notstarted" cujo kickoff passou há menos de
+// 3h ainda aparece na lista (cobre os ~2h de partida + folga). Depois disso, cai.
+const KICKOFF_GRACE_MS = 3 * 60 * 60 * 1000;
+
 // Jogo de chave ainda sem time definido vem com nome placeholder ("W101", "L101",
 // "1K", "H1", "3D/3E/3I"). Sem time real não há stats → não é candidato a análise.
 function isPlaceholderTeam(name: unknown): boolean {
@@ -37,9 +43,16 @@ function isPlaceholderTeam(name: unknown): boolean {
 }
 
 export async function listMatches(client: any, leagueId: unknown, status: string, limit = 50, now = new Date()): Promise<any[]> {
-  const data = await client.events({ league_id: leagueId, status, limit: Math.max(limit, WIDE_FETCH) });
-  const results: any[] = Array.isArray(data?.results) ? data.results : [];
   const finished = status === "finished";
+  // Pré-jogo: NÃO filtramos por status na API. Jogo ao vivo tem status próprio na
+  // BSD (`1st_half`, `2nd_half`, ...) — não é `notstarted` — e `status=notstarted`
+  // some com ele. Puxamos sem filtro (devolve notstarted + ao vivo + finished) e
+  // decidimos no código: descarta finalizado e aplica a janela de graça abaixo.
+  // Lista de finalizados continua filtrando por `status=finished` direto na API.
+  const params: Record<string, unknown> = { league_id: leagueId, limit: Math.max(limit, WIDE_FETCH) };
+  if (finished) params.status = "finished";
+  const data = await client.events(params);
+  const results: any[] = Array.isArray(data?.results) ? data.results : [];
   let matches = results.map((ev) => {
     const hs = ev.home_score, as_ = ev.away_score;
     const placar = hs != null && as_ != null ? `${hs}×${as_}` : null;
@@ -50,12 +63,14 @@ export async function listMatches(client: any, leagueId: unknown, status: string
   });
   // Jogos de chave sem time definido (placeholder) não têm stats → fora.
   matches = matches.filter((j) => !isPlaceholderTeam(j.mandante) && !isPlaceholderTeam(j.visitante));
-  // Pré-jogo: a BSD às vezes deixa o status preso em "notstarted" mesmo após o
-  // jogo ter começado. Descartamos os que já passaram do horário — jogo iniciado
-  // não é mais candidato a valor pré-jogo.
+  // Lista de pré-jogo/ao vivo: descarta o que já terminou (vai pra lista de
+  // finalizados) e mantém janela de graça de 3h após o kickoff — jogo recém-
+  // iniciado ou ainda rolando aparece (cobre os ~2h de partida + folga); só o
+  // que passou dessa janela (inclusive `notstarted` preso pós-horário) cai fora.
   if (!finished) {
-    const cutoff = now.getTime();
+    const cutoff = now.getTime() - KICKOFF_GRACE_MS;
     matches = matches.filter((j) => {
+      if (j.status === "finished") return false;
       const t = j.data ? new Date(j.data).getTime() : NaN;
       return isNaN(t) || t >= cutoff;
     });
@@ -202,6 +217,19 @@ export async function saveOddsService(repo: any, body: unknown): Promise<{ salva
 
 export async function getOddsService(repo: any, eventId: string): Promise<OddsRow[]> {
   return repo.getOdds(eventId);
+}
+
+/** "Obter odds": coleta as odds do jogo nas casas (registry) e grava no `odds`. É o backend
+ * do botão "obter odds → analisar". `fetchers` injetado (fetch puro + headless; o endpoint
+ * monta via import dinâmico p/ não carregar Playwright no boot). Resolve home/away pela BSD. */
+export async function coletarOddsService(
+  client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
+): Promise<RunCollectionResult> {
+  const ev = normalizeEvent(await client.getEvent(eventId));
+  return runCollection(
+    { id: String(ev.id), jogo: ev.jogo, home: ev.home_team?.name ?? "", away: ev.away_team?.name ?? "" },
+    repo, fetchers, opts,
+  );
 }
 
 /** Resultado completo da última análise manual (ou null). Fonte de verdade pro

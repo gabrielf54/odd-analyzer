@@ -28,6 +28,10 @@ export interface BuildCandidateArgs {
   // presente, usa esta prob justa em vez de calcular da odd_under (que não existe na
   // escada). sem_devig acompanha (false = a escada ajustou; true = fallback conservador).
   devig?: { prob: number; sem_devig: boolean } | null;
+  // LINE SHOPPING: a casa do MELHOR preço (book vencedor) e a comparação de todas as
+  // casas (UI: "melhor odd X na casa Y"). Passthrough — NÃO entra no cálculo do número.
+  book?: string | null;
+  casas_comparadas?: { book: string; odd_over: number }[] | null;
 }
 
 /** Monta o dossiê de UM candidato. Toda a matemática (de-vig, edge, EV) vem daqui
@@ -69,6 +73,9 @@ export function buildCandidate(a: BuildCandidateArgs): Record<string, unknown> {
     // I5: posse média do adversário (%) — contexto de confronto p/ a IA. Também
     // DESCRITIVO: não toca prob_modelo/edge/ev (esses vêm só do motor).
     posse_adversario: a.posse_adversario ?? null,
+    // Line shopping: casa do melhor preço + casas comparadas (passthrough, fora do número).
+    book: a.book ?? null,
+    casas_comparadas: a.casas_comparadas ?? null,
   };
   if (a.trace) {
     out.trace = finalizeTrace(a.trace, {

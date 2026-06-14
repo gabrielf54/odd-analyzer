@@ -11,6 +11,8 @@ import { reviewCandidates, type ReviewerFn } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
 import { matchPlayerOdds, type OddsMatched } from "./matchOdds.js";
 import { ladderDevig } from "../value/ladderDevig.js";
+import { pickBestPrice } from "../collect/lineShop.js";
+import { flagDivergences } from "../collect/antiTrap.js";
 import { logInfo } from "../lib/log.js";
 import type { ManualOddsInput, ManualOddsLine } from "./schema.js";
 
@@ -53,11 +55,18 @@ export async function analyzeManual(
   const stats = new CrosswalkStatsProvider(new BSDStatsProvider(client), client);
   const overrides = await repo.listCrosswalk();
 
-  const byMarket = groupByMarket(input.odds);
+  // LINE SHOPPING (STATUS §3 frente A+C): antes de analisar, (1) marca divergências
+  // cross-casa p/ REVISÃO (detector de armadilha §5.4 — nunca aposta/rejeita sozinho) e
+  // (2) colapsa as N casas de cada (jogador,mercado,linha) na de MELHOR preço. Com 1 casa
+  // (fluxo manual de hoje) é no-op. As funções são puras (src/collect).
+  const divergencias = flagDivergences(input.odds);
+  const odds = pickBestPrice(input.odds);
+
+  const byMarket = groupByMarket(odds);
   const allCandidates: any[] = [];
   const jogadores_sem_match: any[] = [];
 
-  logInfo("analise", `analisando ${event.jogo ?? event.id}`, { event_id: event.id, mercados: [...byMarket.keys()] });
+  logInfo("analise", `analisando ${event.jogo ?? event.id}`, { event_id: event.id, mercados: [...byMarket.keys()], casas: [...new Set(input.odds.map((l) => l.book))], divergencias: divergencias.length });
 
   for (const [marketKey, lines] of byMarket) {
     const market: MarketSpec | undefined = MARKETS[marketKey];
@@ -73,6 +82,8 @@ export async function analyzeManual(
         // (sem_devig). 0 cairia no de-vig e estouraria impliedProb(0) — bug do 1x2
         // só-over, que isenta o under no schema (ver schema.ts) e quebrava a análise.
         odd_under: l.odd_under ?? null, book: l.book,
+        // line shopping: carrega as casas comparadas até o candidato de PARTIDA.
+        casas_comparadas: (l as any).casas_comparadas ?? null,
       })));
       cands = market.kind === "contagem"
         ? await matchCount(event, market, stats, await provider.lines())
@@ -111,6 +122,8 @@ export async function analyzeManual(
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match: semMatchUnico,
     linhas_rejeitadas: input.linhas_rejeitadas,
+    // Line shopping: divergências cross-casa marcadas p/ REVISÃO (não bloqueiam nada).
+    divergencias,
     ia,
   };
 
@@ -127,6 +140,9 @@ export async function analyzeManual(
       event_id: event.id, jogador: c.jogador, player_id: c.player_id ?? null,
       linha: c.linha, market_type: c.market_type, odd_flag: c.odd,
       prob_modelo: c.prob_modelo, prob_devig: c.prob_devig, edge: c.edge, ev: c.ev,
+      // NB: a provenance de `book` no ledger fica DIFERIDA p/ o go-live do coletor (precisa
+      // da migração add_book_to_paper_ledger, aplicada COM o dono). A colisão multi-casa
+      // que motivava isso já não ocorre — pickBestPrice colapsa p/ 1 book/linha antes daqui.
     }));
   if (ledgerRows.length) await repo.saveLedger(ledgerRows);
 
@@ -189,6 +205,7 @@ async function playerCandidates(
           concedido_posicao: rate.concedido_posicao ?? null,
           stats_detalhadas: rate.stats_detalhadas ?? null,
           posse_adversario: rate.posse_adversario ?? null,
+          book: od.book ?? null, casas_comparadas: (od as any).casas_comparadas ?? null,
           devig: dr ? { prob: dr.prob_devig, sem_devig: dr.sem_devig } : null,
         }));
       }
@@ -220,6 +237,7 @@ async function playerCandidates(
       concedido_posicao: rate.concedido_posicao ?? null,
       stats_detalhadas: rate.stats_detalhadas ?? null,
       posse_adversario: rate.posse_adversario ?? null,
+      book: od.book ?? null, casas_comparadas: (od as any).casas_comparadas ?? null,
     }));
   }
   return out;

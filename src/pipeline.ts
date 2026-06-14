@@ -130,6 +130,7 @@ export async function matchCount(event: any, market: MarketSpec, sp: any, lines:
     prob_modelo: probOverLine(muTotal, li.linha, market.nb_dispersion), mu: muTotal, minutos_esperados: 90.0,
     xi_confirmado: true, amostra_jogos: sample, concedido_adversario: "n/d", incerteza: uncertainty ?? "media",
     market_type: market.key, trace: matchRateTrace(market.stat_field, muTotal),
+    book: li.book ?? null, casas_comparadas: li.casas_comparadas ?? null,
   }));
 }
 
@@ -210,7 +211,7 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
       jogador, linha: li.linha, odd_over: li.odd_over, odd_under: li.odd_under,
       prob_modelo: prob, mu: muTotal, minutos_esperados: 90.0,
       xi_confirmado: true, amostra_jogos: 10, concedido_adversario: "n/d", incerteza: "media", market_type: market.key,
-      trace,
+      trace, book: li.book ?? null, casas_comparadas: li.casas_comparadas ?? null,
     });
   });
 }
