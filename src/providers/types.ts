@@ -11,6 +11,9 @@ export interface OddsLine {
   odd_under: number | null;
   book: string;
   odd_draw?: number | null;
+  // Line shopping: as casas comparadas p/ esta (entidade,mercado,linha). Flui até o
+  // candidato (inclusive de PARTIDA) p/ o front mostrar "melhor odd na casa X".
+  casas_comparadas?: { book: string; odd_over: number }[] | null;
 }
 
 export interface OddsProvider {

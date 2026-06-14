@@ -124,6 +124,22 @@ describe("buildCandidate", () => {
     expect(buildCandidate(base).stats_detalhadas).toBeNull();
   });
 
+  it("carrega book e casas_comparadas (line shopping) quando presentes; null/ausente senão", () => {
+    const base = {
+      jogador: "Paqueta", linha: 1.5, odd_over: 6.5, odd_under: null, prob_modelo: 0.2,
+      mu: 1.2, minutos_esperados: 90, xi_confirmado: true, amostra_jogos: 12,
+      concedido_adversario: "n/d", incerteza: "media", market_type: "sot",
+    };
+    const comp = [{ book: "kto", odd_over: 6.5 }, { book: "betano", odd_over: 4.7 }];
+    const c = buildCandidate({ ...base, book: "kto", casas_comparadas: comp });
+    expect(c["book"]).toBe("kto");
+    expect(c["casas_comparadas"]).toEqual(comp);
+    // ausente → book null, sem casas_comparadas (não quebra o fluxo manual de 1 casa)
+    const cBare = buildCandidate(base);
+    expect(cBare["book"]).toBeNull();
+    expect(cBare["casas_comparadas"]).toBeNull();
+  });
+
   it("respeita o override `devig` (de-vig de escada): usa a prob justa, não a crua", () => {
     const base = {
       jogador: "K. Havertz", linha: 0.5, odd_over: 2.0, odd_under: null, prob_modelo: 0.6,
