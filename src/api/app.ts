@@ -107,6 +107,21 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.saveOddsService(deps.repo, req.body));
   }));
 
+  // "Obter odds": coleta automática multi-casa (registry) → grava no `odds`. Backend do
+  // botão do front. `?dry=1` testa sem gravar. Os fetchers (incl. Chromium headless p/
+  // Cloudflare) são montados por import DINÂMICO → o Playwright só carrega aqui, na hora.
+  app.post("/jogos/:eventId/coletar-odds", wrap(async (req, res) => {
+    const dry = req.query.dry === "1" || req.body?.dry === true;
+    const overrides = (req.body?.overrides && typeof req.body.overrides === "object") ? req.body.overrides : {};
+    const { makeFetchers } = await import("../cli/fetchers.js");
+    const fetchers = await makeFetchers();
+    try {
+      res.json(await service.coletarOddsService(deps.client, deps.repo, String(req.params.eventId), fetchers, { dry, overrides }));
+    } finally {
+      await fetchers.close();
+    }
+  }));
+
   app.get("/jogos/:eventId/odds", wrap(async (req, res) => {
     res.json(await service.getOddsService(deps.repo, String(req.params.eventId)));
   }));

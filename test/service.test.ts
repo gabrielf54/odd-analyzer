@@ -36,6 +36,34 @@ describe("service", () => {
     expect(out.map((j) => j.id)).toEqual(["futuro"]); // 31/mar caiu fora
   });
 
+  it("listMatches (notstarted) inclui jogo AO VIVO (status próprio, ex.: 1st_half) e não filtra status na API", async () => {
+    const now = new Date("2026-06-13T19:10:00+00:00");
+    let calledStatus: unknown = "NAO_CHAMADO";
+    const client = { async events(p: any) {
+      calledStatus = p.status; // pré-jogo não pode mandar status (senão ao vivo some)
+      return { results: [
+        { id: "live", home_team: "Qatar", away_team: "Switzerland", event_date: "2026-06-13T19:00:00+00:00", status: "1st_half", home_score: 0, away_score: 0 },
+        { id: "fim", home_team: "X", away_team: "Y", event_date: "2026-06-13T16:00:00+00:00", status: "finished", home_score: 1, away_score: 2 },
+        { id: "futuro", home_team: "C", away_team: "D", event_date: "2026-06-18T20:00:00+00:00", status: "notstarted" },
+      ] };
+    } };
+    const out = await listMatches(client, 27, "notstarted", 50, now);
+    expect(calledStatus).toBeUndefined();
+    expect(out.map((j) => j.id)).toEqual(["live", "futuro"]); // ao vivo entra, finalizado sai
+    expect(out[0]!.placar).toBe("0×0"); // placar ao vivo aparece
+  });
+
+  it("listMatches (notstarted) mantém jogo iniciado há <3h, descarta >3h", async () => {
+    const now = new Date("2026-06-07T12:00:00+00:00");
+    const client = { async events() { return { results: [
+      { id: "ha2h", home_team: "A", away_team: "B", event_date: "2026-06-07T10:00:00+00:00", status: "notstarted" }, // -2h: fica
+      { id: "ha5h", home_team: "C", away_team: "D", event_date: "2026-06-07T07:00:00+00:00", status: "notstarted" }, // -5h: sai
+      { id: "futuro", home_team: "E", away_team: "F", event_date: "2026-06-07T20:00:00+00:00", status: "notstarted" },
+    ] }; } };
+    const out = await listMatches(client, 31, "notstarted", 50, now);
+    expect(out.map((j) => j.id)).toEqual(["ha2h", "futuro"]); // ordenado por data asc; ha5h fora
+  });
+
   it("listMatches puxa janela ampla — não perde jogo de data cedo com id baixo (BSD ordena id desc)", async () => {
     // BSD devolve eventos ordenados por id DESC e respeita o limit pedido.
     // O opener (id baixo, data cedo) só aparece se pedirmos janela larga.
