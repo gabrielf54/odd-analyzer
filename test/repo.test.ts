@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { clv, InMemoryRepo } from "../src/store/repo.js";
+import { clv, InMemoryRepo, SupabaseRepo } from "../src/store/repo.js";
 
 describe("clv", () => {
   it("positivo quando peguei preço melhor que o fechamento", () => {
@@ -133,5 +133,28 @@ describe("InMemoryRepo — odds", () => {
     expect(sum).toHaveLength(2);
     expect(sum[1]!.total_linhas).toBe(2);
     expect(sum[0]!.ultimo_coletado_em).toBe("2026-06-10T00:00:00Z");
+  });
+});
+
+describe("SupabaseRepo — getOdds paginação", () => {
+  // Fake do PostgREST: .range(from,to) devolve a fatia; .order/.eq/.select encadeiam.
+  function fakeClient(allRows: any[]) {
+    const builder: any = {
+      from: () => builder, select: () => builder, eq: () => builder, order: () => builder,
+      range: (from: number, to: number) => Promise.resolve({ data: allRows.slice(from, to + 1), error: null }),
+    };
+    return builder;
+  }
+  it("pagina além de 1000 linhas (não corta em silêncio)", async () => {
+    const rows = Array.from({ length: 2345 }, (_, i) => ({
+      event_id: "e1", entidade: `p${i}`, market_type: "sot", linha: 0.5, odd_over: 1.5, odd_under: null, book: "kto",
+    }));
+    const repo = new SupabaseRepo(fakeClient(rows));
+    expect(await repo.getOdds("e1")).toHaveLength(2345);
+  });
+  it("uma página parcial encerra (≤1000)", async () => {
+    const rows = Array.from({ length: 42 }, (_, i) => ({ event_id: "e1", entidade: `p${i}`, market_type: "sot", linha: 0.5, odd_over: 1.5, odd_under: null, book: "kto" }));
+    const repo = new SupabaseRepo(fakeClient(rows));
+    expect(await repo.getOdds("e1")).toHaveLength(42);
   });
 });

@@ -23,6 +23,8 @@ create table if not exists paper_ledger (
   linha numeric not null,
   market_type text not null default 'sot',
   odd_flag numeric,        -- nullable: linha de calibração forward (forwardLog) loga só prob_modelo, sem odd (CLV vem na fase 2)
+  -- FUTURO (go-live do coletor): `book text` p/ provenance da odd do line shopping —
+  -- migração add_book_to_paper_ledger, aplicar COM o dono. Aditiva/nullable, fora da unique.
   prob_modelo numeric,
   prob_devig numeric,
   edge numeric,
