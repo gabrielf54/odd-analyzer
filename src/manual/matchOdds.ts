@@ -1,45 +1,12 @@
-import { sim, normalize } from "../crosswalk/match.js";
+import { normalize, scoreName } from "../crosswalk/match.js";
 import type { ManualOddsLine } from "./schema.js";
 
-// Casas escrevem o nome abreviado ("K. Havertz"); a base traz o nome completo
-// ("Kai Havertz"). Mas sobrenome sozinho não basta: Argentina tem Emiliano E
-// Lautaro Martínez — casar só pelo sobrenome empata os dois. Score = média do
-// primeiro nome com o sobrenome (50/50). O primeiro nome tolera inicial
-// ("K." = "Kai"): assim o abreviado ainda casa, mas o sobrenome compartilhado
-// é desempatado pelo primeiro nome.
+// scoreName (casa abreviado "K. Havertz" ao "Kai Havertz") agora mora em crosswalk/match
+// (lar canônico, compartilhado com o crosswalk de stats-id). Re-exporto p/ compat.
+export { scoreName };
+
 const AUTO_THRESHOLD = 0.85; // score mínimo do melhor candidato p/ auto-casar
 const MARGIN = 0.15;          // distância mínima do 2º melhor (anti-ambiguidade)
-
-function tokens(n: string): string[] {
-  return n.split(" ").filter(Boolean);
-}
-function firstToken(n: string): string {
-  const t = tokens(n);
-  return t.length ? t[0]! : n;
-}
-function lastToken(n: string): string {
-  const t = tokens(n);
-  return t.length ? t[t.length - 1]! : n;
-}
-
-/** Similaridade do primeiro nome, tolerante a inicial. Se um dos lados é uma
- * inicial ("k", "k."), compatível = mesma primeira letra. Senão, Dice normal. */
-function firstNameSim(a: string, b: string): number {
-  const sa = a.replace(/[^a-z0-9]/g, ""), sb = b.replace(/[^a-z0-9]/g, "");
-  if (sa.length === 0 || sb.length === 0) return 0;
-  if (sa.length <= 1 || sb.length <= 1) return sa[0] === sb[0] ? 1 : 0;
-  return sim(sa, sb);
-}
-
-/** Score de nome entre fontes: média (50/50) da similaridade do primeiro nome
- * (tolerante a inicial) com a do sobrenome (último token). Casa o abreviado
- * "K. Havertz" e ao mesmo tempo desempata sobrenomes iguais pelo primeiro nome. */
-export function scoreName(a: string, b: string): number {
-  const na = normalize(a), nb = normalize(b);
-  const first = firstNameSim(firstToken(na), firstToken(nb));
-  const last = sim(lastToken(na), lastToken(nb));
-  return 0.5 * first + 0.5 * last;
-}
 
 export interface OddsMatched extends ManualOddsLine { player_id: string; player_name: string; }
 export interface SemMatch { nome_casa: string; candidatos: { id: string; name: string; confianca: number }[]; }
