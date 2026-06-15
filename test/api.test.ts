@@ -159,6 +159,25 @@ describe("API — odds persistidas", () => {
     expect(r.status).toBe(400);
   });
 
+  it("POST /jogos/:id/unificar-odds colapsa grafias e GET /odds-unificadas devolve o espelho", async () => {
+    const a = manualApp();
+    await request(a).post("/odds").send({
+      event_id: "e1", coletado_em: "2026-06-15T00:00:00Z",
+      odds: [
+        { market_type: "finalizacoes", entidade: "Llorente, Marcos", linha: 0.5, odd_over: 1.12, book: "superbet" },
+        { market_type: "finalizacoes", entidade: "Marcos Llorente", linha: 0.5, odd_over: 1.46, book: "kto" },
+      ],
+    });
+    const uni = await request(a).post("/jogos/e1/unificar-odds");
+    expect(uni.status).toBe(200);
+    expect(uni.body.n_cru).toBe(2);
+    expect(uni.body.n_unificado).toBe(1);        // 2 grafias → 1 aposta
+    const get = await request(a).get("/jogos/e1/odds-unificadas");
+    expect(get.body).toHaveLength(1);
+    expect(get.body[0].odd_over).toBe(1.46);     // melhor preço (KTO)
+    expect(get.body[0].book).toBe("kto");
+  });
+
   it("DELETE /jogos/:id/odds limpa o jogo", async () => {
     const a = manualApp();
     await request(a).post("/odds").send({

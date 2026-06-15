@@ -22,6 +22,22 @@ export interface OddsEventSummary {
   ultimo_coletado_em: string | null;
 }
 
+/** Linha da `odds_unificadas` — espelho canônico (1 por aposta após line shopping). */
+export interface UnifiedOddsRow {
+  event_id: string;
+  entidade_norm: string;                                 // identidade normalizada (chave)
+  market_type: string;
+  linha: number;
+  entidade: string;                                      // nome de exibição da casa vencedora
+  odd_over: number;                                      // melhor preço entre as casas
+  odd_under: number | null;
+  book: string;                                          // casa vencedora
+  casas_comparadas: { book: string; odd_over: number }[];
+  divergencia: boolean;
+  spread_pp: number | null;
+  coletado_em?: string;
+}
+
 export interface ManualResult { result: any; analisado_em: string; }
 
 export interface Repo {
@@ -33,6 +49,10 @@ export interface Repo {
   getOdds(eventId: string): Promise<OddsRow[]> | OddsRow[];
   deleteOdds(eventId: string, filter?: Partial<OddsRow>): Promise<void> | void;
   listOddsEvents(): Promise<OddsEventSummary[]> | OddsEventSummary[];
+  // odds_unificadas (espelho): saveOddsUnificadas SUBSTITUI todas as linhas do evento.
+  saveOddsUnificadas(eventId: string, rows: UnifiedOddsRow[]): Promise<void> | void;
+  getOddsUnificadas(eventId: string): Promise<UnifiedOddsRow[]> | UnifiedOddsRow[];
+  deleteOddsUnificadas(eventId: string): Promise<void> | void;
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
   getLedger(eventId: string): Promise<any[]> | any[];
@@ -52,6 +72,7 @@ export class InMemoryRepo implements Repo {
   ledger: any[] = [];
   crosswalk = new Map<number, any>();
   odds = new Map<string, OddsRow[]>();
+  oddsUnificadas = new Map<string, UnifiedOddsRow[]>();
 
   saveAnalysis(eventId: string, payload: any) { this.analyses.set(eventId, payload); }
   getAnalysis(eventId: string) { return this.analyses.get(eventId) ?? null; }
@@ -104,6 +125,13 @@ export class InMemoryRepo implements Repo {
     const entries = Object.entries(filter);
     this.odds.set(eventId, cur.filter((r) => !entries.every(([k, v]) => (r as any)[k] === v)));
   }
+
+  // Espelho: substitui TODAS as linhas unificadas do evento (lista [] limpa).
+  saveOddsUnificadas(eventId: string, rows: UnifiedOddsRow[]) {
+    this.oddsUnificadas.set(eventId, rows.map((r) => ({ ...r, event_id: eventId })));
+  }
+  getOddsUnificadas(eventId: string): UnifiedOddsRow[] { return this.oddsUnificadas.get(eventId) ?? []; }
+  deleteOddsUnificadas(eventId: string) { this.oddsUnificadas.delete(eventId); }
 
   listOddsEvents(): OddsEventSummary[] {
     const out: OddsEventSummary[] = [];
@@ -226,6 +254,34 @@ export class SupabaseRepo implements Repo {
     let q = this.client.from("odds").delete().eq("event_id", eventId);
     for (const [k, v] of Object.entries(filter ?? {})) q = q.eq(k, v);
     await this.mutate("deleteOdds", q, { eventId, filter });
+  }
+
+  // Espelho canônico: SUBSTITUI todas as linhas do evento (delete + insert) — nunca
+  // upsert parcial, p/ não deixar lixo de uma coleta anterior. [] só limpa.
+  async saveOddsUnificadas(eventId: string, rows: UnifiedOddsRow[]) {
+    await this.deleteOddsUnificadas(eventId);
+    if (!rows.length) return;
+    const out = rows.map((r) => ({ ...r, event_id: eventId }));
+    await this.mutate("saveOddsUnificadas", this.client.from("odds_unificadas").insert(out), { eventId, linhas: out.length });
+  }
+  async getOddsUnificadas(eventId: string): Promise<UnifiedOddsRow[]> {
+    const PAGE = 1000;
+    const out: UnifiedOddsRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const page = await this.query<UnifiedOddsRow[]>(
+        "getOddsUnificadas",
+        this.client.from("odds_unificadas").select("*").eq("event_id", eventId)
+          .order("entidade_norm").order("market_type").order("linha")
+          .range(from, from + PAGE - 1),
+        [], { eventId, from },
+      );
+      out.push(...page);
+      if (page.length < PAGE) break;
+    }
+    return out;
+  }
+  async deleteOddsUnificadas(eventId: string) {
+    await this.mutate("deleteOddsUnificadas", this.client.from("odds_unificadas").delete().eq("event_id", eventId), { eventId });
   }
   async listOddsEvents(): Promise<OddsEventSummary[]> {
     const data = await this.query<any[]>("listOddsEvents", this.client.from("odds").select("event_id, coletado_em"), []);

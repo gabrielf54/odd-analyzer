@@ -21,6 +21,11 @@ export interface AnalyzeManualOpts {
   repo?: any;
   reviewerFn?: ReviewerFn;
   diagnostics?: boolean;
+  // `input.odds` já vem UNIFICADO (da odds_unificadas): pula pickBestPrice/flagDivergences
+  // e usa `divergencias` injetado. Garante que a análise consome EXATAMENTE o espelho.
+  // Sem a flag, comporta-se como antes (calcula do cru) — retrocompatível p/ os testes diretos.
+  alreadyUnified?: boolean;
+  divergencias?: any[];
 }
 
 const PLAYER_MARKETS = new Set(PLAYER_MARKET_KEYS);
@@ -60,8 +65,10 @@ export async function analyzeManual(
   // cross-casa p/ REVISÃO (detector de armadilha §5.4 — nunca aposta/rejeita sozinho) e
   // (2) colapsa as N casas de cada (jogador,mercado,linha) na de MELHOR preço. Com 1 casa
   // (fluxo manual de hoje) é no-op. As funções são puras (src/collect).
-  const divergencias = flagDivergences(input.odds);
-  const odds = pickBestPrice(input.odds);
+  // Quando o caller já passou o ESPELHO (odds_unificadas), reusa-o; senão calcula do cru
+  // (mesma função pura → resultado idêntico). O que a tela mostra É o que entra aqui.
+  const divergencias = opts.divergencias ?? flagDivergences(input.odds);
+  const odds: any[] = opts.alreadyUnified ? (input.odds as any[]) : pickBestPrice(input.odds);
 
   const byMarket = groupByMarket(odds);
   const allCandidates: any[] = [];

@@ -52,6 +52,28 @@ create table if not exists odds (
 );
 create index if not exists odds_event_idx on odds (event_id);
 
+-- odds_unificadas: ESPELHO canônico das odds (1 linha por aposta após line shopping).
+-- NUNCA editada à mão — re-gerada a cada escrita em `odds` (reprojectUnifiedOdds). É o que
+-- a ANÁLISE consome e o que a tela única mostra; `odds` segue como LOG cru. PK por
+-- IDENTIDADE normalizada → colapsa grafias da mesma aposta ("Llorente, Marcos" + "Marcos
+-- Llorente"). Migração: create_odds_unificadas (2026-06-15).
+create table if not exists odds_unificadas (
+  event_id          text not null,
+  entidade_norm     text not null,        -- identidade normalizada (chave do agrupamento)
+  market_type       text not null,
+  linha             numeric not null,
+  entidade          text not null,        -- nome de exibição da casa vencedora
+  odd_over          numeric not null,     -- MELHOR preço (maior odd_over entre as casas)
+  odd_under         numeric,              -- da MESMA casa vencedora (coerência de de-vig)
+  book              text not null,        -- casa vencedora
+  casas_comparadas  jsonb not null default '[]'::jsonb,  -- [{book, odd_over}] de todas as casas
+  divergencia       boolean not null default false,      -- grupo divergente (≥ limiar)?
+  spread_pp         numeric,              -- tamanho da divergência em pontos %, se houver
+  coletado_em       timestamptz not null default now(),
+  primary key (event_id, entidade_norm, market_type, linha)
+);
+create index if not exists odds_unificadas_event_idx on odds_unificadas (event_id);
+
 -- lido/escrito por SupabaseRepo.save_crosswalk/get_crosswalk
 create table if not exists jogadores_crosswalk (
   id_canonico bigint primary key,  -- id canonico do jogador, fornecido pelo caller (ex.: ID API-Football)
