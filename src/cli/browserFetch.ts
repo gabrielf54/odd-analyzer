@@ -17,8 +17,27 @@ export interface BrowserGet {
 
 const UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36";
 
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/** Sobe o Chromium com retry. No Windows o chrome-headless-shell às vezes morre na init
+ * (exitCode 0xC0000142 STATUS_DLL_INIT_FAILED — antivírus/Defender mexendo na DLL ou
+ * pressão de recurso da sessão), e o launch joga "Target ... has been closed". É transiente:
+ * retentar com backoff curto resolve sem 500 no endpoint. */
+async function launchWithRetry(tentativas = 3) {
+  let ultimo: unknown;
+  for (let t = 1; t <= tentativas; t++) {
+    try {
+      return await chromium.launch({ headless: process.env.HEADFUL !== "1" });
+    } catch (e) {
+      ultimo = e;
+      if (t < tentativas) await sleep(600 * t);
+    }
+  }
+  throw new Error(`chromium.launch falhou após ${tentativas} tentativas (init do headless — feche chrome/servers extras ou cheque o antivírus): ${ultimo instanceof Error ? ultimo.message.split("\n")[0] : String(ultimo)}`);
+}
+
 export async function makeBrowserGet(): Promise<BrowserGet> {
-  const browser = await chromium.launch({ headless: process.env.HEADFUL !== "1" });
+  const browser = await launchWithRetry();
   const context = await browser.newContext({ locale: "pt-BR", timezoneId: "America/Sao_Paulo", userAgent: UA });
   const page = await context.newPage();
 

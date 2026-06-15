@@ -44,9 +44,11 @@ const oddsFilterQuery = z.object({
 /** Monta a app Express. `deps` injeta client/repo (reais no server, fakes no teste). */
 export function createApp(deps: Deps): express.Express {
   const app = express();
-  app.use(express.json());
 
-  // CORS permissivo (front Next em outra origem, ex.: localhost:3000).
+  // CORS permissivo (front Next em outra origem, ex.: localhost:3000). ANTES do json() de
+  // propósito: se o body-parser estoura (ex.: PayloadTooLargeError), o erro pula os
+  // middlewares seguintes e cai direto no handler — mas os headers de CORS já estão setados,
+  // então o front CONSEGUE LER o erro em vez de "Failed to fetch" com corpo vazio.
   app.use((_req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
     res.header("Access-Control-Allow-Methods", "GET,POST,DELETE,OPTIONS");
@@ -54,6 +56,11 @@ export function createApp(deps: Deps): express.Express {
     next();
   });
   app.options(/.*/, (_req, res) => { res.sendStatus(204); });
+
+  // limit alto: a análise manual manda TODAS as odds coletadas do jogo (~950+ linhas) +
+  // stats no corpo — o default de 100kb do express.json estoura (PayloadTooLargeError). 5mb
+  // cobre folgado.
+  app.use(express.json({ limit: "5mb" }));
 
   const wrap = (fn: (req: Request, res: Response) => Promise<void>) =>
     (req: Request, res: Response, next: NextFunction) => fn(req, res).catch(next);
