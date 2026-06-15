@@ -7,6 +7,7 @@
 // por-mercado, sinais de posição) está documentado no STATUS §5 como follow-up forward.
 
 import type { ManualOddsLine } from "../manual/schema.js";
+import { normalize } from "../crosswalk/match.js";
 
 export interface DivergenceFlag {
   entidade: string;
@@ -21,8 +22,11 @@ export interface DivergenceFlag {
 // Paquetá saudável (~8pp) não. Calibrar com dado da Copa (STATUS §5).
 const THRESHOLD_PP_DEFAULT = 20;
 
+// Mesma identidade normalizada do line shopping: compara o MESMO jogador mesmo quando as
+// casas escrevem o nome diferente ("Llorente, Marcos" vs "Marcos Llorente"). Sem isso, a
+// divergência entre Superbet e KTO passava batida (grupos separados pelo formato do nome).
 function groupKey(l: ManualOddsLine): string {
-  return `${l.entidade}|${l.market_type}|${l.linha}`;
+  return `${normalize(l.entidade)}|${l.market_type}|${l.linha}`;
 }
 
 /** Marca grupos (jogador+mercado+linha) cujas implícitas divergem ≥ thresholdPp entre
