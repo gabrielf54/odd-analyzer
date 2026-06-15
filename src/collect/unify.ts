@@ -7,7 +7,24 @@ import { pickBestPrice } from "./lineShop.js";
 import { flagDivergences, type DivergenceFlag } from "./antiTrap.js";
 import { normalize } from "../crosswalk/match.js";
 import type { ManualOddsLine } from "../manual/schema.js";
-import type { UnifiedOddsRow } from "../store/repo.js";
+
+/** Linha do espelho canônico `odds_unificadas` (1 por aposta após line shopping). Mora
+ * aqui (camada que PRODUZ a forma); o store/repo importa este tipo, não o contrário
+ * (Ports & Adapters: o adapter depende do domínio). */
+export interface UnifiedOddsRow {
+  event_id: string;
+  entidade_norm: string;                                 // identidade normalizada (chave)
+  market_type: string;
+  linha: number;
+  entidade: string;                                      // nome de exibição da casa vencedora
+  odd_over: number;                                      // melhor preço entre as casas
+  odd_under: number | null;
+  book: string;                                          // casa vencedora
+  casas_comparadas: { book: string; odd_over: number }[];
+  divergencia: boolean;
+  spread_pp: number | null;
+  coletado_em?: string;
+}
 
 /** Mesma chave de identidade do line shopping/divergência (nome normalizado). */
 function key(entidade: string, market: string, linha: number): string {

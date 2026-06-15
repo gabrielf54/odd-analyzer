@@ -1,4 +1,8 @@
 import { logError, logWarn } from "../lib/log.js";
+// O tipo da linha unificada mora na camada que a PRODUZ (collect/unify); o store só
+// persiste. Re-exporto p/ quem já importa de store/repo (compat) — sem inverter a camada.
+import type { UnifiedOddsRow } from "../collect/unify.js";
+export type { UnifiedOddsRow };
 
 /** Closing Line Value: positivo = peguei preço melhor que o fechamento. */
 export function clv(oddFlag: number, closingOdd: number): number {
@@ -20,22 +24,6 @@ export interface OddsEventSummary {
   event_id: string;
   total_linhas: number;
   ultimo_coletado_em: string | null;
-}
-
-/** Linha da `odds_unificadas` — espelho canônico (1 por aposta após line shopping). */
-export interface UnifiedOddsRow {
-  event_id: string;
-  entidade_norm: string;                                 // identidade normalizada (chave)
-  market_type: string;
-  linha: number;
-  entidade: string;                                      // nome de exibição da casa vencedora
-  odd_over: number;                                      // melhor preço entre as casas
-  odd_under: number | null;
-  book: string;                                          // casa vencedora
-  casas_comparadas: { book: string; odd_over: number }[];
-  divergencia: boolean;
-  spread_pp: number | null;
-  coletado_em?: string;
 }
 
 export interface ManualResult { result: any; analisado_em: string; }
@@ -258,6 +246,9 @@ export class SupabaseRepo implements Repo {
 
   // Espelho canônico: SUBSTITUI todas as linhas do evento (delete + insert) — nunca
   // upsert parcial, p/ não deixar lixo de uma coleta anterior. [] só limpa.
+  // CONCORRÊNCIA: delete+insert NÃO é atômico. Dois reprojects do MESMO evento em
+  // paralelo poderiam colidir (uso single-operador → não ocorre; e o próximo reproject
+  // se auto-cura). Se virar multiusuário, envolver numa transação/RPC.
   async saveOddsUnificadas(eventId: string, rows: UnifiedOddsRow[]) {
     await this.deleteOddsUnificadas(eventId);
     if (!rows.length) return;

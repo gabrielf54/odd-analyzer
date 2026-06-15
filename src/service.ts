@@ -209,7 +209,7 @@ export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: ReviewerFn;
  * divergências. PURO de regra (a unificação vem de buildUnifiedOdds). */
 export async function reprojectUnifiedOdds(
   repo: any, eventId: string,
-): Promise<{ linhas: UnifiedOddsRow[]; divergencias: any[] }> {
+): Promise<{ linhas: UnifiedOddsRow[]; divergencias: any[]; nCru: number }> {
   const raw: OddsRow[] = await repo.getOdds(eventId);
   const lines = raw.map((r) => ({
     market_type: r.market_type, entidade: r.entidade, linha: Number(r.linha),
@@ -217,16 +217,15 @@ export async function reprojectUnifiedOdds(
   }));
   const { linhas, divergencias } = buildUnifiedOdds(lines, eventId);
   await repo.saveOddsUnificadas(eventId, linhas);
-  return { linhas, divergencias };
+  return { linhas, divergencias, nCru: raw.length };
 }
 
 /** Botão "Unificar odds": re-gera o espelho e devolve o resumo p/ a tela de conferência. */
 export async function unificarOddsService(
   repo: any, eventId: string,
 ): Promise<{ n_cru: number; n_unificado: number; divergencias: any[]; linhas: UnifiedOddsRow[] }> {
-  const raw: OddsRow[] = await repo.getOdds(eventId);
-  const { linhas, divergencias } = await reprojectUnifiedOdds(repo, eventId);
-  return { n_cru: raw.length, n_unificado: linhas.length, divergencias, linhas };
+  const { linhas, divergencias, nCru } = await reprojectUnifiedOdds(repo, eventId);
+  return { n_cru: nCru, n_unificado: linhas.length, divergencias, linhas };
 }
 
 /** Lê o espelho canônico (o que a ANÁLISE considera). */
