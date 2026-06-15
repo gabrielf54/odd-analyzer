@@ -401,22 +401,41 @@ export class CrosswalkStatsProvider {
     if (inner == null || client == null) throw new Error("CrosswalkStatsProvider requer inner e client não-nulos");
   }
 
+  /** Elenco COMPLETO das duas equipes (não só o XI): o pool nacional (seleção) ou quem
+   * atuou nos últimos jogos (clube), já em stats-id. As casas cotam o elenco inteiro —
+   * incluindo o banco (Yamal, Merino, N. Williams…); restringir à escalação fazia esses
+   * jogadores caírem em "sem correspondência". A titularidade vem do xiIds, à parte. */
   async squad(event: any): Promise<any[]> {
-    const raw: any[] = await this.inner.squad(event);
     const out: any[] = [];
-    const teamIds = [...new Set(raw.map((p) => p.team_id ?? ""))];
-    for (const teamId of teamIds) {
-      const group = raw.filter((p) => (p.team_id ?? "") === teamId);
+    for (const team of [event.home_team, event.away_team]) {
+      const teamId = String(team?.id ?? "");
+      if (!teamId) continue;
       const map = await buildTeamMap(this.client, teamId, this.n);
-      out.push(...resolve(group, map, this.threshold));
+      for (const m of map) out.push({ id: String(m.id), name: m.name, team_id: teamId, posicao: m.posicao ?? "" });
     }
     return out;
   }
 
+  /** Stats-ids dos titulares CONFIRMADOS (resolve a escalação contra o elenco). Vazio
+   * enquanto a escalação não é confirmada (predicted/pending) → tudo "provável". NÃO é
+   * o elenco todo: só quem está no XI é "confirmado", o resto fica "fora do XI". */
   async xiIds(event: any): Promise<Set<string>> {
-    const innerXi = typeof this.inner.xiIds === "function" ? await this.inner.xiIds(event) : new Set();
-    if (!innerXi || innerXi.size === 0) return new Set();
-    return new Set((await this.squad(event)).map((p) => p.id));
+    let data: any;
+    try { data = await this.client.lineups(event.id); } catch { return new Set(); }
+    const lineups = data?.lineups ?? {};
+    const status = data?.lineup_status;
+    const confirmedFlag = Object.values(lineups).some((v: any) => v && typeof v === "object" && v.confirmed);
+    if (status !== "confirmed" && !confirmedFlag) return new Set();
+    const ids = new Set<string>();
+    for (const side of ["home", "away"] as const) {
+      const sideData = lineups[side] ?? {};
+      const teamId = String(sideData.team_id ?? "");
+      const players: any[] = sideData.players ?? [];
+      if (!teamId || players.length === 0) continue;
+      const map = await buildTeamMap(this.client, teamId, this.n);
+      for (const r of resolve(players.map((p) => ({ name: p.name })), map, this.threshold)) ids.add(String(r.id));
+    }
+    return ids;
   }
 
   entityRate(id: unknown, market: MarketSpec, ctx: any) { return this.inner.entityRate(id, market, ctx); }

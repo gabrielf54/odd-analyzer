@@ -7,7 +7,9 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-12 (varredura de calibração: **prior+dispersão por posição REPROVADO** p/
+> **Atualizado:** 2026-06-14 (**casamento odd↔jogador robusto** — squad = elenco completo, não só o
+> XI; `normalize` entende "Sobrenome, Nome"; mononímico; 90→6 sem-match no Spain×Cabo Verde — ver §3.2)
+> · 2026-06-12 (varredura de calibração: **prior+dispersão por posição REPROVADO** p/
 > as linhas mortas de jogador — é variância de cauda, não posição; **RATINGS tipo Elo no λ de partida
 > VENCE** — primeira alavanca que calibra gols/1X2, candidatos a graduar pós-productionização+forward;
 > escanteios-concessão reprovado; **COMBINADO de contexto (posse/mismatch/mando) testado out-of-fold:
@@ -15,7 +17,7 @@
 > prateleira pro clube + registro-sombra forward na Copa**. Provas em
 > [`mercados-nao-validados`](features/mercados-nao-validados/))
 > · 2026-06-11 (auditoria de
-> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 322 testes Vitest
+> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 404 testes Vitest
 > verdes (gate de paridade intacto) · **Custo até aqui:** $0 · **Arena ativa:** Copa do Mundo 2026
 > (seleções), abriu 2026-06-11; **clube ATIVO** (auditado). **Ratings de força no λ de partida
 > PRODUCTIONIZADOS 2026-06-12** (`src/model/ratings.ts` + `pipeline.runMatch`, com fallback) ·
@@ -99,6 +101,14 @@ número).
 - **Análise manual** (`/analise/manual`): cola odds → cobre todos os mercados → ranqueia por risco
   (`seguro/moderado/tiro_longo`) com ⭐ no melhor pronto → **IA revisora** (veto/ressalva/concorda
   por candidato, ancorada nos campos do dossiê, degrada graciosa se a IA falhar).
+- **Casamento odd↔jogador robusto (2026-06-14):** o squad que casa as odds é o **elenco COMPLETO**
+  (pool nacional / quem atuou no clube), **não só o XI** — o banco (Yamal, Merino…) era perdido como
+  "sem correspondência". `CrosswalkStatsProvider.squad` monta do pool; `xiIds` resolve a escalação à
+  parte só p/ a titularidade. `normalize` inverte **"Sobrenome, Nome"** (formato Betnacional) e
+  `scoreName` trata **mononímico** (casa "Gavi" ⇄ "Pablo Gavi"); `sem_match` deduplica por nome
+  normalizado (contagem honesta). Medido no jogo real Spain×Cabo Verde: **90 → 6 sem-match** (e os 6
+  são grafia já casada por outra forma ou jogador ausente do pool da BSD). Fail-closed intacto, gate
+  de paridade intacto (mexe só no reconhecimento de nome, não no número).
 - **Gate de lineup (N1):** ⭐ exige `titularidade="confirmado"`; pré-escalação → `pendente_lineup`
   (UI: "análise provisória, aguarde ~1h antes"). `lineup_status` da Copa: `predicted`→`confirmed`.
 - **Loop forward (I7) LIGADO:** `analyzeManual` grava `paper_ledger` (edge>0, com `player_id`);

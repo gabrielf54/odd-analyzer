@@ -8,6 +8,14 @@ describe("crosswalk/match", () => {
     expect(normalize("  Kaiki   Fernandes ")).toBe("kaiki fernandes");
   });
 
+  it("normalize inverte 'Sobrenome, Nome' → 'nome sobrenome' (formato Betnacional)", () => {
+    expect(normalize("Torres, Ferran")).toBe("ferran torres");
+    expect(normalize("Cucurella, Marc")).toBe("marc cucurella");
+    expect(normalize("Lopes Cabral, Sidny")).toBe("sidny lopes cabral");
+    // mesma pessoa nas três grafias → mesma normalização (dedup do sem_match conta 1)
+    expect(normalize("Baena, Alex")).toBe(normalize("Álex Baena"));
+  });
+
   it("matchPlayer casa por similaridade", () => {
     const elenco = [{ id: "7", name: "Kaiki Fernandes" }, { id: "9", name: "João Silva" }];
     const m = matchPlayer("Kaiki Fernandes", elenco, null, 0.8);
@@ -37,11 +45,11 @@ describe("crosswalk/bsdIds", () => {
     async player(pid: unknown) { return { name: pid === 100 ? "Kaiki Fernandes" : "Joao Silva" }; },
   };
 
-  it("buildTeamMap monta [{id,name}] dedup", async () => {
+  it("buildTeamMap monta [{id,name,posicao}] dedup", async () => {
     const mapa = await buildTeamMap(client, "T", 5);
     expect(mapa).toEqual([
-      { id: "100", name: "Kaiki Fernandes" },
-      { id: "101", name: "Joao Silva" },
+      { id: "100", name: "Kaiki Fernandes", posicao: "" },
+      { id: "101", name: "Joao Silva", posicao: "" },
     ]);
   });
 
@@ -71,8 +79,8 @@ describe("crosswalk/bsdIds", () => {
     };
     const mapa = await buildTeamMap(selecao, "467", 5);
     expect(mapa).toEqual([
-      { id: "100", name: "Kai Havertz" },
-      { id: "101", name: "Joshua Kimmich" },
+      { id: "100", name: "Kai Havertz", posicao: "" },
+      { id: "101", name: "Joshua Kimmich", posicao: "" },
     ]);
   });
 
@@ -94,8 +102,8 @@ describe("crosswalk/bsdIds", () => {
     };
     const mapa = await buildTeamMap(clube, "T", 5);
     expect(mapa).toEqual([
-      { id: "100", name: "Kaiki Fernandes" },
-      { id: "101", name: "Joao Silva" },
+      { id: "100", name: "Kaiki Fernandes", posicao: "" },
+      { id: "101", name: "Joao Silva", posicao: "" },
     ]);
   });
 });

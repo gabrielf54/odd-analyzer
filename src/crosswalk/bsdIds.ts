@@ -9,7 +9,7 @@ export async function buildTeamMap(
   client: any,
   teamId: unknown,
   nGames = 5,
-): Promise<{ id: string; name: string }[]> {
+): Promise<{ id: string; name: string; posicao: string }[]> {
   if (!teamId) return [];
   const tid = String(teamId);
 
@@ -17,13 +17,13 @@ export async function buildTeamMap(
   try {
     const np = await client.nationalPool?.(tid);
     const pool: any[] = Array.isArray(np?.results) ? np.results : [];
-    const fromPool: { id: string; name: string }[] = [];
+    const fromPool: { id: string; name: string; posicao: string }[] = [];
     const seenPool = new Set<string>();
     for (const p of pool) {
       const id = String(p?.id ?? "");
       if (!id || !p?.name || seenPool.has(id)) continue;
       seenPool.add(id);
-      fromPool.push({ id, name: p.name });
+      fromPool.push({ id, name: p.name, posicao: String(p.position ?? "") });
     }
     if (fromPool.length) return fromPool;
   } catch { /* sem pool nacional (clube/indisponível) → events path abaixo */ }
@@ -42,12 +42,12 @@ export async function buildTeamMap(
       if (!seen.has(pid)) { seen.add(pid); ids.push(pid); }
     }
   }
-  const map: { id: string; name: string }[] = [];
+  const map: { id: string; name: string; posicao: string }[] = [];
   for (const pid of ids) {
     let d: any;
     try { d = await client.player(pid); } catch { continue; }
     const name = d && typeof d === "object" ? d.name : null;
-    if (name) map.push({ id: String(pid), name });
+    if (name) map.push({ id: String(pid), name, posicao: String(d.position ?? "") });
   }
   return map;
 }

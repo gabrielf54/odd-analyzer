@@ -5,9 +5,21 @@
 
 const DIACRITICS = new RegExp("[\\u0300-\\u036f]", "g"); // marcas combinantes (acentos pós-NFKD)
 
+/** "Sobrenome, Nome" → "Nome Sobrenome" (a Betnacional cota sobrenome-primeiro:
+ * "Torres, Ferran"). Sem a inversão, scoreName toma o token errado como nome/sobrenome
+ * e o MESMO jogador que casa via outra casa ("Ferran Torres") aqui vira sem_match. */
+function reorderSurnameFirst(s: string): string {
+  const i = s.indexOf(",");
+  if (i === -1) return s;
+  const last = s.slice(0, i).trim();
+  const first = s.slice(i + 1).trim();
+  return last && first ? `${first} ${last}` : s;
+}
+
 export function normalize(name: string): string {
-  const s = (name ?? "").normalize("NFKD").replace(DIACRITICS, "");
-  return s.toLowerCase().split(/\s+/).filter(Boolean).join(" ");
+  const s = (name ?? "").normalize("NFKD").replace(DIACRITICS, "").toLowerCase();
+  // vírgula vira separador depois de inverter (qualquer resíduo de vírgula some no split)
+  return reorderSurnameFirst(s).replace(/,/g, " ").split(/\s+/).filter(Boolean).join(" ");
 }
 
 function bigrams(s: string): string[] {
@@ -47,6 +59,16 @@ function firstNameSim(a: string, b: string): number {
  * sobrenomes iguais (Emiliano vs Lautaro Martínez) pelo primeiro nome. */
 export function scoreName(a: string, b: string): number {
   const na = normalize(a), nb = normalize(b);
+  const ta = nameTokens(na), tb = nameTokens(nb);
+  // Mononímico: a casa cota só "Gavi"/"Stopira"/"Pico", a fonte tem "Pablo Gavi"/
+  // "Ianique Stopira". Compara o token único contra o MELHOR token do outro, peso cheio
+  // (o 0.5/0.5 abaixo puniria o nome que falta). Ambiguidade ("Silva" p/ dois Silvas)
+  // segue barrada pela margem do matchPlayerOdds — continua fail-closed.
+  if (ta.length === 1 || tb.length === 1) {
+    const single = ta.length === 1 ? na : nb;
+    const other = ta.length === 1 ? tb : ta;
+    return other.length ? Math.max(...other.map((t) => sim(single, t))) : 0;
+  }
   const first = firstNameSim(firstTok(na), firstTok(nb));
   const last = sim(lastTok(na), lastTok(nb));
   return 0.5 * first + 0.5 * last;
