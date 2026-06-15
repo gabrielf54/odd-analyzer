@@ -13,8 +13,11 @@ create table if not exists analises (
   primary key (event_id, market_type)
 );
 
--- Última migração do ledger: add_player_id (2026-06-11) — stats-id casa com
--- /events/{id}/player-stats/ no settle (eventPlayerStats não traz nome).
+-- Última migração do ledger: drop_stale_paper_ledger_unique_3col (2026-06-15) — removeu a unique
+-- ANTIGA (event_id,jogador,linha) que sobrou de add_market_type_to_analises_and_paper_ledger e
+-- barrava o caso normal de um jogador ter vários mercados na MESMA linha (sot/finalizacoes/desarmes/
+-- faltas em 0.5). Fica só a 4-col (com market_type), que o saveLedger usa no onConflict.
+-- (add_player_id, 2026-06-11: stats-id casa com /events/{id}/player-stats/ no settle.)
 create table if not exists paper_ledger (
   id bigint generated always as identity primary key,
   event_id text not null,
