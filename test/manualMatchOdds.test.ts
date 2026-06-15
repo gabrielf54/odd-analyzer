@@ -17,6 +17,14 @@ describe("scoreName", () => {
   it("nomes distintos pontuam baixo", () => {
     expect(scoreName("Cristiano Ronaldo", "Kai Havertz")).toBeLessThan(0.3);
   });
+  it("entende 'Sobrenome, Nome' (vírgula, formato Betnacional) como o mesmo jogador", () => {
+    expect(scoreName("Havertz, Kai", "Kai Havertz")).toBeGreaterThan(0.9);
+    expect(scoreName("Kimmich, Joshua", "Joshua Kimmich")).toBeGreaterThan(0.9);
+  });
+  it("nome mononímico da casa (Gavi) casa o completo da fonte (Pablo Gavi)", () => {
+    expect(scoreName("Gavi", "Pablo Gavi")).toBeGreaterThan(0.9);
+    expect(scoreName("Stopira", "Ianique Stopira")).toBeGreaterThan(0.9);
+  });
 });
 
 describe("matchPlayerOdds", () => {
@@ -33,6 +41,13 @@ describe("matchPlayerOdds", () => {
     expect(r.sem_match).toHaveLength(1);
     expect(r.sem_match[0]!.nome_casa).toBe("Cristiano Ronaldo");
     expect(r.sem_match[0]!.candidatos.length).toBeGreaterThan(0);
+  });
+
+  it("formato 'Sobrenome, Nome' casa igual ao 'Nome Sobrenome' (Betnacional não vira sem_match)", () => {
+    const r = matchPlayerOdds([line("Havertz, Kai")], squad, {});
+    expect(r.casados).toHaveLength(1);
+    expect(r.casados[0]!.player_id).toBe("10");
+    expect(r.sem_match).toHaveLength(0);
   });
 
   it("override (crosswalk salvo) casa direto por nome normalizado", () => {

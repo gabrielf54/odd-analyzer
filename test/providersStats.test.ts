@@ -1,6 +1,60 @@
 import { describe, it, expect } from "vitest";
-import { BSDStatsProvider, OnlyPlayer } from "../src/providers/stats.js";
+import { BSDStatsProvider, OnlyPlayer, CrosswalkStatsProvider } from "../src/providers/stats.js";
 import { MARKETS } from "../src/model/markets.js";
+
+// Seleção com pool nacional: a escalação prevista (XI) é um SUBCONJUNTO do elenco.
+// Yamal (casa) e Stopira (fora) estão no pool mas FORA do XI — o squad tem que incluí-los.
+function makeSelecaoClient(status = "confirmed"): any {
+  return {
+    async lineups() {
+      return {
+        lineup_status: status,
+        lineups: {
+          home: { team_id: "H", confirmed: status === "confirmed", players: [{ id: "L1", name: "Pedri" }] },
+          away: { team_id: "A", confirmed: status === "confirmed", players: [{ id: "L2", name: "Garry Rodrigues" }] },
+        },
+      };
+    },
+    async nationalPool(teamId: unknown) {
+      if (String(teamId) === "H") return { results: [
+        { id: 1001, name: "Pedri", position: "M" },
+        { id: 1002, name: "Lamine Yamal", position: "F" },   // banco — fora do XI
+      ] };
+      if (String(teamId) === "A") return { results: [
+        { id: 2001, name: "Garry Rodrigues", position: "F" },
+        { id: 2002, name: "Stopira", position: "D" },          // banco — fora do XI
+      ] };
+      return { results: [] };
+    },
+  };
+}
+const evSel = { id: "ev9", home_team: { id: "H", name: "Spain" }, away_team: { id: "A", name: "Cabo Verde" } };
+
+describe("CrosswalkStatsProvider.squad (elenco COMPLETO, não só o XI)", () => {
+  it("inclui reservas do pool nacional, com team_id e posição", async () => {
+    const c = makeSelecaoClient();
+    const sp = new CrosswalkStatsProvider(new BSDStatsProvider(c), c);
+    const squad = await sp.squad(evSel);
+    expect(squad.map((p: any) => p.id).sort()).toEqual(["1001", "1002", "2001", "2002"]);
+    const yamal = squad.find((p: any) => p.name === "Lamine Yamal");
+    expect(yamal.team_id).toBe("H");   // casa
+    expect(yamal.posicao).toBe("F");
+  });
+});
+
+describe("CrosswalkStatsProvider.xiIds (só titulares confirmados, resolvidos p/ stats-id)", () => {
+  it("confirmado: resolve a escalação (NÃO o elenco todo)", async () => {
+    const c = makeSelecaoClient("confirmed");
+    const sp = new CrosswalkStatsProvider(new BSDStatsProvider(c), c);
+    const xi = await sp.xiIds(evSel);
+    expect([...xi].sort()).toEqual(["1001", "2001"]); // Pedri + Garry; Yamal/Stopira fora
+  });
+  it("não confirmado (predicted): xi vazio → titularidade fica 'provável'", async () => {
+    const c = makeSelecaoClient("predicted");
+    const sp = new CrosswalkStatsProvider(new BSDStatsProvider(c), c);
+    expect((await sp.xiIds(evSel)).size).toBe(0);
+  });
+});
 
 // Client fake com fixtures mínimas.
 function makeClient(): any {

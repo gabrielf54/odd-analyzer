@@ -10,6 +10,7 @@ import { rankCandidates } from "../candidates/rank.js";
 import { reviewCandidates, type ReviewerFn } from "../ai/reviewer.js";
 import { normalizeEvent } from "../runner.js";
 import { matchPlayerOdds, type OddsMatched } from "./matchOdds.js";
+import { normalize } from "../crosswalk/match.js";
 import { ladderDevig } from "../value/ladderDevig.js";
 import { pickBestPrice } from "../collect/lineShop.js";
 import { flagDivergences } from "../collect/antiTrap.js";
@@ -101,9 +102,10 @@ export async function analyzeManual(
   const { candidatos: revisados, ia } = await reviewerFn(ranked, { jogo: event.jogo ?? event.id });
   logInfo("analise", "revisão da IA concluída", { candidatos_revisados: ranked.length, ms: Date.now() - tIa });
 
-  // Dedup: 1 entrada por jogador descasado (várias linhas/mercados geram cópias
-  // idênticas — candidatos vêm do nome vs squad, não do mercado). Mantém a 1ª vista.
-  const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [j.nome_casa, j])).values()];
+  // Dedup: 1 entrada por jogador descasado. Chaveia por nome NORMALIZADO (não a string
+  // crua) — senão "Álex Baena"/"Alex Baena"/"Baena, Alex" contam como 3 perdidos sendo 1
+  // jogador, inflando a contagem que o front mostra. Mantém a 1ª grafia vista.
+  const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [normalize(j.nome_casa), j])).values()];
 
   // Pré-lineup (escalação não confirmada) → algum candidato fica "provavel".
   // N1: a UI mostra "análise provisória — aguarde a escalação (~1h antes)" e
