@@ -4,6 +4,7 @@
 // nunca cruzando margem de casas diferentes). Função PURA. Ver STATUS §3 frente A.
 
 import type { ManualOddsLine } from "../manual/schema.js";
+import { normalize } from "../crosswalk/match.js";
 
 /** Linha vencedora do line shopping, com as casas comparadas anexadas (a UI usa p/
  * dizer "melhor odd X na casa Y"). */
@@ -11,8 +12,12 @@ export type ShoppedLine = ManualOddsLine & {
   casas_comparadas: { book: string; odd_over: number }[];
 };
 
+// Agrupa por IDENTIDADE normalizada, não pela string crua: as casas escrevem o mesmo
+// jogador diferente ("Llorente, Marcos" na Superbet vs "Marcos Llorente" na KTO). Sem
+// normalizar, a MESMA aposta vira grupos separados → duplica e NÃO escolhe a melhor odd
+// entre as casas. `normalize` já desvira "Sobrenome, Nome" e tira acento.
 function groupKey(l: ManualOddsLine): string {
-  return `${l.entidade}|${l.market_type}|${l.linha}`;
+  return `${normalize(l.entidade)}|${l.market_type}|${l.linha}`;
 }
 
 /** Agrupa por (entidade, market_type, linha) e escolhe a casa de MAIOR odd_over.

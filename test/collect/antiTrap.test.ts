@@ -37,6 +37,18 @@ describe("flagDivergences (detector de armadilha cross-casa)", () => {
     expect(flags).toHaveLength(1);
   });
 
+  it("agrupa o mesmo jogador em formatos de nome diferentes entre casas (Superbet 'Last, First' vs KTO)", () => {
+    // Superbet "Llorente, Marcos" 1.66 (60%) vs KTO "Marcos Llorente" 3.6 (28%) → ~32pp.
+    // Sem normalizar o nome, eram 2 grupos e a divergência passava batida.
+    const flags = flagDivergences([
+      L("superbet", 1.66, { entidade: "Llorente, Marcos", market_type: "finalizacoes", linha: 1.5 }),
+      L("kto", 3.6, { entidade: "Marcos Llorente", market_type: "finalizacoes", linha: 1.5 }),
+    ]);
+    expect(flags).toHaveLength(1);
+    expect(flags[0]!.books).toHaveLength(2);
+    expect(flags[0]!.spread_pp).toBeGreaterThan(20);
+  });
+
   it("lista vazia → vazia", () => {
     expect(flagDivergences([])).toEqual([]);
   });

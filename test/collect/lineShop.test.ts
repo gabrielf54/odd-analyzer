@@ -40,6 +40,20 @@ describe("pickBestPrice (line shopping)", () => {
     expect(r[0]!.odd_under).toBe(1.1);
   });
 
+  it("colapsa o MESMO jogador escrito em formatos diferentes entre casas (Last,First vs First Last)", () => {
+    // Superbet cota "Llorente, Marcos"; KTO/Betnacional cotam "Marcos Llorente". É a MESMA
+    // aposta → tem que virar 1 grupo e escolher a melhor odd entre as 3 casas (não duplicar).
+    const r = pickBestPrice([
+      L("superbet", 1.12, { entidade: "Llorente, Marcos", market_type: "finalizacoes", linha: 0.5 }),
+      L("kto", 1.46, { entidade: "Marcos Llorente", market_type: "finalizacoes", linha: 0.5 }),
+      L("betnacional", 1.125, { entidade: "Marcos Llorente", market_type: "finalizacoes", linha: 0.5 }),
+    ]);
+    expect(r).toHaveLength(1);                   // 1 aposta, não 2 grupos pelo formato do nome
+    expect(r[0]!.odd_over).toBe(1.46);           // melhor preço entre as 3 casas
+    expect(r[0]!.book).toBe("kto");
+    expect(r[0]!.casas_comparadas).toHaveLength(3);
+  });
+
   it("lista vazia → vazia", () => {
     expect(pickBestPrice([])).toEqual([]);
   });
