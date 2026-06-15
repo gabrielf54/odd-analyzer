@@ -100,6 +100,11 @@ endpoint compartilham a MESMA orquestração.
 
 ## 6. Playbook — adicionar uma casa nova (ex.: Betano)
 
+> **Rito E2E completo (exploração no navegador → código → front buscando sozinho):**
+> [`IMPLEMENTAR-CASA.md`](IMPLEMENTAR-CASA.md). Use-o quando for adicionar uma casa — ele traz os
+> **prompts prontos** pro Claude do Chrome e dita o rito até o botão "obter odds" trazer a casa nova.
+> O §6 abaixo é o **detalhe de código** dos passos (parser/de-para/registry); o rito é a camada de cima.
+
 Siga na ordem. Cada passo tem um "pronto quando".
 
 1. **Capturar o endpoint (1 vez).** Descobrir a chamada que traz as odds de **prop de jogador** daquela
