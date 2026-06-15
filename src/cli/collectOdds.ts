@@ -22,13 +22,14 @@ function arg(flag: string): string | undefined {
 
 const eventId = process.argv[2];
 if (!eventId || eventId.startsWith("--")) {
-  console.error("uso: collectOdds.ts <event_id_BSD> [--kambi <id>] [--bet6 <id>] [--dry]");
+  console.error("uso: collectOdds.ts <event_id_BSD> [--kambi <id>] [--bet6 <id>] [--stake <id>] [--dry]");
   process.exit(1);
 }
 const dry = process.argv.includes("--dry");
 const overrides: Record<string, string> = {};
 const kambiArg = arg("--kambi"); if (kambiArg) overrides.kto = kambiArg;
 const bet6Arg = arg("--bet6"); if (bet6Arg) overrides.betnacional = bet6Arg;
+const stakeArg = arg("--stake"); if (stakeArg) overrides.stake = stakeArg;
 
 const client = new BSDClient(getRequired("BZZOIRO_API_KEY"));
 const ev = normalizeEvent(await client.getEvent(eventId));

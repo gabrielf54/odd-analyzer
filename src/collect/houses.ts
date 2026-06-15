@@ -9,6 +9,7 @@
 import { parseKambi, ktoBetofferUrl, ktoListViewUrl, parseKambiListView } from "./adapters/kto.js";
 import { parseBet6, bet6EventOddsUrl, bet6EventsBySeasonUrl, parseBet6EventList } from "./adapters/bet6.js";
 import { parseSuperbet, superbetEventOddsUrl, superbetEventsByDateUrl, parseSuperbetEventList } from "./adapters/superbet.js";
+import { parseStake, stakeEventOddsUrl, stakeTournamentUrl, parseStakeEventList } from "./adapters/stake.js";
 import { matchEventByName, type HouseEvent } from "./matchEvent.js";
 import type { RawCollectedLine } from "./normalizer.js";
 import type { OddsCollector, CollectContext } from "./types.js";
@@ -45,6 +46,16 @@ export const HOUSES: HouseDef[] = [
     book: "superbet", needsBrowser: false,
     oddsUrl: superbetEventOddsUrl, parseOdds: parseSuperbet,
     listUrl: () => superbetEventsByDateUrl(), parseList: parseSuperbetEventList,
+  },
+  {
+    // Stake (motor PRÓPRIO, sbweb.stake.bet.br): 1ª casa com motor de preço independente →
+    // diversidade real no line shopping. needsBrowser:true — o `fetch` puro do Node toma 403 no
+    // edge da Stake (checa fingerprint de browser/TLS, não cookie), então o "200 deslogado" que o
+    // navegador vê NÃO transfere pro Node; o headless (já aberto p/ Betnacional) passa. Captura BR
+    // 2026-06-15 (Belgium×Egypt 1025862146 / Spain×Cape Verde 1025862165).
+    book: "stake", needsBrowser: true,
+    oddsUrl: stakeEventOddsUrl, parseOdds: parseStake,
+    listUrl: () => stakeTournamentUrl(), parseList: parseStakeEventList,
   },
 ];
 

@@ -57,12 +57,27 @@ export const SUPERBET_TABLE: HouseMarketTable = {
   "238449": { reject: "faltas SOFRIDAS (Jogador - Faltas Sofridas) — modelamos só as COMETIDAS" },
 };
 
+// Stake (plataforma PRÓPRIA, sbweb.stake.bet.br). CONFIRMADO na captura de 2026-06-15 (deslogado,
+// BR; Espanha×Cabo Verde 1025862165 + Bélgica×Egito 1025862146). NÃO é Kambi — motor proprietário
+// (1ª casa com motor de preço independente → diversidade real). A CHAVE é o marketId NUMÉRICO
+// (id de TIPO de mercado, GLOBAL, igual nos 2 jogos; o parser emite a BASE, sem o sufixo _NN de
+// linha do /markets). Liquidação Opta (igual KTO): desarmes "completados" = GANHOS (won_tackle),
+// faltas "concedidas" = COMETIDAS. "Faltas ganhas" (1007684761) = SOFRIDAS → reject explícito.
+export const STAKE_TABLE: HouseMarketTable = {
+  "1002035662": { market_type: "sot" },          // "Chutes a gol pelo jogador" (Opta SOT)
+  "1004544421": { market_type: "finalizacoes" }, // "Chutes pelo jogador" (Opta total shots)
+  "1001809658": { market_type: "desarmes" },     // "Desarmes completados pelo Jogador" = won_tackle
+  "1007684754": { market_type: "faltas" },       // "Faltas concedidas pelo jogador" = cometidas
+  "1007684761": { reject: "faltas SOFRIDAS (Faltas ganhas pelo jogador) — modelamos só as COMETIDAS" },
+};
+
 /** Tabela de-para de uma casa pelo slug. Casa desconhecida → tabela vazia (rejeita tudo). */
 export function tableFor(book: string): HouseMarketTable {
   switch (book) {
     case "kto": return KTO_TABLE;
     case "betnacional": return BETNACIONAL_TABLE;
     case "superbet": return SUPERBET_TABLE;
+    case "stake": return STAKE_TABLE;
     default: return {};
   }
 }

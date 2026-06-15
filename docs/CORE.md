@@ -7,7 +7,10 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-15 (**odds unificadas** — tabela `odds_unificadas` = espelho canônico do cru
+> **Atualizado:** 2026-06-15 (**4ª casa de coleta: Stake** — motor de preço PRÓPRIO [1ª fonte independente
+> = diversidade real], headless p/ JA3, de-para por `marketId` base; rito E2E `docs/coleta-odds/IMPLEMENTAR-CASA.md`
+> — ver INFRA abaixo)
+> · 2026-06-15 (**odds unificadas** — tabela `odds_unificadas` = espelho canônico do cru
 > [line shopping por identidade], re-gerado a cada escrita; a análise consome ELA; tela única decisão+log
 > + botão "Unificar odds"; line shopping agrupa por identidade normalizada — ver §3.2)
 > · 2026-06-14 (**casamento odd↔jogador robusto** — squad = elenco completo, não só o
@@ -20,7 +23,7 @@
 > prateleira pro clube + registro-sombra forward na Copa**. Provas em
 > [`mercados-nao-validados`](features/mercados-nao-validados/))
 > · 2026-06-11 (auditoria de
-> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 415 testes Vitest
+> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 425 testes Vitest
 > verdes (gate de paridade intacto) · **Custo até aqui:** $0 · **Arena ativa:** Copa do Mundo 2026
 > (seleções), abriu 2026-06-11; **clube ATIVO** (auditado). **Ratings de força no λ de partida
 > PRODUCTIONIZADOS 2026-06-12** (`src/model/ratings.ts` + `pipeline.runMatch`, com fallback) ·
@@ -173,24 +176,28 @@ continua aqui (§3.1) e o que está morto de vez no §5.
 ### 🔵 INFRA — Coleta automática de odds (em andamento)
 Trocar a coleta MANUAL (colar prompt no Claude do Chrome, 1 casa) por **coleta server-side
 multi-casa** + **line shopping** (apostar no melhor preço). Avaliação de viabilidade FEITA
-(2026-06-13): legal no BR (odd pública deslogado); **rodar local no BR mata o geoblock**; as 4
-"casas moles" **não são iguais** — **KTO** (Kambi), **Betnacional** (Sportradar) e **Superbet**
-(Betler/Fastly) = GO (ao vivo), **Betano** (Kaizen, geoblock+Turnstile+props em camada GameplAI
+(2026-06-13): legal no BR (odd pública deslogado); **rodar local no BR mata o geoblock**; as casas
+**não são iguais** — **KTO** (Kambi), **Betnacional** (Sportradar), **Superbet** (Betler/Fastly) e
+**Stake** (motor PRÓPRIO) = GO (ao vivo), **Betano** (Kaizen, geoblock+Turnstile+props em camada GameplAI
 separada) = FORA do v1 (vai pro balde manual, junto da bet365). **Motor de coleta + KTO + Betnacional
-+ Superbet FUNCIONANDO ao vivo (2026-06-15, 396 testes, gate de paridade intacto).** `src/collect/`:
++ Superbet + Stake FUNCIONANDO ao vivo (2026-06-15, 425 testes, gate de paridade intacto).** `src/collect/`:
 normalizer fail-closed, line shopping, anti-armadilha cross-casa, orquestração "pula e avisa", parsers
-KTO (Kambi, `fetch` puro), Betnacional (Bet6/REST — **não** era GraphQL, headless p/ Cloudflare) e
-Superbet (Betler/Fastly, `fetch` puro, **sem anti-bot/geoblock**; de-para por `marketId` numérico,
-linha em `specifiers.total`), crosswalk de jogo `matchEventByName` + `teamNames.canonicalTeam`
-(PT/EN/FR de seleção). **Cloudflare da Betnacional** vencido por **Chromium headless local**
-(Playwright, `src/cli/browserFetch.ts`). **CLI `src/cli/collectOdds.ts <event_id_BSD>`** acha as 3
-casas sozinho (listView KTO `world_cup_2026` + events-by-seasons Bet6 `950049532` + events/by-date
-Superbet), coleta, line-shop, flaga divergência → grava no `odds` (a análise manual já lê daí).
-PROVADO em `--dry` no 8295 (Germany×Curaçao): KTO+Bet6 conf 1.0; Superbet provada ao vivo no 12512182
-(Suécia×Tunísia, 795 linhas canônicas, conf 1.0). **Liquidação confirmada:** desarme=won_tackle
-(KTO + Superbet), faltas=cometidas, SOT/finalizações Opta/Sportradar. **Resta:** rodar **sem `--dry`**
-(grava em produção — exige OK explícito do dono); Betano 2ª onda. Estado de produção (casa a casa) =
-[`docs/coleta-odds/`](coleta-odds/) (doc vivo); pendente em features só Betano
+KTO (Kambi, `fetch` puro), Betnacional (Bet6/REST — **não** era GraphQL, headless p/ Cloudflare),
+Superbet (Betler/Fastly, `fetch` puro, **sem anti-bot/geoblock**; de-para por `marketId` numérico) e
+**Stake** (motor próprio `sbweb.stake.bet.br` → **1ª casa com fonte de preço INDEPENDENTE** = diversidade
+real; de-para por `marketId` base, headless), crosswalk de jogo `matchEventByName` + `teamNames.canonicalTeam`
+(PT/EN/FR de seleção). **Cloudflare/JA3** (Betnacional e Stake) vencido por **Chromium headless local**
+(Playwright, `src/cli/browserFetch.ts`, gets **serializados** — página única, casas em paralelo colidiam).
+**CLI `src/cli/collectOdds.ts <event_id_BSD>`** acha as casas sozinho, coleta, line-shop, flaga
+divergência → grava no `odds` (a análise manual já lê daí). PROVADO em `--dry` no 8300 (Belgium×Egypt):
+**4 casas juntas** (kto 371/betnacional 3213/superbet 1622/stake 217), Stake→178 canônicas
+(sot 46/fin 41/des 18/fal 73). **Liquidação confirmada:** desarme=won_tackle (KTO + Superbet + Stake),
+faltas=cometidas, SOT/finalizações Opta/Sportradar. **Lição (rito):** "200 deslogado no navegador" **não**
+significa que o `fetch` do Node passa — Stake dá 403 por **fingerprint TLS/JA3** mesmo com headers → headless.
+**Rito E2E p/ a próxima casa: [`docs/coleta-odds/IMPLEMENTAR-CASA.md`](coleta-odds/IMPLEMENTAR-CASA.md)**
+(prompts p/ o Claude-no-Chrome + checklist + DONE = botão do front). **Resta:** clicar **"obter odds"** no
+front (F4) num jogo real + merge da branch `feat/coleta-stake`; Betano 2ª onda. Estado de produção (casa a
+casa) = [`docs/coleta-odds/`](coleta-odds/) (doc vivo); pendente em features só Betano
 ([`features/coleta-odds-automatica/`](features/coleta-odds-automatica/)). N4 (odds de PARTIDA via BSD)
 segue morto no §5 — esta é PROP multi-casa.
 

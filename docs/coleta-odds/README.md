@@ -49,11 +49,17 @@ do jogo em cada casa pelo **nome dos times** (resolve PT/EN/FR — Alemanha = Ge
 | **KTO** | Kambi | `fetch` puro | Varnish (rate-limit) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
 | **Betnacional** | NSX/Bet6 (Sportradar) | navegador headless | Cloudflare | ✅ **AO VIVO** | SOT, finalizações, faltas *(sem desarmes)* |
 | **Superbet** | Betler (própria, Sportradar) | `fetch` puro | **nenhum** (Fastly, deslogado) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
+| **Stake** | **própria** (`sbweb.stake.bet.br`) | navegador headless | fingerprint TLS/JA3 (fetch puro → 403) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
 | **Betano** | Kaizen Gaming | — | geoblock duro + Turnstile + props GameplAI | 🔴 **difícil** (fallback manual) | a confirmar |
 
 Detalhe de cada uma em [`casas/`](casas/). **Provado ao vivo (2026-06-14)** no jogo Germany×Curaçao:
 KTO + Betnacional resolvidas sozinhas (confiança 1.0), line shopping cruzado, divergências reais
-sinalizadas, odds gravadas no banco.
+sinalizadas, odds gravadas no banco. **Stake adicionada (2026-06-15, Belgium×Egypt):** 1ª casa com
+**motor de preço próprio** (não-Kambi/não-Sportradar) → diversidade real; as 4 casas coletam juntas.
+
+> **Headless compartilhado é serializado.** Betnacional e Stake usam o mesmo Chromium (página única); o
+> `collectAll` dispara as casas em paralelo, então o `browserFetch` **enfileira** os gets (dois
+> `page.goto` concorrentes na mesma página colidiam). Adicionar mais casas-browser não recria a corrida.
 
 ## 4. Como funciona (mapa do código)
 
