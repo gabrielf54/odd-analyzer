@@ -130,6 +130,19 @@ describe("API — fluxo manual de odds", () => {
     expect(r.body).toBeNull();
   });
 
+  it("DELETE /jogos/:id/analise apaga SÓ a análise (odds intactas)", async () => {
+    const a = manualApp();
+    await request(a).post("/analise/manual").send({
+      event_id: "e1", coletado_em: "2026-06-15T00:00:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" }],
+    });
+    const del = await request(a).delete("/jogos/e1/analise");
+    expect(del.status).toBe(200);
+    expect(del.body.ok).toBe(true);
+    expect((await request(a).get("/jogos/e1/analise")).body).toBeNull(); // análise sumiu
+    expect((await request(a).get("/jogos/e1/odds")).body.length).toBe(1); // odds ficaram
+  });
+
   it("POST /crosswalk → 200 e persiste", async () => {
     const r = await request(manualApp()).post("/crosswalk").send({ nome_casa: "CR7", player_id: "20" });
     expect(r.status).toBe(200);

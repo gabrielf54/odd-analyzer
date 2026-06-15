@@ -282,6 +282,13 @@ export async function deleteOddsService(repo: any, eventId: string, filter?: Par
   return { ok: true };
 }
 
+/** Apaga SÓ a análise salva do jogo (sem tocar nas odds). Usado pelo botão "Excluir
+ * análise" do aviso de análise desatualizada (editou odd → escolhe re-analisar ou excluir). */
+export async function deleteAnalysisService(repo: any, eventId: string): Promise<{ ok: true }> {
+  await repo.deleteAnalysis(eventId);
+  return { ok: true };
+}
+
 /** Persiste odds do corpo (se houver) e SEMPRE analisa as odds do repo por event_id.
  * `odds[]` no corpo é opcional: retrocompatível (corpo antigo persiste e re-lê) e
  * fonte-de-verdade (front novo manda só event_id; a tabela alimenta a análise). */

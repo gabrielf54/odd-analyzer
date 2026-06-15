@@ -147,6 +147,12 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.getManualAnalysisService(deps.repo, String(req.params.eventId)));
   }));
 
+  // Apaga SÓ a análise salva (sem as odds) — botão "Excluir análise" do aviso de
+  // análise desatualizada (editou odd com análise existente → re-analisar ou excluir).
+  app.delete("/jogos/:eventId/analise", wrap(async (req, res) => {
+    res.json(await service.deleteAnalysisService(deps.repo, String(req.params.eventId)));
+  }));
+
   app.delete("/jogos/:eventId/odds", wrap(async (req, res) => {
     const q = oddsFilterQuery.safeParse(req.query);
     const filter = q.success ? q.data : {};
