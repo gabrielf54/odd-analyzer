@@ -201,6 +201,25 @@ describe("service — odds persistidas", () => {
     expect(await getOddsService(repo, "e1")).toEqual([]);
   });
 
+  it("clear TOTAL (sem filtro) apaga a análise salva junto", async () => {
+    const repo = new InMemoryRepo();
+    await analyzeManualService(fakeClient(), body([
+      { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" },
+    ]), { repo, reviewerFn: fakeReviewer });
+    expect(repo.getManualResult("e1")).not.toBeNull();
+    await deleteOddsService(repo, "e1"); // limpar todas
+    expect(repo.getManualResult("e1")).toBeNull();
+  });
+
+  it("apagar UMA odd (com filtro) NÃO apaga a análise", async () => {
+    const repo = new InMemoryRepo();
+    await analyzeManualService(fakeClient(), body([
+      { market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, book: "b" },
+    ]), { repo, reviewerFn: fakeReviewer });
+    await deleteOddsService(repo, "e1", { entidade: "K. Havertz", market_type: "sot", linha: 0.5, book: "b" });
+    expect(repo.getManualResult("e1")).not.toBeNull(); // edição pontual preserva a análise
+  });
+
   it("analyzeManualService persiste odds do corpo e analisa do repo", async () => {
     const repo = new InMemoryRepo();
     const out = await analyzeManualService(fakeClient(), body([

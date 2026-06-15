@@ -273,8 +273,12 @@ export async function getManualAnalysisService(repo: any, eventId: string): Prom
 }
 
 export async function deleteOddsService(repo: any, eventId: string, filter?: Partial<OddsRow>): Promise<{ ok: true }> {
+  const fullClear = !filter || Object.keys(filter).length === 0;
   await repo.deleteOdds(eventId, filter);
   await reprojectUnifiedOdds(repo, eventId); // espelho automático (apagar tudo → unificada vazia)
+  // Clear TOTAL: a análise salva derivava dessas odds → fica órfã/enganosa. Apaga junto.
+  // Apagar UMA odd (filtro) NÃO mexe na análise (edição pontual, não recomeço).
+  if (fullClear) await repo.deleteAnalysis(eventId);
   return { ok: true };
 }
 

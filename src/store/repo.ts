@@ -33,6 +33,8 @@ export interface Repo {
   // Resultado COMPLETO da análise manual (fonte de verdade; o front recupera daqui).
   saveManualResult(eventId: string, result: any, analisadoEm: string): Promise<void> | void;
   getManualResult(eventId: string): Promise<ManualResult | null> | (ManualResult | null);
+  // Apaga TODA análise do jogo (deriva das odds → fica órfã quando elas somem).
+  deleteAnalysis(eventId: string): Promise<void> | void;
   saveOdds(eventId: string, lines: OddsRow[]): Promise<void> | void;
   getOdds(eventId: string): Promise<OddsRow[]> | OddsRow[];
   deleteOdds(eventId: string, filter?: Partial<OddsRow>): Promise<void> | void;
@@ -68,6 +70,7 @@ export class InMemoryRepo implements Repo {
     this.manualResults.set(eventId, { result, analisado_em: analisadoEm });
   }
   getManualResult(eventId: string): ManualResult | null { return this.manualResults.get(eventId) ?? null; }
+  deleteAnalysis(eventId: string) { this.analyses.delete(eventId); this.manualResults.delete(eventId); }
 
   private ledgerKey(r: any): string {
     return `${r.event_id}|${r.jogador}|${r.linha}|${r.market_type}`;
@@ -212,6 +215,10 @@ export class SupabaseRepo implements Repo {
       .select("resultado, data").eq("event_id", eventId).eq("market_type", "manual_todos"), [], { eventId });
     const row = data && data.length ? data[0] : null;
     return row && row.resultado ? { result: row.resultado, analisado_em: row.data } : null;
+  }
+  async deleteAnalysis(eventId: string) {
+    // Apaga TODAS as linhas de `analises` do jogo (inclui manual_todos + por-mercado).
+    await this.mutate("deleteAnalysis", this.client.from("analises").delete().eq("event_id", eventId), { eventId });
   }
 
   async saveOdds(eventId: string, lines: OddsRow[]) {
