@@ -12,6 +12,7 @@ import { createSupabaseRepo } from "../store/repo.js";
 import { getRequired } from "../config.js";
 import { normalizeEvent } from "../runner.js";
 import { runCollection } from "../collect/run.js";
+import { reprojectUnifiedOdds } from "../service.js";
 import { makeFetchers } from "./fetchers.js";
 
 function arg(flag: string): string | undefined {
@@ -43,6 +44,9 @@ try {
 } finally {
   await fetchers.close();
 }
+// Espelho automático: mesma regra do endpoint HTTP — toda coleta que grava re-gera a
+// odds_unificadas (sem isso, coleta via CLI deixaria o espelho velho — achado do review).
+if (!dry) await reprojectUnifiedOdds(repo, eventId);
 
 console.log(`\ncasas: ${r.casas.map((c) => (c.ok ? `${c.book} ✓(${c.n})` : `${c.book} ✗(${c.erro})`)).join(" · ") || "(nenhuma)"}`);
 console.log(`linhas: ${r.n_por_casa} (por casa) → ${r.n_line_shop} após line shopping | rejeitadas: ${r.linhas_rejeitadas}`);

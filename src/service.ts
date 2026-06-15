@@ -7,8 +7,9 @@ import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
-import { InMemoryRepo, type OddsRow } from "./store/repo.js";
+import { InMemoryRepo, type OddsRow, type UnifiedOddsRow } from "./store/repo.js";
 import { runCollection, type RunCollectionOpts, type RunCollectionResult } from "./collect/run.js";
+import { buildUnifiedOdds } from "./collect/unify.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
@@ -203,7 +204,36 @@ export async function generateOddsPrompt(client: any, eventId: string, marketKey
 
 export interface AnalyzeManualServiceOpts { repo?: any; reviewerFn?: ReviewerFn; diagnostics?: boolean; }
 
-/** Salva odds coladas na tabela (upsert por PK). Valida via parseManualOdds. */
+/** Re-gera o ESPELHO `odds_unificadas` a partir do cru. Chamado APÓS toda escrita em
+ * `odds` (coletar/colar/apagar) → a tabela nunca envelhece. Retorna as linhas + as
+ * divergências. PURO de regra (a unificação vem de buildUnifiedOdds). */
+export async function reprojectUnifiedOdds(
+  repo: any, eventId: string,
+): Promise<{ linhas: UnifiedOddsRow[]; divergencias: any[]; nCru: number }> {
+  const raw: OddsRow[] = await repo.getOdds(eventId);
+  const lines = raw.map((r) => ({
+    market_type: r.market_type, entidade: r.entidade, linha: Number(r.linha),
+    odd_over: Number(r.odd_over), odd_under: r.odd_under == null ? null : Number(r.odd_under), book: r.book,
+  }));
+  const { linhas, divergencias } = buildUnifiedOdds(lines, eventId);
+  await repo.saveOddsUnificadas(eventId, linhas);
+  return { linhas, divergencias, nCru: raw.length };
+}
+
+/** Botão "Unificar odds": re-gera o espelho e devolve o resumo p/ a tela de conferência. */
+export async function unificarOddsService(
+  repo: any, eventId: string,
+): Promise<{ n_cru: number; n_unificado: number; divergencias: any[]; linhas: UnifiedOddsRow[] }> {
+  const { linhas, divergencias, nCru } = await reprojectUnifiedOdds(repo, eventId);
+  return { n_cru: nCru, n_unificado: linhas.length, divergencias, linhas };
+}
+
+/** Lê o espelho canônico (o que a ANÁLISE considera). */
+export async function getOddsUnificadasService(repo: any, eventId: string): Promise<UnifiedOddsRow[]> {
+  return repo.getOddsUnificadas(eventId);
+}
+
+/** Salva odds coladas na tabela (upsert por PK). Valida via parseManualOdds. Re-espelha. */
 export async function saveOddsService(repo: any, body: unknown): Promise<{ salvas: number; linhas_rejeitadas: any[] }> {
   const input = parseManualOdds(body);
   const rows: OddsRow[] = input.odds.map((o) => ({
@@ -212,6 +242,7 @@ export async function saveOddsService(repo: any, body: unknown): Promise<{ salva
     coletado_em: input.coletado_em,
   }));
   await repo.saveOdds(input.event_id, rows);
+  await reprojectUnifiedOdds(repo, input.event_id); // espelho automático
   return { salvas: rows.length, linhas_rejeitadas: input.linhas_rejeitadas };
 }
 
@@ -226,10 +257,13 @@ export async function coletarOddsService(
   client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
 ): Promise<RunCollectionResult> {
   const ev = normalizeEvent(await client.getEvent(eventId));
-  return runCollection(
+  const res = await runCollection(
     { id: String(ev.id), jogo: ev.jogo, home: ev.home_team?.name ?? "", away: ev.away_team?.name ?? "" },
     repo, fetchers, opts,
   );
+  // Espelho automático: re-gera odds_unificadas do cru recém-gravado (dry não grava).
+  if (!opts.dry) await reprojectUnifiedOdds(repo, String(ev.id));
+  return res;
 }
 
 /** Resultado completo da última análise manual (ou null). Fonte de verdade pro
@@ -240,6 +274,7 @@ export async function getManualAnalysisService(repo: any, eventId: string): Prom
 
 export async function deleteOddsService(repo: any, eventId: string, filter?: Partial<OddsRow>): Promise<{ ok: true }> {
   await repo.deleteOdds(eventId, filter);
+  await reprojectUnifiedOdds(repo, eventId); // espelho automático (apagar tudo → unificada vazia)
   return { ok: true };
 }
 
@@ -263,18 +298,25 @@ export async function analyzeManualService(client: any, body: unknown, opts: Ana
   }
 
   const eventId = String(b.event_id ?? "");
-  const stored: OddsRow[] = await repo.getOdds(eventId);
+  // Espelho canônico: re-gera a odds_unificadas do cru e ANALISA EM CIMA DELA. Assim a
+  // análise consome exatamente o que a tela única mostra (mesma projeção, sem divergir).
+  const { linhas: unificadas, divergencias } = await reprojectUnifiedOdds(repo, eventId);
   const input: ManualOddsInput = {
     event_id: eventId,
     coletado_em: String(b.coletado_em ?? ""),
-    odds: stored.map((r) => ({
-      market_type: r.market_type, entidade: r.entidade, linha: Number(r.linha),
-      odd_over: Number(r.odd_over), odd_under: r.odd_under == null ? null : Number(r.odd_under), book: r.book,
-    })),
+    odds: unificadas.map((u) => ({
+      market_type: u.market_type, entidade: u.entidade, linha: Number(u.linha),
+      odd_over: Number(u.odd_over), odd_under: u.odd_under == null ? null : Number(u.odd_under), book: u.book,
+      // casas_comparadas viaja anexado (o candidato/UI usa); analyzeManual já está unificado.
+      casas_comparadas: u.casas_comparadas,
+    })) as any,
     linhas_rejeitadas,
     escopo_historico: String(b.escopo_historico ?? "todos"),
   };
-  return analyzeManual(client, input, { repo, reviewerFn: opts.reviewerFn, diagnostics: opts.diagnostics ?? false });
+  return analyzeManual(client, input, {
+    repo, reviewerFn: opts.reviewerFn, diagnostics: opts.diagnostics ?? false,
+    alreadyUnified: true, divergencias,
+  });
 }
 
 /** Liga um nome da casa a um player_id (stats-id) e persiste no crosswalk. */

@@ -133,6 +133,16 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.getOddsService(deps.repo, String(req.params.eventId)));
   }));
 
+  // "Unificar odds": re-gera o espelho odds_unificadas (line shopping) a partir do cru e
+  // devolve o resumo p/ a tela de conferência. É o que a análise consome.
+  app.post("/jogos/:eventId/unificar-odds", wrap(async (req, res) => {
+    res.json(await service.unificarOddsService(deps.repo, String(req.params.eventId)));
+  }));
+
+  app.get("/jogos/:eventId/odds-unificadas", wrap(async (req, res) => {
+    res.json(await service.getOddsUnificadasService(deps.repo, String(req.params.eventId)));
+  }));
+
   app.get("/jogos/:eventId/analise", wrap(async (req, res) => {
     res.json(await service.getManualAnalysisService(deps.repo, String(req.params.eventId)));
   }));

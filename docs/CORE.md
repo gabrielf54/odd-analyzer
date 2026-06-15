@@ -7,7 +7,10 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-14 (**casamento odd↔jogador robusto** — squad = elenco completo, não só o
+> **Atualizado:** 2026-06-15 (**odds unificadas** — tabela `odds_unificadas` = espelho canônico do cru
+> [line shopping por identidade], re-gerado a cada escrita; a análise consome ELA; tela única decisão+log
+> + botão "Unificar odds"; line shopping agrupa por identidade normalizada — ver §3.2)
+> · 2026-06-14 (**casamento odd↔jogador robusto** — squad = elenco completo, não só o
 > XI; `normalize` entende "Sobrenome, Nome"; mononímico; 90→6 sem-match no Spain×Cabo Verde — ver §3.2)
 > · 2026-06-12 (varredura de calibração: **prior+dispersão por posição REPROVADO** p/
 > as linhas mortas de jogador — é variância de cauda, não posição; **RATINGS tipo Elo no λ de partida
@@ -17,7 +20,7 @@
 > prateleira pro clube + registro-sombra forward na Copa**. Provas em
 > [`mercados-nao-validados`](features/mercados-nao-validados/))
 > · 2026-06-11 (auditoria de
-> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 404 testes Vitest
+> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 415 testes Vitest
 > verdes (gate de paridade intacto) · **Custo até aqui:** $0 · **Arena ativa:** Copa do Mundo 2026
 > (seleções), abriu 2026-06-11; **clube ATIVO** (auditado). **Ratings de força no λ de partida
 > PRODUCTIONIZADOS 2026-06-12** (`src/model/ratings.ts` + `pipeline.runMatch`, com fallback) ·
@@ -117,8 +120,17 @@ número).
   amistoso, não na Copa).
 - **Sinais de contexto p/ a IA (texto, fora do número):** `forma_tendencia` (alta/queda/estável) e
   `posse_adversario` (% posse do rival, com orientação por-mercado). `populacao_motivo` (selo).
-- **Persistência:** Supabase — `odds` (fonte de verdade das odds), `analises` (resultado completo
-  por jogo), `paper_ledger` (apostas-papel + CLV), `jogadores_crosswalk`.
+- **Odds unificadas — espelho canônico (2026-06-15):** tabela `odds_unificadas` = 1 linha por aposta
+  após line shopping (PK por identidade NORMALIZADA → colapsa grafias: "Llorente, Marcos"+"Marcos
+  Llorente"), com `casas_comparadas` e marca de divergência. **NUNCA editada à mão** — `reprojectUnifiedOdds`
+  a re-gera do cru a CADA escrita em `odds` (coletar/colar/apagar/CLI) → nunca envelhece. **A ANÁLISE lê
+  DELA** (`analyzeManualService` reprojeta e passa as linhas unificadas → o que a tela mostra É o que a
+  análise usa). `odds` segue como LOG cru. Projeção PURA em `src/collect/unify.ts::buildUnifiedOdds`.
+  Endpoints `POST /jogos/:id/unificar-odds` (botão) + `GET /jogos/:id/odds-unificadas`. Front: tela única
+  (decisão + log) com botão "Unificar odds". Validado live (8299): 1485 cruas → 982 apostas, 27 divergências.
+- **Persistência:** Supabase — `odds` (LOG cru das odds), `odds_unificadas` (espelho canônico = o que a
+  análise considera), `analises` (resultado completo por jogo), `paper_ledger` (apostas-papel + CLV),
+  `jogadores_crosswalk`.
 - **Stack:** Node/TS (raiz, `src/`+`test/`), Express :3001, front Next em repo separado. Ports &
   Adapters; motor são funções puras; gate de paridade protege os números.
 
