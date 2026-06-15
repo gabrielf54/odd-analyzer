@@ -152,21 +152,25 @@ continua aqui (§3.1) e o que está morto de vez no §5.
 Trocar a coleta MANUAL (colar prompt no Claude do Chrome, 1 casa) por **coleta server-side
 multi-casa** + **line shopping** (apostar no melhor preço). Avaliação de viabilidade FEITA
 (2026-06-13): legal no BR (odd pública deslogado); **rodar local no BR mata o geoblock**; as 4
-"casas moles" **não são iguais** — **KTO** (Kambi) e **Betnacional** (Sportradar) = GO, **Superbet**
-(Fastly) = 2ª onda, **Betano** (Kaizen, geoblock+Turnstile+props em camada GameplAI separada) = FORA
-do v1 (vai pro balde manual, junto da bet365). **Motor de coleta + KTO + Betnacional FUNCIONANDO ao
-vivo (2026-06-14, 378 testes, gate de paridade intacto).** `src/collect/`: normalizer fail-closed,
-line shopping, anti-armadilha cross-casa, orquestração "pula e avisa", parsers KTO (Kambi, `fetch`
-puro) e Betnacional (Bet6/REST — **não** era GraphQL), crosswalk de jogo `matchEventByName` +
-`teamNames.canonicalTeam` (PT/EN/FR de seleção). **Cloudflare da Betnacional** vencido por **Chromium
-headless local** (Playwright, `src/cli/browserFetch.ts`). **CLI `src/cli/collectOdds.ts <event_id_BSD>`**
-acha as 2 casas sozinho (listView KTO `world_cup_2026` + events-by-seasons Bet6 `950049532`), coleta,
-line-shop, flaga divergência → grava no `odds` (a análise manual já lê daí). PROVADO em `--dry` no
-8295 (Germany×Curaçao): KTO+Bet6 conf 1.0, 666→602 linhas cross-casa, 6 divergências reais.
-**Liquidação confirmada:** desarme=won_tackle (só KTO), faltas=cometidas, SOT/finalizações Opta.
-**Resta:** rodar **sem `--dry`** (grava em produção — exige OK explícito do dono); Superbet/Betano 2ª
-onda (mesmo headless serve). Fichas: [`features/coleta-odds-automatica/`](features/coleta-odds-automatica/)
-(NÃO apagar até shipar de vez). N4 (odds de PARTIDA via BSD) segue morto no §5 — esta é PROP multi-casa.
+"casas moles" **não são iguais** — **KTO** (Kambi), **Betnacional** (Sportradar) e **Superbet**
+(Betler/Fastly) = GO (ao vivo), **Betano** (Kaizen, geoblock+Turnstile+props em camada GameplAI
+separada) = FORA do v1 (vai pro balde manual, junto da bet365). **Motor de coleta + KTO + Betnacional
++ Superbet FUNCIONANDO ao vivo (2026-06-15, 396 testes, gate de paridade intacto).** `src/collect/`:
+normalizer fail-closed, line shopping, anti-armadilha cross-casa, orquestração "pula e avisa", parsers
+KTO (Kambi, `fetch` puro), Betnacional (Bet6/REST — **não** era GraphQL, headless p/ Cloudflare) e
+Superbet (Betler/Fastly, `fetch` puro, **sem anti-bot/geoblock**; de-para por `marketId` numérico,
+linha em `specifiers.total`), crosswalk de jogo `matchEventByName` + `teamNames.canonicalTeam`
+(PT/EN/FR de seleção). **Cloudflare da Betnacional** vencido por **Chromium headless local**
+(Playwright, `src/cli/browserFetch.ts`). **CLI `src/cli/collectOdds.ts <event_id_BSD>`** acha as 3
+casas sozinho (listView KTO `world_cup_2026` + events-by-seasons Bet6 `950049532` + events/by-date
+Superbet), coleta, line-shop, flaga divergência → grava no `odds` (a análise manual já lê daí).
+PROVADO em `--dry` no 8295 (Germany×Curaçao): KTO+Bet6 conf 1.0; Superbet provada ao vivo no 12512182
+(Suécia×Tunísia, 795 linhas canônicas, conf 1.0). **Liquidação confirmada:** desarme=won_tackle
+(KTO + Superbet), faltas=cometidas, SOT/finalizações Opta/Sportradar. **Resta:** rodar **sem `--dry`**
+(grava em produção — exige OK explícito do dono); Betano 2ª onda. Estado de produção (casa a casa) =
+[`docs/coleta-odds/`](coleta-odds/) (doc vivo); pendente em features só Betano
+([`features/coleta-odds-automatica/`](features/coleta-odds-automatica/)). N4 (odds de PARTIDA via BSD)
+segue morto no §5 — esta é PROP multi-casa.
 
 ## 5. Cemitério — NÃO re-tentar (sem perder o aprendizado)
 

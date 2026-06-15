@@ -8,6 +8,7 @@
 
 import { parseKambi, ktoBetofferUrl, ktoListViewUrl, parseKambiListView } from "./adapters/kto.js";
 import { parseBet6, bet6EventOddsUrl, bet6EventsBySeasonUrl, parseBet6EventList } from "./adapters/bet6.js";
+import { parseSuperbet, superbetEventOddsUrl, superbetEventsByDateUrl, parseSuperbetEventList } from "./adapters/superbet.js";
 import { matchEventByName, type HouseEvent } from "./matchEvent.js";
 import type { RawCollectedLine } from "./normalizer.js";
 import type { OddsCollector, CollectContext } from "./types.js";
@@ -38,6 +39,12 @@ export const HOUSES: HouseDef[] = [
     book: "betnacional", needsBrowser: true,
     oddsUrl: bet6EventOddsUrl, parseOdds: parseBet6,
     listUrl: () => bet6EventsBySeasonUrl(), parseList: parseBet6EventList,
+  },
+  {
+    // Superbet (Betler/Fastly): fetch puro, sem anti-bot/geoblock (captura 2026-06-15).
+    book: "superbet", needsBrowser: false,
+    oddsUrl: superbetEventOddsUrl, parseOdds: parseSuperbet,
+    listUrl: () => superbetEventsByDateUrl(), parseList: parseSuperbetEventList,
   },
 ];
 

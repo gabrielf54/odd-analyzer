@@ -48,7 +48,7 @@ do jogo em cada casa pelo **nome dos times** (resolve PT/EN/FR — Alemanha = Ge
 |---|---|---|---|---|---|
 | **KTO** | Kambi | `fetch` puro | Varnish (rate-limit) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
 | **Betnacional** | NSX/Bet6 (Sportradar) | navegador headless | Cloudflare | ✅ **AO VIVO** | SOT, finalizações, faltas *(sem desarmes)* |
-| **Superbet** | Betler (própria) | — | Fastly (s/ WAF) + api-gw geoblock | 🟠 **2ª onda** (a mapear) | a confirmar |
+| **Superbet** | Betler (própria, Sportradar) | `fetch` puro | **nenhum** (Fastly, deslogado) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
 | **Betano** | Kaizen Gaming | — | geoblock duro + Turnstile + props GameplAI | 🔴 **difícil** (fallback manual) | a confirmar |
 
 Detalhe de cada uma em [`casas/`](casas/). **Provado ao vivo (2026-06-14)** no jogo Germany×Curaçao:

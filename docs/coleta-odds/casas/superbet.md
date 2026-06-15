@@ -1,28 +1,73 @@
-# Superbet — 🟠 2ª onda (a mapear)
+# Superbet — ✅ AO VIVO
 
 | | |
 |---|---|
-| **Status** | 🟠 Não implementada. Candidata da **2ª onda** (dificuldade média). |
-| **Plataforma** | **Betler** (plataforma própria da Superbet). |
-| **Anti-bot (intel inicial)** | Odds servidas via **Fastly** aparentemente **sem WAF**; porém o **api-gateway tem geoblock**. |
-| **Geoblock** | Provável — **mitigar rodando local no BR** (como nas outras). |
-| **Como buscar (hipótese)** | Provavelmente `fetch` puro (Fastly permissivo); se houver challenge, cair pro headless. |
+| **Status** | ✅ Em produção (3ª casa). Provado ao vivo 2026-06-15. |
+| **Plataforma** | **Betler** (plataforma própria da Superbet), motor de dados **Sportradar/Betradar**. |
+| **Como busca** | **`fetch` puro** — endpoint público em CDN **Fastly**, sem login/token/cookie. |
+| **Anti-bot** | **Nenhum.** Sem Cloudflare, sem Turnstile, sem captcha. `fetch` cru com `credentials:'omit'` → HTTP 200. |
+| **Geoblock** | Rodando local no BR (geo detecta BR normalmente; odds em Fastly respondem sem cookie). |
+| **Mercados** | SOT, finalizações, **desarmes**, faltas (cometidas). **Cobre desarmes** (ao contrário da Betnacional). |
+| **Código** | `src/collect/adapters/superbet.ts` · de-para em `tables.ts::SUPERBET_TABLE` · `needsBrowser:false` no `houses.ts`. |
 
-> ⚠️ A intel acima é da **avaliação de viabilidade** (agentes, possivelmente de fora do BR — pessimista).
-> Nada foi capturado/confirmado ainda. Tratar como ponto de partida, não como verdade.
+## Endpoints (públicos, deslogado)
 
-## O que falta (seguir o Playbook do [README](../README.md#6-playbook--adicionar-uma-casa-nova-ex-betano))
+```
+# odds de UM jogo (GET REST único, traz a oferta inteira):
+GET https://production-superbet-offer-br.freetls.fastly.net/v2/pt-BR/events/{eventId}
 
-1. **Capturar** o endpoint de prop de jogador (deslogado, no BR): abrir um jogo da Copa, aba de prop,
-   F12 → Network (ou headless gravando a rede, como fizemos na Betnacional). Anotar URL + params +
-   shape + onde estão jogador/linha/odd + liquidação.
-2. Confirmar se o `fetch` puro do BR passa (Fastly) ou se precisa do headless.
-3. Achar a **lista de jogos** do torneio (pro crosswalk) — endpoint que liste os jogos com id + times.
-4. Parser `src/collect/adapters/superbet.ts` + de-para em `tables.ts` + registrar no `collectOdds.ts`.
+# lista de jogos (crosswalk) — events/by-date, REST JSON (NÃO o /structure, que é SSE inútil):
+GET https://production-superbet-offer-br.freetls.fastly.net/v2/pt-BR/events/by-date
+    ?currentStatus=active&offerState=prematch&sportId=5&startDate=YYYY-MM-DD%20HH:MM:SS&endDate=...
+```
 
-## Perguntas a responder na captura
+- `eventId` é **número interno inteiro** (ex.: `12512182`) — mesmo valor em `eventId`/`offerId`/URL.
+  O payload também traz `betradarId` (Sportradar) e `uuid` para casar por ID se quiser.
+- `events/by-date`: `startDate` é **obrigatório**, `sportId=5`=futebol. **Não filtramos por `tournamentIds`**
+  (o set completo da Copa não foi cravado — 1431–1439 davam só 33 jogos) → buscamos o futebol da janela
+  default `[agora−1d, agora+21d]` e deixamos o `matchEventByName` casar pelo nome. Passe `tournamentIds`
+  pra estreitar se precisar.
 
-- Os props de jogador vêm no **mesmo** endpoint dos mercados de partida ou num separado?
-- A linha é campo numérico (como a KTO) ou está no **nome** do mercado (escada "N+", como a Betnacional)?
-- Como a casa **liquida** desarme (ganho vs tentativa) e falta (cometida vs sofrida)?
-- O id do jogo é Sportradar (`sr:match:`), interno, ou outro? (define o crosswalk)
+## Shape e parsing
+
+- Wrapper: `{error, dataIn, data:[ {...evento..., odds:[...]} ]}`. As seleções estão em **`data[0].odds`**,
+  um **array PLANO** — cada item já carrega o próprio `marketId`/`marketName` (não há objeto "market" pai;
+  o parser agrupa por `marketId`).
+- **Linha:** campo numérico limpo **`specifiers.total`** (`"0.5"`, `"1.5"`, …) — não precisa parsear o nome.
+  É **escada "Mais de X.5"** (one-sided over; `hasUnder=false`).
+- **Jogador:** **`extra["replaced-spec-player_name"]`** (nome cheio, ex.: `"Ali, Taha Abdi"`), fallback
+  `specifiers.player_name` (`"Ali, Taha"`). IDs estáveis: `extra["betradar-player-id"]` (`sr:player:…`).
+- **Odd:** **`price`**, número decimal (`1.61`).
+- Pula: `status != "active"` (suspenso), seleção sem jogador (mercado de time/partida), sem `marketId`,
+  sem linha numérica — tudo fail-closed.
+
+## De-para + armadilhas (chave = `marketId` NUMÉRICO)
+
+A casa **não expõe rótulo EN** (`code` = null) e o `marketName` em PT varia → a chave do de-para é o
+**`marketId`** (estável). O parser emite `market_label = String(marketId)`; `SUPERBET_TABLE` mapeia:
+
+| `marketId` | `marketName` | → |
+|---|---|---|
+| `236220` | Jogador - Chutes no Gol | `sot` (on-target) |
+| `236218` | Jogador - Finalizações | `finalizacoes` (total de chutes) |
+| `236222` | Jogador - Total de Desarmes | `desarmes` (realizados = `won_tackle`) |
+| `236216` | Jogador - Faltas Cometidas | `faltas` |
+| `238449` | Jogador - Faltas Sofridas | **rejeitado** (sofridas ≠ cometidas) |
+| outros de jogador | pé esq/dir, cabeceio, fora da área, "vezes desarmado", impedimentos | **rejeitado** (não mapeado → fail-closed) |
+
+> **Liquidação (Sportradar/Betradar, igual Betnacional):** o `info` da seleção é explícito —
+> desarmes = **"realizados"** (ganhos/com sucesso = nosso `won_tackle`), faltas = **"cometidas"**,
+> SOT = **on-target** (distinto de Finalizações, que é o total). Não há doc de regras formal na UI;
+> a semântica vem do `info` + dos ids `betradar`.
+
+## Crosswalk
+
+`events/by-date` → `data[]` com `eventId` (inteiro) + `matchName` em **PT** separado por `·`
+("Suécia·Tunísia"). `parseSuperbetEventList` faz `split("·")` → `{id, home, away}`; `canonicalTeam` resolve
+contra a BSD (EN/FR). Casou **Sweden×Tunisia → `12512182` com confiança 1.0** (2026-06-15).
+
+## Validação ao vivo (2026-06-15)
+
+Jogo Suécia×Tunísia (`12512182`), deslogado, BR: 1842 props de jogador → **795 linhas canônicas**
+(sot 132 · finalizações 231 · desarmes 218 · faltas 214), 1047 rejeitadas (fail-closed). `fetch` puro,
+sem qualquer header. Crosswalk pela lista resolveu o jogo sozinho (conf 1.0).

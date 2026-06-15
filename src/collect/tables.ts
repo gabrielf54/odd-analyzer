@@ -41,11 +41,28 @@ export const BETNACIONAL_TABLE: HouseMarketTable = {
   // assistência) caem como "não mapeado" — fail-closed.
 };
 
+// Superbet (Betler, odds via Fastly). CONFIRMADO na captura de 2026-06-15 (deslogado, BR;
+// Suécia×Tunísia, evento 12512182). A casa NÃO expõe rótulo EN (campo `code` = null) e o
+// marketName em PT varia → a CHAVE é o marketId NUMÉRICO (estável, id de mercado Sportradar/
+// Betler), emitido como string pelo parser. Liquidação Sportradar/Betradar (mesmos stats da
+// Betnacional): desarmes "realizados" = GANHOS (won_tackle), faltas = COMETIDAS, SOT
+// on-target (≠ Finalizações). Os marketIds de jogador que NÃO queremos (subtipos pé esq/dir,
+// cabeceio, fora da área, "vezes desarmado", impedimentos) caem como não-mapeados →
+// fail-closed. "Faltas Sofridas" (238449) tem reject explícito p/ não confundir com cometidas.
+export const SUPERBET_TABLE: HouseMarketTable = {
+  "236220": { market_type: "sot" },          // "Jogador - Chutes no Gol" (on-target)
+  "236218": { market_type: "finalizacoes" }, // "Jogador - Finalizações" (total de chutes)
+  "236222": { market_type: "desarmes" },     // "Jogador - Total de Desarmes" = realizados (won_tackle)
+  "236216": { market_type: "faltas" },       // "Jogador - Faltas Cometidas"
+  "238449": { reject: "faltas SOFRIDAS (Jogador - Faltas Sofridas) — modelamos só as COMETIDAS" },
+};
+
 /** Tabela de-para de uma casa pelo slug. Casa desconhecida → tabela vazia (rejeita tudo). */
 export function tableFor(book: string): HouseMarketTable {
   switch (book) {
     case "kto": return KTO_TABLE;
     case "betnacional": return BETNACIONAL_TABLE;
+    case "superbet": return SUPERBET_TABLE;
     default: return {};
   }
 }

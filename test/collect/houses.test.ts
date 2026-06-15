@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { buildCollectors, type HouseDef } from "../../src/collect/houses.js";
+import { buildCollectors, HOUSES, type HouseDef } from "../../src/collect/houses.js";
 import type { CollectContext } from "../../src/collect/types.js";
 
 const ctx: CollectContext = { event_id: "e1", home: "Germany", away: "Curacao" };
@@ -44,5 +44,16 @@ describe("buildCollectors (registry agnóstico)", () => {
   it("jogo não achado na lista → casa pulada (fail-closed)", async () => {
     const cs = await buildCollectors({ ...ctx, home: "Brazil", away: "Argentina" }, { plain: get }, { houses: [plainHouse] });
     expect(cs).toHaveLength(0);
+  });
+});
+
+// Regressão do REGISTRY real (o que o CLI e o endpoint do front usam por default). Garante
+// que as casas AO VIVO continuam ligadas — se alguém remover uma sem querer, isto quebra.
+describe("HOUSES (registry default do CLI/endpoint)", () => {
+  it("contém as 3 casas vivas com o needsBrowser certo", () => {
+    const byBook = Object.fromEntries(HOUSES.map((h) => [h.book, h]));
+    expect(byBook.kto?.needsBrowser).toBe(false);          // Kambi, fetch puro
+    expect(byBook.betnacional?.needsBrowser).toBe(true);   // Cloudflare → headless
+    expect(byBook.superbet?.needsBrowser).toBe(false);     // Fastly, fetch puro, sem anti-bot
   });
 });
