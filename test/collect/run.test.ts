@@ -49,4 +49,32 @@ describe("runCollection", () => {
     expect(r.casas).toHaveLength(0);
     expect(r.gravadas).toBe(0);
   });
+
+  it("casa PULADA no crosswalk vira `puladas` com book+motivo (observabilidade)", async () => {
+    // Brazil x Argentina não está na lista (só Germany x Curacao) → kto pulada no crosswalk.
+    // Sem isso, a casa some do resultado sem dar rastro (foi o que escondeu o betano).
+    const repo = fakeRepo();
+    const r = await runCollection(
+      { id: "e", home: "Brazil", away: "Argentina" },
+      repo, { plain: get }, { houses: [house] },
+    );
+    expect(r.puladas).toEqual([
+      expect.objectContaining({ book: "kto", motivo: expect.stringMatching(/jogo não achado/i) }),
+    ]);
+  });
+
+  it("casa cujo listUrl FALHA (ex.: 403) vira `puladas` com o motivo do erro", async () => {
+    const repo = fakeRepo();
+    const boom = async (url: string): Promise<any> => {
+      if (url.startsWith("odds/")) return {};
+      throw new Error("403 Forbidden");
+    };
+    const r = await runCollection(
+      { id: "e", home: "Germany", away: "Curacao" },
+      repo, { plain: boom }, { houses: [house] },
+    );
+    expect(r.puladas).toEqual([
+      expect.objectContaining({ book: "kto", motivo: expect.stringMatching(/lista falhou|403/i) }),
+    ]);
+  });
 });
