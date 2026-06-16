@@ -31,3 +31,12 @@ export function fairProbOver(oddOver: number, oddUnder: number): number {
   const [poP] = devigPower(oddOver, oddUnder);
   return Math.max(poM, poP);
 }
+
+/** De-vig 3-VIAS (1X2): normaliza as três implícitas (mandante/empate/visitante)
+ * pra somarem 1 — tira a margem da casa. Multiplicativo (padrão do 1X2; o power-method
+ * é p/ mercado de 2 vias). Retorna [pHome, pDraw, pAway]. Todas as odds devem ser > 1. */
+export function devigThreeWay(oddHome: number, oddDraw: number, oddAway: number): [number, number, number] {
+  const ih = impliedProb(oddHome), id = impliedProb(oddDraw), ia = impliedProb(oddAway);
+  const s = ih + id + ia;
+  return [ih / s, id / s, ia / s];
+}

@@ -69,10 +69,15 @@ esgotado) · ⛔ morto §5 (não re-tentar)
   n=19, BrierSkill −0.126, ECE 0.317 — miscalibrando**: bate com prob extrema observada (ex.
   `Iran×NZ 85% over 2.5`) → **pista de fallback/ratings raso a investigar**, não é só "falta dado". Resto
   (sot/fin/desarme/passes) n=3–11 = ruído.
-- **Próxima ação:** (1) seguir operando o forward; (2) **investigar a miscalib. de vitória** (de onde
-  vêm as probs extremas — fallback? pool de ratings raso pra alguns times?); (3) ligar a **Fase 2 (CLV)**
-  — odds de partida da BSD no `forwardLog` (~4h; código em `src/providers/odds.ts::BSDMatchOdds`, falta wiring).
-- **Custo:** forward = $0; CLV wiring ~4h.
+- **Próxima ação:** (1) seguir operando o forward (1→[apito]snapshotClosing→settle→report); (2) **vigiar
+  a vitória** — a miscalib. de probs extremas foi **consertada** (floor=1+shrinkK, 2026-06-15 manhã), MAS
+  a Fase 2 expôs **edge de vitória sistematicamente −pp p/ favoritos** (Portugal home 50% vs de-vig ~75%);
+  pista de **subestimar favorito** (shrinkK puxando seleção forte pro neutro?) — o forward decide.
+- **✅ Fase 2 (CLV) LIGADA (2026-06-15 tarde):** spike revelou o payload PLANO real do `/events/{id}/odds/`
+  (o `BSDMatchOdds` antigo estava cego); parser puro `src/odds/bsdMatchOdds.ts` + `devigThreeWay` (3-vias);
+  `forwardLog` anexa odd de abertura+de-vig+edge/ev; `snapshotClosing` bulk → CLV. 445 testes, gate intacto.
+  Run: 48 previsões, 4/4 com odd. **Falta só TEMPO** (CLV acumula abertura-cedo × fechamento-no-apito).
+- **Custo:** forward = $0; CLV wiring feito ($0).
 - **Já tentei (não repetir):** λ = média-gols-crua REPROVOU (gols ECE 0.10–0.15; vitória mando ECE
   0.13) → exp 12b. Ratings tipo Elo VENCEM offline (ECE 0.04) e estão productionizados.
 

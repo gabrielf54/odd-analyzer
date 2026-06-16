@@ -1,6 +1,9 @@
-// LOOP FORWARD (passo 1 — calibração): loga a PREVISÃO do modelo (gols/vitória, via
-// ratings de força) dos jogos QUE VÊM no paper_ledger, ANTES de serem jogados. Sem
-// odds → mede só calibração (Brier/ECE). CLV vem quando as odds entrarem (fase 2).
+// LOOP FORWARD (passo 1): loga a PREVISÃO do modelo (gols/vitória, via ratings de força)
+// dos jogos QUE VÊM no paper_ledger, ANTES de serem jogados.
+//   Fase 1 (calibração): sempre loga prob_modelo → Brier/ECE.
+//   Fase 2 (CLV, LIGADA 2026-06-15): se a BSD já precificou o jogo, ANEXA odd_flag +
+//   prob_devig (de-vig) + edge + ev. A odd de FECHAMENTO p/ o CLV vem perto do apito
+//   via `snapshotClosing.ts`. CLV = odd_flag/odd_fechamento − 1.
 // Liquidação depois: `src/cli/settle.ts`. Relatório: `src/cli/report.ts`.
 //
 // Sem arg → jogos da Copa (liga 27) que começam nas próximas 72h. Com args → esses
@@ -14,6 +17,8 @@ import { BSDStatsProvider } from "../providers/stats.js";
 import { runMatch } from "../pipeline.js";
 import { normalizeEvent } from "../runner.js";
 import { MARKETS } from "../model/markets.js";
+import { parseBsdMatchOdds, matchBetOdd, matchFairProb, outcomeFromJogador, type ParsedMatchOdds } from "../odds/bsdMatchOdds.js";
+import { edgeEv } from "../value/ev.js";
 
 const COPA_LEAGUE = 27;
 const WINDOW_H = 72;
@@ -43,18 +48,45 @@ for (const id of ids) {
   let raw: any;
   try { raw = await client.getEvent(id); } catch { console.log(`  evento ${id}: getEvent falhou — pula`); continue; }
   const event = normalizeEvent(raw);
+  // Fase 2: odds de partida da BSD (1 chamada/jogo). Ausente/não precificado → só calibração.
+  let parsedOdds: ParsedMatchOdds | null = null;
+  try { parsedOdds = parseBsdMatchOdds(await client.eventOdds(id)); } catch { parsedOdds = null; }
+  // odd_flag é a linha de ABERTURA (1ª observação): NÃO sobrescrever em re-runs, senão o
+  // CLV fica cego (mediria a odd já fechada contra ela mesma). Lê o que já existe e trava.
+  const prev = new Map<string, any>();
+  try { for (const r of await repo.getLedger(id)) prev.set(`${r.jogador}|${r.linha}|${r.market_type}`, r); } catch { /* sem ledger ainda */ }
+  const numOrNull = (v: unknown) => (v == null ? null : Number(v));
   const rows: any[] = [];
   for (const [mkt, op] of [[MARKETS.gols, { lines: linesGols }], [MARKETS.vitoria, { lines: lineVitoria }]] as const) {
     let cands: any[] = [];
     try { cands = await runMatch(event, mkt!, sp, op); } catch { cands = []; }
-    for (const c of cands) rows.push({
-      event_id: event.id, jogador: c.jogador, linha: c.linha, market_type: c.market_type,
-      prob_modelo: c.prob_modelo, odd_flag: null, prob_devig: null, edge: null, ev: null, player_id: null,
-    });
+    for (const c of cands) {
+      const old = prev.get(`${c.jogador}|${c.linha}|${c.market_type}`);
+      let odd_flag: number | null = numOrNull(old?.odd_flag);
+      let prob_devig: number | null = numOrNull(old?.prob_devig);
+      // ainda sem odd de abertura E a casa já precificou → trava agora (de-vig junto).
+      if (odd_flag == null && parsedOdds) {
+        const outcome = outcomeFromJogador(c.jogador);
+        const o = matchBetOdd(parsedOdds, c.market_type, c.linha, outcome);
+        const fair = matchFairProb(parsedOdds, c.market_type, c.linha, outcome);
+        if (o != null && fair != null) { odd_flag = o; prob_devig = fair; }
+      }
+      // edge/ev sempre relativos à ABERTURA travada + ao prob_modelo ATUAL (refina até o apito).
+      let edge: number | null = null, ev: number | null = null;
+      if (odd_flag != null && prob_devig != null) {
+        const m = edgeEv(c.prob_modelo, prob_devig, odd_flag); edge = m.edge; ev = m.ev;
+      }
+      rows.push({
+        event_id: event.id, jogador: c.jogador, linha: c.linha, market_type: c.market_type,
+        prob_modelo: c.prob_modelo, odd_flag, prob_devig, edge, ev, player_id: null,
+      });
+    }
   }
   if (!rows.length) { console.log(`  ${event.jogo}: sem previsão (ratings inelegíveis / placeholder) — pula`); continue; }
   await repo.saveLedger(rows);
   logged += rows.length;
-  console.log(`  ${event.jogo}: ${rows.map((r) => `${r.market_type} ${r.linha}=${(r.prob_modelo * 100).toFixed(0)}%`).join(" · ")}`);
+  const comOdds = rows.filter((r) => r.odd_flag != null).length;
+  const fmt = (r: any) => `${r.market_type} ${r.linha}=${(r.prob_modelo * 100).toFixed(0)}%${r.edge != null ? ` (odd ${r.odd_flag}, edge ${(r.edge * 100).toFixed(0)}pp)` : ""}`;
+  console.log(`  ${event.jogo} [${comOdds}/${rows.length} c/ odd]: ${rows.map(fmt).join(" · ")}`);
 }
-console.log(`\ntotal: ${logged} previsões logadas (upsert idempotente). Sem odds → calibração; rode settle.ts após os jogos e report.ts p/ o veredito.`);
+console.log(`\ntotal: ${logged} previsões logadas (upsert idempotente). Odds anexadas quando a BSD já precificou (de-vig/edge); rode snapshotClosing.ts perto do apito (CLV), settle.ts após o jogo e report.ts p/ o veredito.`);

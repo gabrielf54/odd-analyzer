@@ -18,16 +18,25 @@ longo do torneio.
 ## Os 3 comandos (rode nesta ordem, a cada execução)
 
 ```bash
-# 1. LOGA as previsões dos jogos que vêm (próximas 72h da Copa). Idempotente (upsert).
+# 1. LOGA as previsões dos jogos que vêm (próximas 72h da Copa) + ANEXA odds da BSD
+#    (odd_flag de abertura + de-vig + edge/ev, Fase 2). Idempotente (upsert; odd_flag travado).
 npx tsx src/cli/forwardLog.ts
 
-# 2. LIQUIDA os jogos que já terminaram (sem arg = todos com linha pendente no ledger).
+# 2. (PERTO DO APITO) grava a odd de FECHAMENTO das linhas de partida pendentes → CLV.
+#    SEM args = bulk automático (todas as linhas com abertura travada e sem fechamento).
+npx tsx src/cli/snapshotClosing.ts
+
+# 3. LIQUIDA os jogos que já terminaram (sem arg = todos com linha pendente no ledger).
 #    Gols/vitória pelo placar; player props (sot/desarme/etc.) pelo player-stats.
 npx tsx src/cli/settle.ts
 
-# 3. RELATÓRIO de calibração/CLV por mercado (só linhas liquidadas).
+# 4. RELATÓRIO de calibração/CLV por mercado (só linhas liquidadas).
 npx tsx src/cli/report.ts
 ```
+
+> **Timing do CLV:** o passo 1 trava a odd de ABERTURA; o passo 2 (perto do apito) grava o
+> FECHAMENTO. Rodar o passo 2 logo após o 1 (jogo distante) daria CLV≈0 falso → o bulk só deve rodar
+> **perto do kickoff**. Por isso é passo separado, não junto do forwardLog.
 
 Depois do passo 3, **leia a tabela** e aplique o **critério de graduação** abaixo.
 
@@ -67,19 +76,37 @@ rodando — o loop acumula.
 
 ## Duas fases
 
-- **Fase 1 — CALIBRAÇÃO (agora, automática, SEM odds):** `forwardLog.ts` loga só a `prob_modelo`. O
-  `report.ts` dá Brier/ECE (CLV = `n/d`). Responde: *"o modelo acerta a probabilidade?"*
-- **Fase 2 — CLV (precisa de odds):** a BSD dá odds de **partida** (1X2, over/under gols) em
-  `/events/{id}/odds/` — 2 lados → de-vig + CLV automáticos. **Ainda NÃO está ligada ao loop**
-  (`src/providers/odds.ts::BSDMatchOdds` não bate com o payload flat real — ver
-  [[copa-viabilidade-dado-2026]]). **TODO p/ ligar a Fase 2:** (a) confirmar o shape real do
-  `/events/{id}/odds/`; (b) ingerir no `forwardLog` (gravar `odd_flag` + `prob_devig` + `edge`); (c)
-  `snapshotClosing.ts` perto do kickoff p/ a odd de fechamento → CLV. Só então gols/vitória ganham a
-  ⭐ plena.
+- **Fase 1 — CALIBRAÇÃO (automática, SEM odds):** `forwardLog.ts` loga a `prob_modelo`. O
+  `report.ts` dá Brier/ECE. Responde: *"o modelo acerta a probabilidade?"*
+- **Fase 2 — CLV — LIGADA (2026-06-15):** o `forwardLog` agora busca as odds de **partida** da BSD
+  (`/events/{id}/odds/`) e **anexa** `odd_flag` (linha de ABERTURA, travada na 1ª observação) +
+  `prob_devig` (de-vig) + `edge` + `ev`. Perto do apito, `snapshotClosing.ts` (modo **bulk**, sem
+  args) grava a odd de **fechamento** → `clv = odd_flag/odd_fechamento − 1`. O `report.ts` então
+  mostra `CLVm`. **Detalhe técnico:** o payload real é PLANO (`{odds:{home_win,draw,away_win,
+  over_15_goals,…}}`), nada do estilo bookmakers/outcomes — parser puro em
+  `src/odds/bsdMatchOdds.ts` (gols = de-vig 2-vias over/under; vitória = de-vig **3-vias**
+  mandante/empate/visitante, `devigThreeWay`). Money-path de jogador NÃO tocado (gate de paridade
+  intacto, 445 testes). **Falta só TEMPO:** o CLV honesto exige abertura cedo + fechamento no apito —
+  acumula ao longo da Copa. Critério de graduação (n≥30, BrierSkill>0, ECE≤0.05, **CLVm≥0**) inalterado.
 
 ## Estado atual (atualize a cada rodada)
 
-- **📍 2026-06-15 — CHECKPOINT (handoff p/ outro chat):** loop operado (gols **n=43 BrierSkill +0.16**;
+- **📍 2026-06-15 (tarde) — FASE 2 (CLV) LIGADA + loop rodado:** spike confirmou o formato REAL do
+  `/events/{id}/odds/` (PLANO — `home_win/draw/away_win/over_NN_goals/under_NN_goals/btts_*`, **não**
+  bookmakers/outcomes; o `BSDMatchOdds` antigo estava cego). Novo parser puro `src/odds/bsdMatchOdds.ts`
+  + de-vig 3-vias `devigThreeWay` (15 testes novos, **445 verdes, gate intacto**). `forwardLog` agora
+  anexa `odd_flag`(abertura travada)+`prob_devig`+`edge`+`ev`; `snapshotClosing` ganhou modo **bulk**
+  (fechamento → CLV). **Run ao vivo:** 48 previsões logadas em 12 jogos, **4/4 com odd** cada (de-vig
+  funcionando). `settle`: 8302 Iran×NZ liquidou (0-0). `report`: **gols n=46 BrierSkill +0.128 / ECE
+  0.082** (melhorando); **vitória n=21 ainda −0.105/ECE 0.255** (amostra contaminada pelo modelo velho —
+  limpa conforme jogos novos liquidam). CLV `n/d` (snapshots de fechamento só acumulam perto dos apitos).
+  - **⚠️ Observação forward p/ VIGIAR (vitória):** as edges de vitória vieram **sistematicamente
+    negativas pros favoritos** (ex. Portugal×DR Congo home 50% vs odd 1.27/de-vig ~75% = −25pp;
+    France −23pp; Austria −28pp). Ou o modelo ainda **subestima favorito** (resíduo do shrinkK puxando
+    seleção forte pro neutro / pool raso) ou o mercado superprecifica favorito. Só log do MANDANTE hoje
+    — o forward (settle+report) decide. **Não é veredito, é pista.**
+  - **PRÓXIMO:** seguir rodando (1→[apito]2→3→4); a vitória limpa e o CLV começa a aparecer.
+- **📍 2026-06-15 (manhã) — CHECKPOINT (handoff p/ outro chat):** loop operado (gols **n=43 BrierSkill +0.16**;
   vitória **n=20**). O forward **expôs um BUG** e ele foi **CONSERTADO no mesmo dia**:
   - **Bug:** vitória miscalibrava (ECE 0.32, probs extremas — `Iran×NZ 85% over2.5 / vitória 16%`,
     invertido). **Causa-raiz** (diagnóstico `scripts/diag-vitoria-ratings.mts`): time de histórico raso
