@@ -12,3 +12,4 @@ scripts/.cache/
 scripts/.out-*.txt
 
 tmp/
+data
