@@ -28,7 +28,12 @@ const repo = await createSupabaseRepo();
 const sp = new BSDStatsProvider(client);
 
 const linesGols = () => [1.5, 2.5, 3.5].map((linha) => ({ entidade: "partida", linha, odd_over: 2.0, odd_under: 2.0, book: "forward" }));
-const lineVitoria = () => [{ entidade: "partida", linha: 0.5, odd_over: 2.0, odd_under: 2.0, book: "forward" }];
+// 3 lados (mandante/empate/visitante) p/ testar a hipótese "fadar favorito" no forward —
+// o runMatch mapeia a entidade ao desfecho e anexa o sufixo (1)/(X)/(2) no jogador.
+const lineVitoria = (event: any) => {
+  const h = event?.home_team?.name ?? "mandante", a = event?.away_team?.name ?? "visitante";
+  return [h, "empate", a].map((entidade) => ({ entidade, linha: 0.5, odd_over: 2.0, odd_under: 2.0, book: "forward" }));
+};
 
 async function targetIds(): Promise<string[]> {
   const args = process.argv.slice(2);

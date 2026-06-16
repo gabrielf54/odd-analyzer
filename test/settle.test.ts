@@ -56,6 +56,23 @@ describe("settleMatchRows (gols/vitória pelo placar)", () => {
     expect(out.find((r) => r.linha === 1.5)!.resultado).toBe(1);
     expect(out.find((r) => r.linha === 2.5)!.resultado).toBe(0);
   });
+  it("vitória 3 lados: liquida mandante/empate/visitante pelo sufixo do jogador", () => {
+    const tres = [
+      { event_id: "e1", jogador: "A x B (1)", linha: 0.5, market_type: "vitoria" },
+      { event_id: "e1", jogador: "A x B (X)", linha: 0.5, market_type: "vitoria" },
+      { event_id: "e1", jogador: "A x B (2)", linha: 0.5, market_type: "vitoria" },
+    ];
+    // jogo 1x1 (empate): só o lado (X) bate
+    const emp = settleMatchRows(tres, { home_score: 1, away_score: 1 });
+    expect(emp.find((r) => r.jogador.endsWith("(1)"))!.resultado).toBe(0);
+    expect(emp.find((r) => r.jogador.endsWith("(X)"))!.resultado).toBe(1);
+    expect(emp.find((r) => r.jogador.endsWith("(2)"))!.resultado).toBe(0);
+    // jogo 0x2 (visitante vence): só o lado (2) bate
+    const vis = settleMatchRows(tres, { home_score: 0, away_score: 2 });
+    expect(vis.find((r) => r.jogador.endsWith("(1)"))!.resultado).toBe(0);
+    expect(vis.find((r) => r.jogador.endsWith("(X)"))!.resultado).toBe(0);
+    expect(vis.find((r) => r.jogador.endsWith("(2)"))!.resultado).toBe(1);
+  });
   it("sem placar → não liquida nada (degrada)", () => {
     expect(settleMatchRows(ledger, {})).toEqual([]);
     expect(settleMatchRows(ledger, { home_score: 1 })).toEqual([]);

@@ -1,4 +1,5 @@
 import { MARKETS, settleField } from "../model/markets.js";
+import { outcomeFromJogador } from "../odds/bsdMatchOdds.js";
 
 /** resultado 0/1 de um over: stat real do jogador > linha. Linhas são .5 (sem empate). */
 export function resultadoFor(playerStat: Record<string, unknown>, statField: string, linha: number): number {
@@ -14,9 +15,10 @@ export interface SettleInstruction {
 }
 
 /** Liquida as linhas de MERCADO DE PARTIDA (gols/vitória) pelo PLACAR final do jogo.
- * gols (partida_totais): over total > linha. vitória (partida_1x2): a prob logada é a
- * do MANDANTE vencer → resultado = home_score > away_score. Escanteios (contagem de
- * partida) liquida por eventStats, fora deste path (placar não basta). Sem placar → []. */
+ * gols (partida_totais): over total > linha. vitória (partida_1x2): o DESFECHO registrado
+ * vem do sufixo do `jogador` ("(1)"=mandante, "(X)"=empate, "(2)"=visitante; sem sufixo →
+ * mandante) → liquida cada lado contra o placar. Escanteios (contagem de partida) liquida
+ * por eventStats, fora deste path (placar não basta). Sem placar → []. */
 export function settleMatchRows(ledger: any[], ev: { home_score?: unknown; away_score?: unknown }): SettleInstruction[] {
   const hs = Number(ev?.home_score), as = Number(ev?.away_score);
   if (!Number.isFinite(hs) || !Number.isFinite(as)) return [];
@@ -26,7 +28,10 @@ export function settleMatchRows(ledger: any[], ev: { home_score?: unknown; away_
     if (!mkt || mkt.nivel !== "partida") continue;
     let resultado: number;
     if (mkt.kind === "partida_totais") resultado = hs + as > Number(row.linha) ? 1 : 0;
-    else if (mkt.kind === "partida_1x2") resultado = hs > as ? 1 : 0;
+    else if (mkt.kind === "partida_1x2") {
+      const outcome = outcomeFromJogador(row.jogador);
+      resultado = outcome === "home" ? (hs > as ? 1 : 0) : outcome === "away" ? (as > hs ? 1 : 0) : (hs === as ? 1 : 0);
+    }
     else continue; // escanteios (contagem): precisa de eventStats, não do placar
     out.push({ event_id: row.event_id, jogador: row.jogador, linha: Number(row.linha), market_type: row.market_type, resultado });
   }

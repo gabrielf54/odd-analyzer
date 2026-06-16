@@ -1,5 +1,8 @@
 # 🔁 RUNBOOK — Loop forward da Copa (validar gols/vitória ao vivo)
 
+> 👤 **Dono:** o guia SIMPLES (quando e como rodar, sem palavra difícil) é o
+> [COMO-RODAR.md](COMO-RODAR.md). Este README é o detalhe técnico.
+
 > **PARA O CLAUDE (futuras sessões / cron):** este é um **procedimento operacional**, não uma
 > feature a construir. Quando o dono falar de **"loop", "forward", "validar gols/vitória",
 > "conferir a Copa", "rodar o relógio"** — ou numa execução agendada — **siga os passos abaixo**.
