@@ -13,21 +13,27 @@ longo da Copa, se o modelo é bom de verdade. Você só **cola os comandos** nos
 ## ⏰ A ROTINA DE UM DIA DE JOGOS
 
 Os jogos da fase de grupos quase sempre caem em **blocos de horário**: ~13h, 16h, 19h e 22h (BRT).
-Sua rotina é simples:
+Sua rotina:
 
 | Quando (horário de Brasília) | Comando | O que faz |
 |---|---|---|
-| 🌅 **De manhã** (até umas 12h) | **1** | anota os jogos do dia e **trava o preço de abertura** |
-| ☀️ **Início da tarde** (~13–14h) | **2** | pega o preço **final** dos jogos da tarde |
-| 🌆 **Início da noite** (~18–19h) | **2** de novo | pega o preço final dos jogos da noite |
-| 🌙 **Antes de dormir** (ou no dia seguinte de manhã) | **3** e **4** | marca quem ganhou + mostra o boletim |
+| 🌅 **De manhã / cedo** (quanto antes melhor) | **1** | anota os jogos + trava o preço de **abertura** (tem que ser CEDO) |
+| ⏰ **~30–60 min antes de CADA jogo** (depois da escalação sair) | **2** | pega o preço de **fechamento** daquele jogo (o mais esperto) |
+| 🌙 **Depois dos jogos** | **3** e **4** | marca quem ganhou + mostra o boletim |
 
-**Regra de bolso:** o comando **2** é o único com hora marcada (perto dos jogos). Rodar ele 2x
-(tarde e noite) cobre o dia todo. Pode repetir à vontade — ele não duplica, só pega os jogos que
-estão **perto de começar**. Se um dia você só conseguir 1 vez, rode **1 → 3 → 4** (perde só a prova
-do "comprei barato" daquele dia, o resto continua).
+**Por que perto do apito?** A **escalação oficial sai ~1h antes** do jogo — e é aí que o mercado
+descobre quem entra e **as odds se ajustam de vez** (ficam "espertas"). Essa odd pós-escalação é a que
+vale como "fechamento". Se pegar cedo demais (de tarde, pro jogo da noite), guarda um fechamento
+**velho** e a prova do "comprei barato" sai errada.
 
-> Dica preguiçosa: me diga **"roda a Copa"** a qualquer hora que eu disparo os 4 e te explico.
+**O comando 2 agora é esperto:** ele só captura os jogos que estão **perto do apito** (até ~90 min) e
+**pula** os que ainda estão longe (te avisa). Então pode rodar à vontade — não trava nada cedo demais.
+
+> **Exemplo (hoje, 16/06 — jogos 16h / 19h / 22h):** rode o **2** por volta de **15h30**, **18h30** e
+> **21h30** (uns 30 min antes de cada). Cada vez ele pega só o jogo que está chegando.
+>
+> Se um dia só der pra rodar 1 vez, rode **1 → 3 → 4** (perde só o "fechamento" daquele dia; o resto
+> continua). E a dica preguiçosa: me diga **"roda a Copa"** perto de um apito que eu rodo e te explico.
 
 ---
 
@@ -78,8 +84,11 @@ Nessa fase os jogos são mais espaçados (1–4 por dia). Mesma rotina; é só r
 # 1) de manhã — ANOTA os jogos do dia + trava o preço de abertura
 npx tsx src/cli/forwardLog.ts
 
-# 2) perto dos jogos (tarde e noite) — pega o preço FINAL
+# 2) ~30-60 min ANTES de cada jogo (depois da escalação) — pega o preço de FECHAMENTO
+#    (só pega os jogos perto do apito; pula os que ainda estão longe e avisa)
 npx tsx src/cli/snapshotClosing.ts
+#    esqueceu de rodar perto do apito? recupere todos de uma vez (menos preciso):
+#    npx tsx src/cli/snapshotClosing.ts --all
 
 # 3) depois dos jogos — marca quem GANHOU
 npx tsx src/cli/settle.ts

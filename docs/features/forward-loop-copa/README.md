@@ -25,8 +25,10 @@ longo do torneio.
 #    (odd_flag de abertura + de-vig + edge/ev, Fase 2). Idempotente (upsert; odd_flag travado).
 npx tsx src/cli/forwardLog.ts
 
-# 2. (PERTO DO APITO) grava a odd de FECHAMENTO das linhas de partida pendentes → CLV.
-#    SEM args = bulk automático (todas as linhas com abertura travada e sem fechamento).
+# 2. (~30-60min ANTES de cada jogo, PÓS-ESCALAÇÃO) grava a odd de FECHAMENTO → CLV.
+#    SEM args = bulk, mas SÓ jogos dentro da JANELA de ~90min antes do apito (pula o resto
+#    e avisa) — evita travar fechamento cedo demais. `--all` ignora a janela (recuperação);
+#    `--window N` ajusta os minutos.
 npx tsx src/cli/snapshotClosing.ts
 
 # 3. LIQUIDA os jogos que já terminaram (sem arg = todos com linha pendente no ledger).
@@ -37,9 +39,11 @@ npx tsx src/cli/settle.ts
 npx tsx src/cli/report.ts
 ```
 
-> **Timing do CLV:** o passo 1 trava a odd de ABERTURA; o passo 2 (perto do apito) grava o
-> FECHAMENTO. Rodar o passo 2 logo após o 1 (jogo distante) daria CLV≈0 falso → o bulk só deve rodar
-> **perto do kickoff**. Por isso é passo separado, não junto do forwardLog.
+> **Timing do CLV (importante):** o passo 1 trava a odd de ABERTURA (cedo); o passo 2 grava o
+> FECHAMENTO **depois da escalação oficial** (~1h antes do apito) — é quando o mercado se ajusta e a
+> odd vira a "esperta". Por isso o bulk tem **janela** (default 90min): rodar de tarde NÃO trava o
+> fechamento do jogo da noite cedo demais (ele pula e avisa). A escalação muda só a ODD; a previsão do
+> modelo de gols/vitória NÃO usa escalação (usa ratings de time) → não precisa recalcular o passo 1.
 
 Depois do passo 3, **leia a tabela** e aplique o **critério de graduação** abaixo.
 

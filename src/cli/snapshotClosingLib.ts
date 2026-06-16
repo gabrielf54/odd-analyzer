@@ -10,3 +10,14 @@ export function matchClosingOdd(
 ): number | null {
   return matchBetOdd(parseBsdMatchOdds(oddsPayload), marketType, linha, outcome);
 }
+
+/** Janela de FECHAMENTO p/ o CLV: só captura a odd de um jogo PERTO do apito (depois da
+ * escalação oficial, que sai ~1h antes e move o preço). Sem isso, rodar o bulk de tarde
+ * travaria um "fechamento" cedo demais p/ os jogos da noite (ex.: pegar o jogo das 22h às
+ * 15h). Default: do apito até `windowMin` antes (90 = ~pós-escalação); tolera `graceMin`
+ * minutos DEPOIS do apito (rodou um tico atrasado). Retorna false se a data é inválida. */
+export function withinClosingWindow(kickoffMs: number, nowMs: number, windowMin = 90, graceMin = 15): boolean {
+  if (!Number.isFinite(kickoffMs)) return false;
+  const minsToKickoff = (kickoffMs - nowMs) / 60000;
+  return minsToKickoff <= windowMin && minsToKickoff >= -graceMin;
+}

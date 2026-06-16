@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { matchClosingOdd } from "../src/cli/snapshotClosingLib.js";
+import { matchClosingOdd, withinClosingWindow } from "../src/cli/snapshotClosingLib.js";
 
 // Formato REAL da BSD (plano) — ver spike 2026-06-15.
 const payload = {
@@ -30,5 +30,23 @@ describe("matchClosingOdd (formato plano real da BSD)", () => {
   it("tolera payload já desembrulhado e odd inválida", () => {
     expect(matchClosingOdd({ home_win: 1.8 }, "vitoria", 0.5)).toBe(1.8);
     expect(matchClosingOdd({ odds: { over_25_goals: 0.5 } }, "gols", 2.5)).toBeNull();
+  });
+});
+
+describe("withinClosingWindow (só captura perto do apito)", () => {
+  const now = Date.parse("2026-06-16T18:30:00Z"); // 15h30 BRT
+  const k = (h: number, m = 0) => Date.parse(`2026-06-16T${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}:00Z`);
+  it("jogo das 16h BRT (19h UTC = 30min à frente) → DENTRO", () => {
+    expect(withinClosingWindow(k(19), now)).toBe(true);
+  });
+  it("jogo das 22h BRT (01h UTC dia seguinte, ~6h30 à frente) → FORA (cedo demais)", () => {
+    expect(withinClosingWindow(Date.parse("2026-06-17T01:00:00Z"), now)).toBe(false);
+  });
+  it("jogo que começou há 10min → ainda dentro da graça; há 30min → fora", () => {
+    expect(withinClosingWindow(k(18, 20), now)).toBe(true);  // -10min
+    expect(withinClosingWindow(k(18, 0), now)).toBe(false);  // -30min
+  });
+  it("data inválida → false", () => {
+    expect(withinClosingWindow(NaN, now)).toBe(false);
   });
 });
