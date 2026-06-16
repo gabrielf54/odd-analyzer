@@ -50,6 +50,7 @@ try {
 if (!dry) await reprojectUnifiedOdds(repo, eventId);
 
 console.log(`\ncasas: ${r.casas.map((c) => (c.ok ? `${c.book} ✓(${c.n})` : `${c.book} ✗(${c.erro})`)).join(" · ") || "(nenhuma)"}`);
+if (r.puladas.length) console.log(`puladas (crosswalk/lista): ${r.puladas.map((p) => `${p.book} → ${p.motivo}`).join(" · ")}`);
 console.log(`linhas: ${r.n_por_casa} (por casa) → ${r.n_line_shop} após line shopping | rejeitadas: ${r.linhas_rejeitadas}`);
 if (r.divergencias.length) {
   console.log(`⚠ divergências p/ REVISAR (${r.divergencias.length}):`);

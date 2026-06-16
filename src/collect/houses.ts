@@ -10,6 +10,7 @@ import { parseKambi, ktoBetofferUrl, ktoListViewUrl, parseKambiListView } from "
 import { parseBet6, bet6EventOddsUrl, bet6EventsBySeasonUrl, parseBet6EventList } from "./adapters/bet6.js";
 import { parseSuperbet, superbetEventOddsUrl, superbetEventsByDateUrl, parseSuperbetEventList } from "./adapters/superbet.js";
 import { parseStake, stakeEventOddsUrl, stakeTournamentUrl, parseStakeEventList } from "./adapters/stake.js";
+import { parseBetano, betanoEventOddsUrl, betanoUpcomingUrl, parseBetanoEventList } from "./adapters/betano.js";
 import { matchEventByName, type HouseEvent } from "./matchEvent.js";
 import type { RawCollectedLine } from "./normalizer.js";
 import type { OddsCollector, CollectContext } from "./types.js";
@@ -57,6 +58,16 @@ export const HOUSES: HouseDef[] = [
     oddsUrl: stakeEventOddsUrl, parseOdds: parseStake,
     listUrl: () => stakeTournamentUrl(), parseList: parseStakeEventList,
   },
+  {
+    // Betano (plataforma PRÓPRIA, www.betano.bet.br): motor de preço próprio (Kaizen) → diversidade
+    // real no line shopping. needsBrowser:TRUE — confirmado em BR (2026-06-16, jogo 8305): o `fetch`
+    // puro do Node toma 403 no edge (Cloudflare por fingerprint TLS/JA3), MESMO em BR e com headers de
+    // browser — o "200 deslogado no navegador" do recon NÃO transfere pro Node (idêntico à Stake). O
+    // headless (Playwright, já aberto p/ Betnacional/Stake) apresenta fingerprint de browser real → passa.
+    book: "betano", needsBrowser: true,
+    oddsUrl: betanoEventOddsUrl, parseOdds: parseBetano,
+    listUrl: () => betanoUpcomingUrl(), parseList: parseBetanoEventList,
+  },
 ];
 
 export function houseByBook(book: string): HouseDef | undefined {
@@ -92,13 +103,19 @@ export async function buildCollectors(
 
     let id: string | undefined = overrides[h.book];
     if (!id) {
+      const listUrl = h.listUrl();
       try {
-        const list = h.parseList(await get(h.listUrl()));
+        log(`${h.book}: buscando lista ${listUrl}`);
+        const list = h.parseList(await get(listUrl));
+        log(`${h.book}: lista deu ${list.length} jogos`);
         const m = matchEventByName(list, ctx.home, ctx.away);
         if (m) { id = m.id; log(`${h.book}: "${ctx.home} x ${ctx.away}" → ${id} (conf ${m.confianca})`); }
-        else { log(`${h.book}: jogo não achado na lista (${list.length} jogos) — pulando (use id explícito)`); }
+        else {
+          const amostra = list.slice(0, 5).map((e) => `${e.home} x ${e.away}`).join(" | ");
+          log(`${h.book}: jogo não achado na lista (${list.length} jogos) — pulando. amostra: [${amostra}]`);
+        }
       } catch (e: any) {
-        log(`${h.book}: lista falhou (${String(e?.message ?? e).slice(0, 60)}) — pulando`);
+        log(`${h.book}: lista falhou (${String(e?.message ?? e)}) — pulando`);
       }
     }
     if (!id) continue;

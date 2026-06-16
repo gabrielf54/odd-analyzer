@@ -50,7 +50,7 @@ do jogo em cada casa pelo **nome dos times** (resolve PT/EN/FR — Alemanha = Ge
 | **Betnacional** | NSX/Bet6 (Sportradar) | navegador headless | Cloudflare | ✅ **AO VIVO** | SOT, finalizações, faltas *(sem desarmes)* |
 | **Superbet** | Betler (própria, Sportradar) | `fetch` puro | **nenhum** (Fastly, deslogado) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
 | **Stake** | **própria** (`sbweb.stake.bet.br`) | navegador headless | fingerprint TLS/JA3 (fetch puro → 403) | ✅ **AO VIVO** | SOT, finalizações, **desarmes**, faltas |
-| **Betano** | Kaizen Gaming | — | geoblock duro + Turnstile + props GameplAI | 🔴 **difícil** (fallback manual) | a confirmar |
+| **Betano** | **própria** (`www.betano.bet.br`) | navegador headless | fingerprint TLS/JA3 (fetch puro → 403, mesmo em BR) + geoblock forte | 🟢 **headless ligado** (confirmar odds ao vivo) | SOT, finalizações, **desarmes**, faltas |
 
 Detalhe de cada uma em [`casas/`](casas/). **Provado ao vivo (2026-06-14)** no jogo Germany×Curaçao:
 KTO + Betnacional resolvidas sozinhas (confiança 1.0), line shopping cruzado, divergências reais
