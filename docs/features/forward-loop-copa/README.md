@@ -1,7 +1,12 @@
 # 🔁 RUNBOOK — Loop forward da Copa (validar gols/vitória ao vivo)
 
 > 👤 **Dono:** o guia SIMPLES (quando e como rodar, sem palavra difícil) é o
-> [COMO-RODAR.md](COMO-RODAR.md). Este README é o detalhe técnico.
+> [COMO-RODAR.md](COMO-RODAR.md). O histórico das rodadas (relato humano) é o
+> [DIARIO.md](DIARIO.md). Este README é o detalhe técnico.
+>
+> 📒 **Pastas/docs deste loop:** `COMO-RODAR.md` (guia leigo) · `DIARIO.md` (diário de rodadas,
+> append-only) · `README.md` (técnico). **NÃO criar pasta por rodada** — os dados vivem no banco
+> (`paper_ledger`); o diário é 1 arquivo só (regra anti-poluição do `CLAUDE.md`).
 
 > **PARA O CLAUDE (futuras sessões / cron):** este é um **procedimento operacional**, não uma
 > feature a construir. Quando o dono falar de **"loop", "forward", "validar gols/vitória",

@@ -112,6 +112,10 @@ Uma linha por tipo de aposta (gols, vitória...). A coluna que **você** olha é
 
 Você **não precisa** entender Brier/ECE/CLV — isso é comigo. Seu papel é **encher o caderninho**.
 
+> 📓 **Histórico:** cada rodada fica anotada no [DIARIO.md](DIARIO.md) (relato curto: o que rodou,
+> quando, o que o boletim disse). Quando eu rodo a Copa, eu anoto lá por você. Os números de verdade
+> ficam no banco — o diário é só pra você ver a história rápido.
+
 ## 📣 Quando me chamar
 
 - Um tipo de aposta passou de **~30 jogos** → "lê o boletim pra mim".
