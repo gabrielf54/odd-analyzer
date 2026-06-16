@@ -37,6 +37,27 @@ vale como "fechamento". Se pegar cedo demais (de tarde, pro jogo da noite), guar
 
 ---
 
+## ❓ Preciso manter este chat aberto? **NÃO**
+
+Cada comando **grava no banco** na hora. Nada fica "guardado na conversa". Pode fechar o chat, desligar
+o PC, abrir outro chat amanhã — o caderninho continua cheio.
+
+**Num chat NOVO, é só perguntar** (ex.): *"hoje é 16/06, 14h30 — que horas eu rodo de novo?"* — e eu
+respondo lendo esta doc + o calendário, **mesmo sem lembrar da conversa de antes**. (Funciona porque o
+calendário real está aqui na doc e o que já foi feito está no banco.)
+
+### Depois que você rodar o comando 2 às 15h30, e aí?
+- O **fechamento do jogo das 16h** fica guardado. Não precisa fazer mais nada com ele.
+- **~18h30** → comando **2** de novo (fechamento do jogo das 19h).
+- **~21h30** → comando **2** de novo (fechamento do das 22h).
+- **À noite / amanhã de manhã** → comando **3** (marca quem ganhou) e **4** (boletim).
+- No dia seguinte, recomeça: comando **1** de manhã pros jogos novos.
+
+> Se esquecer algum horário, sem pânico: rode `npx tsx src/cli/snapshotClosing.ts --all` que ele
+> recupera os pendentes (fica um tico menos preciso, mas não perde o jogo).
+
+---
+
 ## 📅 CALENDÁRIO REAL — fase de grupos (horário de Brasília)
 
 > Os jogos com placar já aconteceram. A partir de **16/06** é o que vem.
