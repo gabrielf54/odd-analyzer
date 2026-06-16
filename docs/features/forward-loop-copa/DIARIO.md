@@ -18,6 +18,14 @@
 
 ---
 
+### 2026-06-16 (~15h30, pós-escalação) — Claude (a pedido do dono)
+- **comando 2** (`snapshotClosing`) rodado perto do apito do jogo das 16h.
+- **fechamento gravado:** 8304 France×Senegal (6 linhas: gols 1.5/2.5/3.5 + vitória M/X/V).
+- **CLV +0.0% em todas** — a BSD não moveu as odds de PARTIDA pós-escalação (esperado: gols/vitória
+  usam força de time, não os 11; escalação move odd de JOGADOR, que não passa por este comando).
+- **pulados:** 17 jogos ainda longe do apito (Iraq×Norway 19h, Argentina×Algeria 22h). Rodar de novo
+  ~18h30 e ~21h30. À noite: comandos 3 e 4.
+
 ### 2026-06-16 (manhã, ~13h) — Claude (a pedido do dono)
 - **comando 1** rodado (~12h58, antes das escalações → abertura "limpa").
 - **entrou:** 72 previsões em 12 jogos (gols 1.5/2.5/3.5 + vitória mandante/empate/visitante), **todas
