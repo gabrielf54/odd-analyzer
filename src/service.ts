@@ -257,8 +257,10 @@ export async function coletarOddsService(
   client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
 ): Promise<RunCollectionResult> {
   const ev = normalizeEvent(await client.getEvent(eventId));
+  const home = ev.home_team?.name ?? "", away = ev.away_team?.name ?? "";
+  opts.log?.(`jogo BSD ${ev.id}: "${home}" x "${away}" — resolvendo nas casas...`);
   const res = await runCollection(
-    { id: String(ev.id), jogo: ev.jogo, home: ev.home_team?.name ?? "", away: ev.away_team?.name ?? "" },
+    { id: String(ev.id), jogo: ev.jogo, home, away },
     repo, fetchers, opts,
   );
   // Espelho automático: re-gera odds_unificadas do cru recém-gravado (dry não grava).

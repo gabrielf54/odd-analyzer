@@ -122,8 +122,12 @@ export function createApp(deps: Deps): express.Express {
     const overrides = (req.body?.overrides && typeof req.body.overrides === "object") ? req.body.overrides : {};
     const { makeFetchers } = await import("../cli/fetchers.js");
     const fetchers = await makeFetchers();
+    // Log de diagnóstico no CONSOLE DO SERVER (antes a rota HTTP descartava o log → casa
+    // pulada sumia sem rastro). Coleta é disparada pelo usuário (volume baixo) → logar sempre.
+    const evId = String(req.params.eventId);
+    const log = (m: string) => console.log(`[coletar ${evId}] ${m}`);
     try {
-      res.json(await service.coletarOddsService(deps.client, deps.repo, String(req.params.eventId), fetchers, { dry, overrides }));
+      res.json(await service.coletarOddsService(deps.client, deps.repo, evId, fetchers, { dry, overrides, log }));
     } finally {
       await fetchers.close();
     }

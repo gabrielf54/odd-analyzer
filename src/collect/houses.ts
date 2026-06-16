@@ -103,13 +103,19 @@ export async function buildCollectors(
 
     let id: string | undefined = overrides[h.book];
     if (!id) {
+      const listUrl = h.listUrl();
       try {
-        const list = h.parseList(await get(h.listUrl()));
+        log(`${h.book}: buscando lista ${listUrl}`);
+        const list = h.parseList(await get(listUrl));
+        log(`${h.book}: lista deu ${list.length} jogos`);
         const m = matchEventByName(list, ctx.home, ctx.away);
         if (m) { id = m.id; log(`${h.book}: "${ctx.home} x ${ctx.away}" → ${id} (conf ${m.confianca})`); }
-        else { log(`${h.book}: jogo não achado na lista (${list.length} jogos) — pulando (use id explícito)`); }
+        else {
+          const amostra = list.slice(0, 5).map((e) => `${e.home} x ${e.away}`).join(" | ");
+          log(`${h.book}: jogo não achado na lista (${list.length} jogos) — pulando. amostra: [${amostra}]`);
+        }
       } catch (e: any) {
-        log(`${h.book}: lista falhou (${String(e?.message ?? e).slice(0, 60)}) — pulando`);
+        log(`${h.book}: lista falhou (${String(e?.message ?? e)}) — pulando`);
       }
     }
     if (!id) continue;
