@@ -60,11 +60,11 @@ export const HOUSES: HouseDef[] = [
   },
   {
     // Betano (plataforma PRÓPRIA, www.betano.bet.br): motor de preço próprio (Kaizen) → diversidade
-    // real no line shopping. needsBrowser:false — a captura BR 2026-06-15 (França×Senegal 77353568)
-    // provou feed de 1ª parte por fetch puro, 200 deslogado, sem Turnstile interativo nem geoblock.
-    // ⚠ Se o `fetch` do Node tomar 403 no edge (Cloudflare por fingerprint, como na Stake), flipar
-    // needsBrowser:true — o "200 no navegador" nem sempre transfere pro Node.
-    book: "betano", needsBrowser: false,
+    // real no line shopping. needsBrowser:TRUE — confirmado em BR (2026-06-16, jogo 8305): o `fetch`
+    // puro do Node toma 403 no edge (Cloudflare por fingerprint TLS/JA3), MESMO em BR e com headers de
+    // browser — o "200 deslogado no navegador" do recon NÃO transfere pro Node (idêntico à Stake). O
+    // headless (Playwright, já aberto p/ Betnacional/Stake) apresenta fingerprint de browser real → passa.
+    book: "betano", needsBrowser: true,
     oddsUrl: betanoEventOddsUrl, parseOdds: parseBetano,
     listUrl: () => betanoUpcomingUrl(), parseList: parseBetanoEventList,
   },

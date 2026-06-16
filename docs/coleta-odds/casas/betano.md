@@ -2,19 +2,16 @@
 
 | | |
 |---|---|
-| **Status** | 🟡 **Código pronto e testado** (adapter + de-para + registry, TDD na amostra real do recon 2026-06-15). **Falta o teste ao vivo na sua máquina no BR** (F3/F4 do rito) — este ambiente é geoblocado (não-BR) e não consegue validar. |
+| **Status** | 🟢 **Implementada** (adapter + de-para + registry, TDD). **Transporte resolvido em BR (2026-06-16, jogo 8305): via headless** (`needsBrowser:true`) — o `fetch` puro tomava 403 (JA3). Falta só a confirmação final de odds gravadas ao vivo. |
 | **Plataforma** | **Própria/1ª parte** (`www.betano.bet.br`). A pesquisa de mesa dizia "Kaizen/GameplAI difícil" — **a captura no navegador derrubou isso**: o feed de odds é endpoint de 1ª parte, JSON puro. (Kameleoon = só A/B testing; Sportradar = só provedor de **stat**, não de odds.) **Motor de preço próprio → diversidade real** no line shopping (como a Stake). |
-| **Como busca** | `fetch` puro (default `needsBrowser:false`) — o recon pegou **HTTP 200 deslogado** (`credentials:'omit'`) no navegador, no BR, sem Turnstile/token. ⚠ **Ver "Risco de transporte" abaixo.** |
-| **Anti-bot** | Cloudflare presente, mas **sem Turnstile/captcha interativo** nas chamadas de API. **Geoblock FORTE** (de fora do BR devolve `403` "Betano Splash Screen"). |
+| **Como busca** | **navegador headless** (`needsBrowser:true`) — o `fetch` puro do Node toma **403** (fingerprint TLS/JA3), mesmo em BR e com headers de browser; o headless (Playwright, já aberto p/ Betnacional/Stake) passa. Idêntico à Stake. |
+| **Anti-bot** | Cloudflare + **fingerprint TLS/JA3** (barra `fetch` do Node → 403). **Sem** Turnstile/captcha interativo nas chamadas de API (headless silencioso resolve; se um dia exigir challenge, `HEADFUL=1`). **Geoblock FORTE** (fora do BR → `403` "Betano Splash Screen") → rodar **local no BR é obrigatório**. |
 | **Mercados** | SOT, finalizações, **desarmes** (ganhos = `won_tackle`), faltas (cometidas). Cobre os 4. |
-| **Código** | `src/collect/adapters/betano.ts` · de-para em `tables.ts::BETANO_TABLE` · entrada em `houses.ts` (`needsBrowser:false`). |
+| **Código** | `src/collect/adapters/betano.ts` · de-para em `tables.ts::BETANO_TABLE` · entrada em `houses.ts` (`needsBrowser:true`). |
 
-## ⚠ Risco de transporte (decidir no 1º `--dry` em BR)
+## Transporte: por que headless (resolvido em BR)
 
-O `fetch` puro do **Node**, deste ambiente (não-BR), tomou **403 + página "Betano Splash Screen"** — isso é **geoblock** (não Cloudflare/JA3). Na sua máquina no BR isso não deve acontecer (o recon, em BR, pegou 200). **Mas** a Stake ensinou que um `.bet.br` pode barrar o `fetch` do Node por **fingerprint TLS/JA3** mesmo logado-em-BR (o "200 no navegador" não transfere pro Node). Por isso:
-
-- **Default = `needsBrowser:false`** (justificado pelo recon: fetch-able em BR).
-- **Se o `collectOdds --dry` em BR mostrar `betano` pulado/403** → flipe **`needsBrowser:true`** em `houses.ts` (passa a usar o headless já aberto pra Betnacional/Stake). É a única linha que muda.
+O `fetch` puro do Node tomou **403** no endpoint da lista, **em BR, deslogado, com headers de browser** (`[coletar 8305] betano: lista falhou (403 ...)`). Não é geoblock (estava em BR) nem Turnstile — é **fingerprint TLS/JA3** (o edge da Cloudflare distingue o handshake do Node do de um browser real). É a **mesma lição da Stake**: "200 deslogado no navegador ≠ `fetch` do Node passar". Conserto = `needsBrowser:true` → usa o Chromium headless (handshake de browser real) já aberto pras outras casas-browser. Se algum dia o headless silencioso esbarrar num challenge visível, `HEADFUL=1` (janela real) resolve uma vez (cf_clearance fica na sessão).
 
 ## Endpoints (públicos, deslogado — capturados em BR 2026-06-15)
 
@@ -76,6 +73,7 @@ GET https://www.betano.bet.br/api/league/hot/upcoming?leagueId=201663      # 201
   devolve jogador/linha/odd certos, de-para mapeia os 4 mercados e rejeita o resto (faltas ganhas, 1º tempo,
   não-mapeado), faltas provam linha-do-name (não do handicap). Suite total **433 verdes**, typecheck limpo, gate
   de paridade intacto.
-- **Ao vivo em BR (PENDENTE — você):** `npx tsx src/cli/collectOdds.ts <event_id_BSD> --dry` num jogo real da
-  Copa; conferir `betano ✓(N)` com N>0 e linhas batendo com o site. Se vier `403`/pulado → flipar
-  `needsBrowser:true` (ver "Risco de transporte"). Depois rodar sem `--dry` e clicar **"obter odds"** no front.
+- **Transporte em BR (resolvido 2026-06-16):** com `needsBrowser:false` o POST `/coletar-odds` do jogo 8305
+  deu `betano: lista falhou (403 ...) — pulando` (JA3). Flipado p/ `needsBrowser:true`. **Falta** reconfirmar
+  (server reiniciado) que agora `betano ✓(N)` com N>0 e que as odds gravam — clicar **"obter odds"** num jogo
+  **pré-jogo** e conferir o painel/`puladas` no JSON.
