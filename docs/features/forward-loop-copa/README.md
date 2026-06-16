@@ -100,6 +100,12 @@ rodando — o loop acumula.
   mandante/empate/visitante, `devigThreeWay`). Money-path de jogador NÃO tocado (gate de paridade
   intacto, 445 testes). **Falta só TEMPO:** o CLV honesto exige abertura cedo + fechamento no apito —
   acumula ao longo da Copa. Critério de graduação (n≥30, BrierSkill>0, ECE≤0.05, **CLVm≥0**) inalterado.
+- **Arquivo-arquivo de odds (forense, 2026-06-16):** `forwardLog` e `snapshotClosing` anexam o quadro
+  CRU completo da BSD a cada captura em `data/odds-snapshots.jsonl` (`src/odds/snapshotArchive.ts`,
+  JSONL append-only). A BSD não tem histórico de odd → sem a foto, abertura/fechamento dos mercados
+  não-apostados some. **NÃO substitui o banco** (`paper_ledger` é a fonte da verdade do que se aposta);
+  é re-análise futura (outros mercados, movimento de linha). Gitignorado (`data/`) — dado local; se for
+  preciso durabilidade contra perda de máquina, espelhar numa tabela `odds_snapshots jsonb`.
 
 ## Estado atual (atualize a cada rodada)
 

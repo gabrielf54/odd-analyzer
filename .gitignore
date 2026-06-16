@@ -12,3 +12,6 @@ scripts/.cache/
 scripts/.out-*.txt
 
 tmp/
+
+# Arquivo-arquivo de odds (fotos JSONL do loop forward) — DADO local, nao versionar
+data/

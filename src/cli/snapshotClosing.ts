@@ -13,6 +13,7 @@ import { createSupabaseRepo } from "../store/repo.js";
 import { getRequired } from "../config.js";
 import { matchClosingOdd, withinClosingWindow } from "./snapshotClosingLib.js";
 import { parseBsdMatchOdds, matchBetOdd, outcomeFromJogador, isGols, isVitoria } from "../odds/bsdMatchOdds.js";
+import { appendOddsSnapshot } from "../odds/snapshotArchive.js";
 
 const argv = process.argv.slice(2);
 const repo = await createSupabaseRepo();
@@ -41,7 +42,10 @@ if (isBulk) {
       try { const ev = await client.getEvent(eventId); kickoff = Date.parse(ev?.event_date ?? ev?.date ?? ev?.start_time ?? ""); } catch { /* sem data */ }
       if (!withinClosingWindow(kickoff, now, windowMin)) { foraJanela++; continue; }
     }
-    let parsed; try { parsed = parseBsdMatchOdds(await client.eventOdds(eventId)); } catch { console.log(`  ${eventId}: odds indisponíveis — pula`); continue; }
+    let parsed, rawOdds: any;
+    try { rawOdds = await client.eventOdds(eventId); parsed = parseBsdMatchOdds(rawOdds); } catch { console.log(`  ${eventId}: odds indisponíveis — pula`); continue; }
+    // foto do quadro de FECHAMENTO (pós-escalação) — forense, não substitui o banco.
+    try { appendOddsSnapshot({ ts: new Date().toISOString(), fase: "fechamento", event_id: String(eventId), odds: rawOdds?.odds ?? rawOdds }); } catch { /* arquivo opcional */ }
     for (const r of rows) {
       const outcome = outcomeFromJogador(r.jogador);
       const closing = matchBetOdd(parsed, r.market_type, Number(r.linha), outcome);

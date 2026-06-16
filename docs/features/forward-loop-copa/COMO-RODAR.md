@@ -116,6 +116,14 @@ Você **não precisa** entender Brier/ECE/CLV — isso é comigo. Seu papel é *
 > quando, o que o boletim disse). Quando eu rodo a Copa, eu anoto lá por você. Os números de verdade
 > ficam no banco — o diário é só pra você ver a história rápido.
 
+> 📸 **Fotos das odds (arquivo que você pode abrir):** toda vez que os comandos **1** e **2** tocam nas
+> odds, eles tiram uma **foto do quadro completo** (todos os mercados + horário) e guardam no arquivo
+> **`data/odds-snapshots.jsonl`** (uma foto por linha, só cresce). Serve porque a BSD **não guarda
+> histórico** — sem a foto, o preço de hoje some amanhã. É um **seguro**: pode ser que a gente nunca
+> precise, mas se um dia quiser estudar outros mercados ou o movimento da odd, está tudo lá. ⚠️ Esse
+> arquivo fica **só na sua máquina** (não vai pro Git). Se quiser blindar contra perder o PC, me avise
+> que eu também espelho no banco.
+
 ## 📣 Quando me chamar
 
 - Um tipo de aposta passou de **~30 jogos** → "lê o boletim pra mim".

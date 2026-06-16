@@ -25,6 +25,8 @@
 - **observação (a TESTAR, não é aposta):** o modelo segue fadando favorito — vê valor no azarão/empate
   (ex. France×Senegal ~+18pp no Senegal; Iraq×Norway fada a Noruega com força).
 - **pendente hoje:** comando **2** (fechamento) ~15h30 / 18h30 / 21h30; comandos **3** e **4** à noite.
+- **novo:** começou o **arquivo de fotos das odds** (`data/odds-snapshots.jsonl`) — guarda o quadro
+  completo a cada captura (a BSD não tem histórico). Hoje já tem 12 fotos de abertura.
 
 ### 2026-06-15 (tarde) — Claude
 - **Fase 2 (CLV) ligada** (1ª vez que o loop anexa odd + de-vig + edge). Run: 48 previsões, 4/4 com odd.

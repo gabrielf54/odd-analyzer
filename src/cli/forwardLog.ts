@@ -18,6 +18,7 @@ import { runMatch } from "../pipeline.js";
 import { normalizeEvent } from "../runner.js";
 import { MARKETS } from "../model/markets.js";
 import { parseBsdMatchOdds, matchBetOdd, matchFairProb, outcomeFromJogador, type ParsedMatchOdds } from "../odds/bsdMatchOdds.js";
+import { appendOddsSnapshot } from "../odds/snapshotArchive.js";
 import { edgeEv } from "../value/ev.js";
 
 const COPA_LEAGUE = 27;
@@ -55,7 +56,12 @@ for (const id of ids) {
   const event = normalizeEvent(raw);
   // Fase 2: odds de partida da BSD (1 chamada/jogo). Ausente/não precificado → só calibração.
   let parsedOdds: ParsedMatchOdds | null = null;
-  try { parsedOdds = parseBsdMatchOdds(await client.eventOdds(id)); } catch { parsedOdds = null; }
+  try {
+    const rawOdds = await client.eventOdds(id);
+    parsedOdds = parseBsdMatchOdds(rawOdds);
+    // foto do quadro COMPLETO (a BSD não guarda histórico) — forense, não substitui o banco.
+    try { appendOddsSnapshot({ ts: new Date().toISOString(), fase: "abertura", event_id: String(event.id), jogo: event.jogo, odds: (rawOdds as any)?.odds ?? rawOdds }); } catch { /* arquivo opcional */ }
+  } catch { parsedOdds = null; }
   // odd_flag é a linha de ABERTURA (1ª observação): NÃO sobrescrever em re-runs, senão o
   // CLV fica cego (mediria a odd já fechada contra ela mesma). Lê o que já existe e trava.
   const prev = new Map<string, any>();
