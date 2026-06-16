@@ -10,3 +10,5 @@ coverage/
 # Auditoria de calibracao — cache de disco e saidas (nao versionar)
 scripts/.cache/
 scripts/.out-*.txt
+
+tmp/

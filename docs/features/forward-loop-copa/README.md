@@ -79,6 +79,28 @@ rodando — o loop acumula.
 
 ## Estado atual (atualize a cada rodada)
 
+- **📍 2026-06-15 — CHECKPOINT (handoff p/ outro chat):** loop operado (gols **n=43 BrierSkill +0.16**;
+  vitória **n=20**). O forward **expôs um BUG** e ele foi **CONSERTADO no mesmo dia**:
+  - **Bug:** vitória miscalibrava (ECE 0.32, probs extremas — `Iran×NZ 85% over2.5 / vitória 16%`,
+    invertido). **Causa-raiz** (diagnóstico `scripts/diag-vitoria-ratings.mts`): time de histórico raso
+    (NZ só 2 jogos no pool cross-competição) era **inelegível pelo floor=5 → caía no fallback média-crua
+    cego**, que usa stats brutos sem ajuste de adversário e **inverte o mismatch**.
+  - **Fix (TDD, 430 testes, gate de paridade intacto, money-path de jogador NÃO tocado):** em
+    `pipeline.runMatch` o floor caiu p/ **1** (time presente no pool usa o RATING, não o fallback) +
+    `lambdaFromRatings` ganhou **`shrinkK`** (encolhe rating de pouco histórico pro neutro);
+    `ratingsShrinkFor("selecao")=3`. **Calibrado** em `scripts/sweep-shrink-selecao.mts` (n=1006, floor=1):
+    o floor=1 é o que conserta (vitória full BrierSkill **+0.10**; o Elo de LR lento já regulariza raso),
+    `shrinkK=3` é leve (ajuda gols 1.5/2.5, segura o raso de rating inflado). `Iran×NZ` → **60%/50% (são)**.
+  - **⚠️ Caveat de leitura:** o report ainda mistura jogos liquidados com o modelo ANTIGO (não dá p/
+    mudar retroativo) → a vitória limpa **conforme os novos jogos (corrigidos) liquidarem**. A prova do
+    fix é o `Iran×NZ` são + o sweep offline, não o ECE da amostra contaminada.
+  - **PRÓXIMOS PASSOS (p/ continuar):** (1) **seguir rodando os 3 comandos** — a amostra corrigida
+    acumula e a vitória deve cair pra ECE saudável; (2) **Fase 2 / CLV** segue pendente (ver "Duas
+    fases"); (3) **resíduo Modo 2** (NÃO consertado): time de confederação isolada tem att/def numa
+    escala não-comparável entre "ilhas" do pool (ex. `Saudi×Uruguay` over2.5 ~25%, baixo) — é problema de
+    conectividade de rating, mais profundo; **observar no forward**, decidir fix depois (anchor global /
+    mais links inter-confederação) se persistir. (4) painel de frentes restantes em
+    [`mercados-nao-validados`](../mercados-nao-validados/) (E passes/N5, F finalização-clube).
 - **2026-06-12:** loop criado, provado e **PERSISTINDO**. Bug achado e corrigido: `odd_flag` era
   `NOT NULL` (linha de calibração não tem odd) e o `saveLedger` engolia o erro → previsões NÃO
   gravavam. Fix: migração `paper_ledger_odd_flag_nullable` (odd_flag nullable) + `saveLedger` agora

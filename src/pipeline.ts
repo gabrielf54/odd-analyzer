@@ -2,7 +2,7 @@ import { buildCandidate } from "./candidates/builder.js";
 import { evaluateCandidates } from "./candidates/filter.js";
 import { probOverLine } from "./model/sotModel.js";
 import { scoreMatrix, probs1x2, probTotalOver } from "./model/matchModel.js";
-import { computeRatings, lambdaFromRatings, ratingsEligible, homeAdvFor } from "./model/ratings.js";
+import { computeRatings, lambdaFromRatings, ratingsEligible, homeAdvFor, ratingsShrinkFor } from "./model/ratings.js";
 import { baselineFor, populacaoFor, ratingsPoolLeagues, type MarketSpec } from "./model/markets.js";
 import { analyze as defaultAnalyst } from "./ai/analyst.js";
 import { buildMatch1x2Trace, type RateTrace } from "./model/trace.js";
@@ -148,13 +148,18 @@ export async function runMatch(event: any, market: MarketSpec, sp: any, op: any)
   const leagueId = event.league_id ?? null;
   if (leagueId != null && typeof sp.leaguePool === "function") {
     try {
-      const homeAdv = homeAdvFor(populacaoFor(leagueId));
+      const pop = populacaoFor(leagueId);
+      const homeAdv = homeAdvFor(pop);
+      const shrinkK = ratingsShrinkFor(pop);
       // Pool population-aware: seleção = forma recente cross-competição (a liga da Copa
       // é rasa/velha demais); clube = a própria liga. Une os jogos das ligas-fonte.
       const pools = await Promise.all(ratingsPoolLeagues(leagueId).map((lg: number) => sp.leaguePool(lg)));
       const ratings = computeRatings(pools.flat(), { mu0: league, homeAdv });
-      if (ratingsEligible(ratings, String(home.id), String(away.id))) {
-        const lam = lambdaFromRatings(ratings, String(home.id), String(away.id), { mu0: league, homeAdv });
+      // Floor 1 (só presença) + encolhimento (shrinkK): time de pouco histórico usa o
+      // rating ENCOLHIDO pro neutro, em vez de cair na média-crua cega que invertia o
+      // mismatch (bug `Iran×NZ`, 2026-06-15). Fallback só p/ time AUSENTE do pool.
+      if (ratingsEligible(ratings, String(home.id), String(away.id), 1)) {
+        const lam = lambdaFromRatings(ratings, String(home.id), String(away.id), { mu0: league, homeAdv, shrinkK });
         if (lam) { lambdaHome = lam.lambdaHome; lambdaAway = lam.lambdaAway; fonte = "ratings_forca"; }
       }
     } catch (e) {

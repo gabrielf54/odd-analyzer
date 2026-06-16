@@ -89,10 +89,19 @@ describe("runMatch — RATINGS de força com fallback", () => {
     expect(fonteOf(out)).toBe("media_movel");
   });
 
-  it("fallback quando os times não têm histórico suficiente", async () => {
+  it("usa ratings ENCOLHIDOS mesmo com pouco histórico (não cai mais no fallback média-crua cego)", async () => {
+    // O fix do bug `Iran×NZ`: time com poucos jogos deve usar o rating ENCOLHIDO pro
+    // neutro, não a média-crua (que invertia mismatch). 1 jogo cada → ainda ratings.
     const sp = { leaguePool: async () => [{ date: "1", home: "H", away: "A2", homeScore: 1, awayScore: 0 }], teamRates: async () => ({ lambda_for: 1.5, lambda_against: 1.2 }) };
     const out = await runMatch(ev(), MARKETS.gols!, sp, op);
-    expect(fonteOf(out)).toBe("media_movel"); // H/A2 só 1 jogo cada
+    expect(fonteOf(out)).toBe("ratings_forca");
+  });
+
+  it("fallback média-crua só quando um time está AUSENTE do pool (sem rating)", async () => {
+    // A2 nunca aparece no pool → não tem rating → aí sim cai no fallback.
+    const sp = { leaguePool: async () => [{ date: "1", home: "H", away: "X", homeScore: 1, awayScore: 0 }, { date: "2", home: "X", away: "H", homeScore: 0, awayScore: 2 }], teamRates: async () => ({ lambda_for: 1.5, lambda_against: 1.2 }) };
+    const out = await runMatch(ev(), MARKETS.gols!, sp, op);
+    expect(fonteOf(out)).toBe("media_movel"); // A2 ausente
   });
 
   it("fallback robusto se leaguePool lançar", async () => {

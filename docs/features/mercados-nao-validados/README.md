@@ -20,6 +20,126 @@
 > abaixo). A hipótese "o pooling de posições infla a cauda" foi **refutada**. A alavanca de
 > **posição** está RISCADA das "outras maneiras" das linhas mortas de jogador — sobra só o forward.
 
+## 🎯 PAINEL DE ATAQUE — só o que ainda dá pra atacar (adicionado 2026-06-15)
+
+> **Para que serve:** lista enxuta das frentes que **ainda têm alavanca não esgotada**. O que está
+> **morto-offline** (só forward) ou **morto de vez** (§5) **NÃO entra aqui** — está no rodapé do painel
+> e no [CORE §5](../../CORE.md). O **PROTOCOLO** abaixo é o contrato anti-retrabalho: leia antes de
+> atacar qualquer item, pra não re-tentar o que já falhou com prova.
+
+**Status:** 🔲 aberto (alavanca não testada) · 🔄 em andamento · ✅ graduou · 🕐 só-forward (offline
+esgotado) · ⛔ morto §5 (não re-tentar)
+
+| # | Frente (mercado · pop) | Status | Alavanca / "outra maneira" | Próxima ação | Já tentei (não repetir) |
+|---|---|---|---|---|---|
+| **A** | gols / vitória · ambas | 🔄 | ratings Elo (em prod) + **CLV forward** | operar o forward + ligar Fase 2 (CLV); **investigar miscalib. de vitória** (prob extrema/fallback) | **forward rodou 15/06**: gols n=40 BrierSkill **+0.135** (ECE 0.09, no caminho); vitória ECE **0.32** (ruim); λ média-crua reprovou (12b) |
+| **E** | passes · ambas | 🔲 | fator de **posse** (N5) | depende do N5 (feature de posse) | accurate_pass + R<8 = zero edge (12); posição reprovou |
+| **F** | finalização posse+mando · **CLUBE** | 🔲 **PRONTO** | já PROVADO (+0,025 out-of-fold) | só **implementar** o fator no µ + re-freeze de paridade | contexto em desarme/falta/sot = redundante (12f → §5) |
+
+> **MORTOS no round 2026-06-15 (saíram do painel):** **C — escanteios** (rating de PRODUÇÃO reprovou,
+> n=908), **D — faltas R-por-linha** (varredura fechou o 2.5: banda −0.32/−0.49) e **B — eixo DIRECIONAL**
+> (StatsBomb, n=199 jogos seleção: **chutes E desarme-por-flanco reprovaram com teste de PLACEBO** — o
+> "sinal" não bate embaralhamento aleatório; flanco da origem da jogada). Os 3 → [CORE §5](../../CORE.md).
+> Detalhe em **Experimentos 2026-06-15**.
+>
+> **Fora do painel (offline esgotado → só forward):** sot 1.5/2.5, finalizações 2.5 (seleção),
+> desarme 1.5 (CORE §4 ①). **Morto de vez** (posição, won-direto, contexto-em-defesa, árbitro,
+> xG-via-BSD, **eixo DIRECIONAL [chutes E desarme, StatsBomb+placebo]**, **escanteios-produção+concessão**,
+> **faltas-R-por-linha**) → [**CORE §5**](../../CORE.md), **NÃO re-tentar**.
+
+### 📋 PROTOCOLO anti-retrabalho (LEIA antes de atacar — pra IA futura não repetir o que já falhou)
+
+1. **Antes de mexer num item, leia o "Já tentei" dele** (coluna acima + bloco abaixo) **E o Cemitério
+   ([CORE §5](../../CORE.md)).** Se a alavanca já está lá com prova, **não re-tente** — proponha uma
+   alavanca NOVA ou vá pro forward.
+2. **Toda tentativa nova entra no log com script + número — GANHE OU PERCA.** O negativo vale tanto
+   quanto o positivo (doutrina "validação-primeiro, sem auto-engano"). Use a seção "Experimento …"
+   abaixo, no mesmo padrão dos experimentos 12a-f.
+3. **Item que MORRE** (reprovou com prova) → sobe pro [CORE §5](../../CORE.md) e **sai do painel**.
+   **Item que GRADUA** (ganhou ⭐ via calibração + forward) → sobe pro [CORE §3.1](../../CORE.md) e
+   **sai daqui**. O painel só mostra o que está **vivo e atacável**.
+
+### Detalhe das frentes abertas
+
+**A — gols / vitória (ambas as populações)** 🔄
+- **Por que ainda sem ⭐:** `validated_lines` vazio; os ratings calibram (ECE ~0.04 offline) mas graduar
+  exige **forward + CLV** (n≥30, BrierSkill>0, ECE≤~0.05, CLVm≥0).
+- **Estado forward (rodou 2026-06-15, `forwardLog`→`settle`→`report`):** **gols n=40, BrierSkill +0.135,
+  ECE 0.090** — amostra real + skill positivo, **no caminho** (falta o ECE cair pra ≤0.05). **vitória
+  n=19, BrierSkill −0.126, ECE 0.317 — miscalibrando**: bate com prob extrema observada (ex.
+  `Iran×NZ 85% over 2.5`) → **pista de fallback/ratings raso a investigar**, não é só "falta dado". Resto
+  (sot/fin/desarme/passes) n=3–11 = ruído.
+- **Próxima ação:** (1) seguir operando o forward; (2) **investigar a miscalib. de vitória** (de onde
+  vêm as probs extremas — fallback? pool de ratings raso pra alguns times?); (3) ligar a **Fase 2 (CLV)**
+  — odds de partida da BSD no `forwardLog` (~4h; código em `src/providers/odds.ts::BSDMatchOdds`, falta wiring).
+- **Custo:** forward = $0; CLV wiring ~4h.
+- **Já tentei (não repetir):** λ = média-gols-crua REPROVOU (gols ECE 0.10–0.15; vitória mando ECE
+  0.13) → exp 12b. Ratings tipo Elo VENCEM offline (ECE 0.04) e estão productionizados.
+
+**B — eixo DIRECIONAL ⛔ MORTO 2026-06-15** (a alma do produto, enterrada com prova) → ver Experimentos
+2026-06-15 e [CORE §5](../../CORE.md). Testado com **StatsBomb Open Data** (dado posicional rico, grátis),
+n=199 jogos de seleção, nos DOIS casos: **chutes** (r²≈0.01) E **desarme-por-flanco** (o caso canônico do
+CLAUDE.md — r²=0.008, **placebo: o "sinal" não bate flanco aleatório**, split-half inverte). O eixo
+direcional **não funciona, nem com dado posicional** — não é falta de dado, é falta de sinal. A
+inteligência de matchup fica no nível **por-mercado (concessão)**, já validado. (FBref morreu 2026-01-20;
+API-Football $19 não dá direcional — irrelevante agora que o eixo está morto.)
+
+**C — escanteios ⛔ MORTO 2026-06-15** → ver Experimentos 2026-06-15 e [CORE §5](../../CORE.md). Rating
+de PRODUÇÃO de corner reprovou (n=908; over 8.5/9.5 banda negativa, 10.5 +0.018 mas ECE piorou 0.026→0.041
+= fantasma). 3ª alavanca de corner a falhar (concessão 12c + baseline + produção). Resta **só forward**.
+
+**D — faltas R-por-linha ⛔ MORTO 2026-06-15** → ver Experimentos 2026-06-15 e [CORE §5](../../CORE.md).
+Contradição resolvida: o GLOBAL-BEST cobriu faltas 0.5/1.5 (não o 2.5); a varredura fechou o buraco do
+2.5 → nada gradua (banda 1.5≈−0.06 ambas pops; 2.5 −0.32 sel/−0.49 clube). R é só cauda da NB2 — não cria
+sinal onde a forma não discrimina. Resta **só forward** + eixo de árbitro (bloqueado por dado, §5).
+
+**E — passes (ambas)** 🔲
+- **Por que ainda sem ⭐:** no ponto de aposta (off=0, linha≈µ) BrierSkill ≈ 0 (sel −0.011, clube
+  +0.003) — bem calibrado mas **não discrimina**. O "+0.10" agregado é artefato de pooling.
+- **Próxima ação:** depende do **N5 (fator de posse)** — passe é posse-dominado. Em clube há posse; em
+  seleção a posse é esparsa → provavelmente **só clube**. Settlement `total_pass` vs cruzamento **a
+  confirmar** antes de qualquer dinheiro.
+- **Custo:** depende da feature N5 (posse).
+- **Já tentei (não repetir):** `accurate_pass` + R<8 testados (exp 12, BrierSkill +0.0005, zero edge);
+  posição reprovou. `accurate_pass` é o campo a usar se um dia shipar.
+
+**F — finalização posse+mando (CLUBE) — PRONTO, não é pesquisa** 🔲
+- **Por que ainda sem ⭐:** o ganho **já está provado** out-of-fold (exp 12f): posse +10% = 1.15×,
+  mando = 1.27× → over 1.5 BrierSkill +0.012→**+0.025**, ECE 0.038→0.033. Falta só **implementar**.
+- **Próxima ação:** codar o fator calibrado no µ de finalização (**só população clube** — a Copa não
+  tem posse) + **re-freeze do gate de paridade**. O registro-sombra forward já existe
+  (`src/cli/forwardShadowFinalizacao.ts`).
+- **Custo:** implementação pequena + re-freeze de paridade.
+- **Já tentei (não repetir):** combinar contexto em **desarme/falta/SOT** = redundante (viés de
+  elenco, provado out-of-fold 12f → §5). **Só finalização** ganha, e **só no clube**.
+
+---
+
+## 🧪 Experimentos 2026-06-15 (round de ataque: 3 frentes em paralelo + forward operado)
+
+Disparados em paralelo após montar o painel. **3 mortes-com-prova, $0, gate de paridade intacto** (só
+scripts novos em `scripts/`, nada em `src/`). O forward foi operado no mesmo dia (Trilha 1).
+
+| Frente | Script novo | Veredito | Número-chave |
+|---|---|---|---|
+| **C — escanteios (rating de PRODUÇÃO)** | `scripts/recalibrate-corner-production.mts` | 🔴 **REPROVA** → §5 | n=908 clube, 100% cache. over 8.5/9.5 banda BrierSkill **negativo**; over 10.5 +0.018 MAS **ECE piorou** 0.026→0.041 (fantasma). μ do rating converge pro baseline — **corner não separa por força de time como gol** |
+| **D — faltas (`nb_dispersion` por linha)** | `scripts/recalibrate-faltas-dispersion.mts` | 🔴 **REPROVA** → §5 | contradição resolvida: GLOBAL-BEST cobriu faltas 0.5/1.5 (não 2.5). Varredura R∈{1.5..4.0}: banda 1.5≈**−0.06** (ambas pops, replicou o registro), 2.5 **−0.32** sel/**−0.49** clube. Nada gradua; R é só cauda da NB2 |
+| **B — direcional StatsBomb (CHUTES)** | `scripts/statsbomb-directional-scout.mts` | 🔴 **NO-GO** → §5 | WC2022 (comp 43/season 106), 32 jogos/724 chutes, $0. Correlação concessão-por-canal × deslocamento de chute: **r²≈0.01** (<1% variância). Direcional **pior** que não-direcional e que baseline da liga. **Anti-auto-engano:** 16 jogos davam 84% (ruído de N), 32 jogos = 60%≈acaso |
+| **B — direcional StatsBomb (DESARME-por-flanco — o caso CANÔNICO)** | `scripts/statsbomb-tackle-flank-scout.mts` | 🔴 **NO-GO** → §5 (eixo MORTO) | n=199 jogos seleção (WC22+Euro24+CopaAmérica+AFCON), flanco da ORIGEM da jogada. r²=0.008 (sinal real = minutos, r=0.49). **Placebo (padrão-ouro):** ganho real (MAE Δ −0.00346) **NÃO bate a melhor de 20 embaralhadas aleatórias** (−0.00351); split-half **inverte**. Direcional morto nos 2 casos |
+
+**Lições do round:**
+1. **Escanteios offline-esgotado nas 3 alavancas** (concessão 12c, baseline, produção 15/06) → só forward.
+2. **Faltas R-por-linha esgotado nas 2 linhas, 2 pops** → só forward + árbitro (bloqueado, §5).
+3. **Eixo DIRECIONAL MORTO nos 2 casos** — chutes (r²≈0.01) E o caso canônico do produto, **desarme de
+   lateral por flanco** (r²=0.008, **placebo-tested**: o "sinal" não bate flanco aleatório; split-half
+   inverte). Lição de medição: o flanco vem da **origem da jogada (`key_pass`)**, não do ponto final do
+   evento. **Não é falta de dado** (StatsBomb é rico e grátis) — **é falta de sinal.** A inteligência de
+   matchup fica no nível **por-mercado (concessão)**, já validado/productionizado. Frente B → §5.
+4. **Forward (gols) é o ponto positivo real do round:** n=40, BrierSkill +0.135 — único caminho com
+   amostra de verdade. Revelou também a **miscalib. de vitória** (ECE 0.32 / probs extremas) = pista de bug.
+
+---
+
 ## 🎯 PLACAR das tentativas de calibração (varredura 2026-06-12)
 
 Bateria de 6 alavancas testadas offline ($0) p/ tentar graduar os mercados não validados. Cada uma

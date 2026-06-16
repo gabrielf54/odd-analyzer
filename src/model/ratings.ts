@@ -18,16 +18,38 @@ export interface RatingsParams {
   /** learning rate do update Elo. */ lr: number;
   /** limite |att|,|def| (evita blow-up). */ clamp: number;
   /** mando em LOG (clube>0; seleção=0 campo neutro). */ homeAdv: number;
+  /** encolhimento bayesiano no λ: att/def_efetivo = rating × games/(games+shrinkK).
+   * 0 = sem encolher (compat). >0 regride o rating de time com pouco histórico p/ o
+   * neutro — evita que um time de poucos jogos (ex. seleção da OFC) com rating extremo
+   * por adversário fraco vire favorito/placar absurdo no cruzamento (bug `Iran×NZ`). */
+  shrinkK: number;
 }
 
 // Defaults calibrados no exp 2026-06-12b (NÃO tunados no eval — vencer com defaults
-// = robusto). homeAdv default 0 (neutro); quem chama injeta o populacional.
-export const DEFAULT_RATINGS: RatingsParams = { mu0: 1.3, lr: 0.08, clamp: 0.6, homeAdv: 0.0 };
+// = robusto). homeAdv default 0 (neutro); quem chama injeta o populacional. shrinkK
+// default 0 (sem encolher) — quem chama injeta o valor populacional.
+export const DEFAULT_RATINGS: RatingsParams = { mu0: 1.3, lr: 0.08, clamp: 0.6, homeAdv: 0.0, shrinkK: 0 };
 
 /** Mando em log por população: clube tem vantagem de casa; seleção (Copa) é neutro. */
 export function homeAdvFor(populacao: "selecao" | "clube"): number {
   return populacao === "selecao" ? 0.0 : 0.18;
 }
+
+/** Encolhimento (shrinkK) do rating por população. **Seleção:** o pool cross-competição
+ * tem times de pouco histórico / confederação isolada (ex. NZ da OFC, 2 jogos) cujo rating
+ * extremo por adversário fraco invertia o mismatch no cruzamento da Copa → encolhe p/ o
+ * neutro (corrige o bug `Iran×NZ`, calibrado em scripts/sweep-shrink-selecao.mts).
+ * **Clube:** o pool é a própria liga densa (todo time tem muitos jogos) → não precisa (0). */
+export function ratingsShrinkFor(populacao: "selecao" | "clube"): number {
+  return populacao === "selecao" ? SELECAO_SHRINK_K : 0;
+}
+/** k do encolhimento de seleção. CALIBRADO em scripts/sweep-shrink-selecao.mts (n=1006,
+ * floor=1, leave-one-out): o fix PRINCIPAL é o floor=1 (usar o rating, não o fallback
+ * média-crua que invertia o mismatch); o Elo de LR lento já regulariza time raso, então a
+ * shrinkage é leve. k=3 melhora gols 1.5/2.5 (ECE 0.033→0.019/0.031) e segura o time raso
+ * de rating inflado (2 vitórias 6×0), a custo pequeno na vitória (full BrierSkill mandante
+ * +0.100→+0.072). k≥6 a varredura REPROVA (vitória cai mais, gols 3.5 fica negativo). */
+export const SELECAO_SHRINK_K = 3;
 
 /** Processa os jogos em ordem de DATA, atualizando att/def de cada time após observar
  * cada placar. Retorna o rating FINAL (mais atual) de cada time — o que prevê o
@@ -54,16 +76,23 @@ export function computeRatings(games: ChronoGame[], params: Partial<RatingsParam
   return out;
 }
 
-/** λ_home/λ_away a partir dos ratings (com mando no mandante). null se faltar rating. */
+/** λ_home/λ_away a partir dos ratings (com mando no mandante). null se faltar rating.
+ * Com shrinkK>0, encolhe att/def de cada time pelo seu próprio histórico (games) antes
+ * do λ — time de pouco histórico regride p/ o neutro (mu0). */
 export function lambdaFromRatings(
   ratings: Map<string, TeamRating>, homeId: string, awayId: string, params: Partial<RatingsParams> = {},
 ): { lambdaHome: number; lambdaAway: number } | null {
-  const { mu0, homeAdv } = { ...DEFAULT_RATINGS, ...params };
+  const { mu0, homeAdv, shrinkK } = { ...DEFAULT_RATINGS, ...params };
   const rh = ratings.get(homeId), ra = ratings.get(awayId);
   if (!rh || !ra) return null;
+  const sh = (r: TeamRating) => {
+    const f = shrinkK > 0 ? r.games / (r.games + shrinkK) : 1;
+    return { att: r.att * f, def: r.def * f };
+  };
+  const h = sh(rh), a = sh(ra);
   return {
-    lambdaHome: mu0 * Math.exp(rh.att + ra.def + homeAdv),
-    lambdaAway: mu0 * Math.exp(ra.att + rh.def),
+    lambdaHome: mu0 * Math.exp(h.att + a.def + homeAdv),
+    lambdaAway: mu0 * Math.exp(a.att + h.def),
   };
 }
 

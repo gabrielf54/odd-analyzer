@@ -181,7 +181,7 @@ Quando um book oferecer o mercado, o objeto `market` terá esta forma (Over/Unde
   ]
 }
 ```
-> **Para o modelo:** chave de identificação do jogador = `outcomes[].description` (string, nome do jogador — NÃO há player_id numérico). A linha = `point` (float, ex. 0.5/1.5/2.5). A odd = `price`. O lado = `name` (`"Over"`/`"Under"`). A API **não** fornece ID de jogador nem stats reais (SOT/chutes/desarmes históricos) — só odds. Stats vêm de outra fonte (API-Football / FBref). Cruzamento de nomes via `jogadores_crosswalk`.
+> **Para o modelo:** chave de identificação do jogador = `outcomes[].description` (string, nome do jogador — NÃO há player_id numérico). A linha = `point` (float, ex. 0.5/1.5/2.5). A odd = `price`. O lado = `name` (`"Over"`/`"Under"`). A API **não** fornece ID de jogador nem stats reais (SOT/chutes/desarmes históricos) — só odds. Stats vêm de outra fonte (BSD/API-Football; ⚠️ **FBref perdeu o feed Opta em 2026-01-20 — não é mais fonte de stats**). Cruzamento de nomes via `jogadores_crosswalk`.
 
 ---
 
@@ -246,7 +246,7 @@ Quando um book oferecer o mercado, o objeto `market` terá esta forma (Over/Unde
 2. **Chamada vazia = grátis.** `x-requests-last: 0` sempre que `bookmakers` veio `[]`. Dá para "sondar" um evento por props sem gastar crédito. A cobrança só ocorre quando há dados de book. (Começamos com `x-requests-used: 3` — uso prévio do dono da chave — e só subiu nas chamadas com retorno: +2 no `h2h,totals` Brasil, +3 no `h2h` Copa us,uk,eu. Total gasto nesta sessão: **5 créditos**.)
 3. **O "bloqueio da Copa" NÃO vale para mercados de partida.** A Copa começa 2026-06-11 e o `h2h` já retorna **41 bookmakers** com odds reais (us+uk+eu). O bloqueio histórico de "bookmakers vazios na Copa" só persiste para **player props**, não para h2h/totals.
 4. **Ligas grandes fora de temporada.** Em junho/2026, `/sports` lista apenas 13 `soccer_*` ativos — secundários (Série B BR, J League, Allsvenskan, Eliteserien, La Liga 2, Superettan, Super League China) + competições CONMEBOL + a própria Copa. **MLS, Brasileirão Série A, EPL, La Liga NÃO aparecem como ativos.** As ligas que carregam shots props (top europeias) não estão rodando.
-5. **Sem player_id numérico.** A única identificação de jogador em props é `outcomes[].description` (string com o nome). Cruzamento com stats (API-Football/FBref) depende de match por nome → usar `jogadores_crosswalk`.
+5. **Sem player_id numérico.** A única identificação de jogador em props é `outcomes[].description` (string com o nome). Cruzamento com stats (BSD/API-Football; **FBref morreu 2026-01-20**, perdeu o feed Opta) depende de match por nome → usar `jogadores_crosswalk`.
 6. **`point`/`description` são campos OPCIONAIS** — ausentes (não `null`) quando não se aplicam. Código deve usar `.get("point")` / `.get("description")`, não acesso direto.
 7. **`player_tackles` (desarmes) NÃO está na lista de mercados de futebol** das docs (`betting-markets.html`). The Odds API expõe shots, shots_on_target, assists, goal scorer e cartões — mas **não desarmes nem escanteios por jogador**. Corners só como mercado de time (`alternate_totals_corners`). Para desarmes/escanteios por jogador, esta API não serve — usar outra fonte.
 8. **Bookmaker keys variam por região.** us traz `betmgm`/`fanduel`/`draftkings`; uk/eu trazem `pinnacle`/`paddypower`/`skybet`/`betfair_ex_uk`/`marathonbet`/`grosvenor`; books regionais como `leovegas_se`, `unibet_nl` aparecem no `eu`.

@@ -97,3 +97,41 @@ describe("homeAdvFor", () => {
     expect(DEFAULT_RATINGS.homeAdv).toBe(0);
   });
 });
+
+describe("lambdaFromRatings shrinkage (regulariza time de pouco histórico)", () => {
+  const mk = (att: number, def: number, games: number) => ({ att, def, games });
+
+  it("shrinkK regride o λ de time com POUCOS jogos para perto do neutro (mu0)", () => {
+    const r = new Map([["THIN", mk(0.5, -0.5, 1)], ["REF", mk(0, 0, 100)]]);
+    const sem = lambdaFromRatings(r, "THIN", "REF", { mu0: 1.3, homeAdv: 0 })!;
+    const com = lambdaFromRatings(r, "THIN", "REF", { mu0: 1.3, homeAdv: 0, shrinkK: 9 })!;
+    expect(com.lambdaHome).toBeLessThan(sem.lambdaHome);     // regrediu
+    expect(com.lambdaHome).toBeGreaterThan(1.3 * 0.99);      // perto de mu0 (att_ef≈0.05)
+    expect(com.lambdaHome).toBeLessThan(1.3 * 1.10);
+  });
+
+  it("shrinkK quase NÃO mexe em time com MUITO histórico", () => {
+    const r = new Map([["VET", mk(0.5, -0.5, 1000)], ["REF", mk(0, 0, 1000)]]);
+    const sem = lambdaFromRatings(r, "VET", "REF", { mu0: 1.3, homeAdv: 0 })!;
+    const com = lambdaFromRatings(r, "VET", "REF", { mu0: 1.3, homeAdv: 0, shrinkK: 9 })!;
+    expect(com.lambdaHome).toBeCloseTo(sem.lambdaHome, 1);
+  });
+
+  it("shrinkK ausente ou 0 preserva o comportamento atual (backward compat)", () => {
+    const r = new Map([["A", mk(0.3, -0.2, 5)], ["B", mk(-0.1, 0.2, 5)]]);
+    const base = lambdaFromRatings(r, "A", "B", { mu0: 1.3, homeAdv: 0 })!;
+    const k0 = lambdaFromRatings(r, "A", "B", { mu0: 1.3, homeAdv: 0, shrinkK: 0 })!;
+    expect(k0.lambdaHome).toBe(base.lambdaHome);
+    expect(k0.lambdaAway).toBe(base.lambdaAway);
+  });
+
+  it("corrige a INVERSÃO de mismatch (cenário Iran×NZ: forte de histórico raso não vira favorito)", () => {
+    // NZ: rating 'forte' (att 0.45, def -0.50) mas só 2 jogos (OFC). IRAN: 15 jogos.
+    const r = new Map([["IRAN", mk(0.39, -0.45, 15)], ["NZ", mk(0.45, -0.5, 2)]]);
+    const sem = lambdaFromRatings(r, "IRAN", "NZ", { mu0: 1.3, homeAdv: 0 })!;
+    const com = lambdaFromRatings(r, "IRAN", "NZ", { mu0: 1.3, homeAdv: 0, shrinkK: 9 })!;
+    expect(com.lambdaAway).toBeLessThan(sem.lambdaAway); // NZ regride → λ_away cai
+    // a razão λ_home/λ_away passa a favorecer o IRAN (corrige a inversão)
+    expect(com.lambdaHome / com.lambdaAway).toBeGreaterThan(sem.lambdaHome / sem.lambdaAway);
+  });
+});

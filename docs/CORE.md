@@ -7,7 +7,16 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-15 (**4ª casa de coleta: Stake** — motor de preço PRÓPRIO [1ª fonte independente
+> **Atualizado:** 2026-06-15 (**PAINEL DE ATAQUE + round de validação** — montado o painel em
+> [`features/mercados-nao-validados/`](features/mercados-nao-validados/) com protocolo anti-retrabalho;
+> round offline ($0): **escanteios-produção, faltas-R-por-linha e o EIXO DIRECIONAL inteiro REPROVARAM**
+> → §5. O **eixo direcional (a "alma do produto") está MORTO com prova** — StatsBomb (dado posicional rico,
+> grátis), chutes E desarme-por-flanco, **placebo-tested**: não é falta de dado, é falta de sinal; matchup
+> fica por-mercado. Forward operado [gols n=43 BrierSkill +0.16]. **Vitória miscalibrava (ECE 0.32, probs
+> extremas tipo `Iran×NZ 85%/16%`) → causa-raiz: time de histórico raso caía no fallback média-crua cego
+> que invertia o mismatch → FIX shipado (floor=1 usa o rating, não o fallback; + `shrinkK=3`; TDD, 430
+> testes verdes, gate de paridade intacto); `Iran×NZ`→60%/50% são.** Ver §Experimentos 2026-06-15 e §3.1)
+> · 2026-06-15 (**4ª casa de coleta: Stake** — motor de preço PRÓPRIO [1ª fonte independente
 > = diversidade real], headless p/ JA3, de-para por `marketId` base; rito E2E `docs/coleta-odds/IMPLEMENTAR-CASA.md`
 > — ver INFRA abaixo)
 > · 2026-06-15 (**odds unificadas** — tabela `odds_unificadas` = espelho canônico do cru
@@ -23,7 +32,7 @@
 > prateleira pro clube + registro-sombra forward na Copa**. Provas em
 > [`mercados-nao-validados`](features/mercados-nao-validados/))
 > · 2026-06-11 (auditoria de
-> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 425 testes Vitest
+> calibração de TODOS os mercados, no ponto de aposta — ver §3.1) · **Suíte:** 430 testes Vitest
 > verdes (gate de paridade intacto) · **Custo até aqui:** $0 · **Arena ativa:** Copa do Mundo 2026
 > (seleções), abriu 2026-06-11; **clube ATIVO** (auditado). **Ratings de força no λ de partida
 > PRODUCTIONIZADOS 2026-06-12** (`src/model/ratings.ts` + `pipeline.runMatch`, com fallback) ·
@@ -88,7 +97,7 @@ e no campo que a casa **liquida**. A banda separa estrela real de **fantasma** (
 | **desarmes** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | decomp `μ_tentativas × aproveitamento(won/total)`, paga `won_tackle`. clube 0.5 full +0.110/banda +0.008. seleção 1.5 era fantasma (full +0.0085, banda **−0.081**/ECE 0.13) → **DEMOVIDA**. **2.5 morto** |
 | **faltas** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | comete `fouls` × adversário provoca `was_fouled`. clube 0.5 full +0.063/banda ~0. 1.5/2.5 negativos nas duas → sem ⭐ |
 | **passes** | ⬛ **diagnóstico** | ⬛ **diagnóstico** | off=0 ≈ 0 nas duas (sel −0.011, clube +0.003); posse-dominado. **de-vig de escada** `value/ladderDevig.ts`; acumula forward, SEM ⭐ → [`mercados-nao-validados`](features/mercados-nao-validados/) |
-| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05; clube 1X2 banda +0.013/+0.030; gols 3.5 seleção banda +0.047). **Falta só forward/CLV** p/ flippar `validated_lines` → sem ⭐ ainda |
+| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05). **FIX 2026-06-15:** o forward expôs vitória miscalibrando (ECE 0.32, probs extremas tipo `Iran×NZ 85%/16%`) — causa: time de histórico raso (NZ 2 jogos) era **inelegível (floor=5) → caía na média-crua cega** que invertia o mismatch. Corrigido: **floor=1 (usa o rating encolhido, não o fallback) + `shrinkK=3`** (sweep `sweep-shrink-selecao.mts` n=1006: floor=1 dá vitória full BrierSkill +0.10; Elo de LR lento já regulariza raso). `Iran×NZ` → 60%/50% (são). **Falta só forward/CLV** p/ flippar `validated_lines` → sem ⭐ ainda |
 | **escanteios** | corner ausente | sem edge | clube baseline over 10.5 só +0.007 (sem edge); **eixo de concessão TESTADO 2026-06-12 → reprovado**. seleção sem `corner_kicks`. sem ⭐ → forward |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:
@@ -205,8 +214,8 @@ segue morto no §5 — esta é PROP multi-casa.
 
 | Item | Por que está morto | Quando reviver |
 |---|---|---|
-| **I2 — matchup direcional** (lado de ataque × posição) | BSD **não tem** `average_positions`/`shotmap`/lado de ataque (sonda 2026-06-11); `position` só G/D/M/F | só com fonte posicional **paga** (fora do orçamento) |
-| **nota_confronto / lado de ataque** | mesma causa do I2 | idem |
+| **I2 — matchup direcional** (lado de ataque × posição) | BSD não tem o dado; **e quando TESTADO com StatsBomb (dado rico, grátis) 2026-06-15 não houve sinal** (ver "eixo DIRECIONAL" abaixo) | **NÃO reviver** — o eixo não funciona nem com dado posicional; não é a fonte, é o sinal |
+| **nota_confronto / lado de ataque** | mesma causa do I2 — **eixo direcional morto com prova (placebo) 2026-06-15** | idem (não reviver) |
 | **I4 — xG/xA no μ** | `expected_goals` vem **NULL** em seleção | só se a Copa ao vivo trouxer xG preenchido |
 | **N4 — odds automáticas BSD** | **descartado pelo dono**; BSD só dá mercado de partida não recomendável, zero player prop | — |
 | **SOT over 1.5 / 2.5** (ambas pops) | seleção: BrierSkill negativo (chuta a gol pouco). clube: era legado, a auditoria 2026-06-11 mostrou fantasma (1.5 banda −0.32/ECE 0.23) → demovido nas DUAS. SOT 2+ é raro/mal previsto | forward pode regraduar; **prior/dispersão por posição TESTADO 2026-06-12 e REPROVADO** (banda segue −0.51; não é posição, é cauda) — ver [`mercados-nao-validados`](features/mercados-nao-validados/) |
@@ -214,7 +223,9 @@ segue morto no §5 — esta é PROP multi-casa.
 | **`won_tackle` direto (sem decompor)** | reprovou (ganhar é alta-variância) | não reverter — usar a decomposição |
 | **tilt posicional** | degradou ECE em 2 dos 3 mercados | candidato só p/ finalizações, com re-teste |
 | **prior/dispersão por posição** (D/M/F no μ do jogador) | TESTADO nas 2 pops 2026-06-12 (`recalibrate-position-conditioned.mts`): não gradua NENHUMA linha morta (a causa é variância de cauda, não pooling de posição) e ainda PIORA as vivas | não re-tentar; só forward regrada as linhas mortas de jogador |
-| **escanteios — eixo de concessão** | TESTADO 2026-06-12: pior que baseline (n=917) | não re-tentar; escanteios = forward |
+| **escanteios — concessão E produção** | concessão TESTADA 2026-06-12 (pior que baseline, n=917); **rating de PRODUÇÃO TESTADO 2026-06-15** (`recalibrate-corner-production.mts`, n=908: over 8.5/9.5 banda negativa, 10.5 +0.018 mas ECE↑ 0.026→0.041 = fantasma) — corner **não separa por força de time** como gol | não re-tentar; escanteios = forward |
+| **faltas — `nb_dispersion` por linha** | TESTADO 2026-06-15 (`recalibrate-faltas-dispersion.mts`): GLOBAL-BEST já cobria 0.5/1.5; a varredura fechou o 2.5 → nada gradua (banda 1.5≈−0.06; 2.5 −0.32 sel / −0.49 clube). R é só a cauda da NB2, não cria sinal | não re-tentar; faltas = forward + árbitro (bloqueado) |
+| **eixo DIRECIONAL — chutes E desarme** (lado de ataque × defensor; o "alvo" do CLAUDE.md) | **TESTADO com StatsBomb (dado posicional RICO e grátis) 2026-06-15 — MORTO nos 2 casos.** Chutes (`statsbomb-directional-scout.mts`, WC2022, 724 chutes): r²≈0.01. **Desarme-por-flanco** (`statsbomb-tackle-flank-scout.mts`, n=199 jogos seleção, o caso CANÔNICO): r²=0.008, **teste de PLACEBO REPROVA** (ganho real não bate flanco embaralhado), split-half inverte. Flanco da origem da jogada (`key_pass`). **Não é falta de dado — é falta de SINAL** | **NÃO reviver** — nem fonte paga resolve (não há sinal a comprar). Matchup fica por-mercado (concessão), validado |
 | **combinar CONTEXTO (posse/mismatch/mando) em desarme/falta/SOT** | TESTADO out-of-fold 2026-06-12f (regressão Poisson, 5-fold, ~40k obs): redundante com a forma — o "sinal" agregado é **viés de elenco**, some no teste intra-jogador. Fecha o "desarme condicionado" | não re-tentar nesses mercados; **só finalização ganha** (posse+mando, CLUBE) — ver [`mercados-nao-validados`](features/mercados-nao-validados/) |
 | **Calibrar na Copa LITERAL passada** | seasons 2018/2022 têm player-stats **VAZIO** na BSD | impossível offline → só forward |
 | **arbitro_tendencia** (sinal de árbitro p/ IA) | BSD não tem filtro `/events/?referee_id=` (param ignorado, listagem traz `referee_id=null` — spike 2026-06-11); agregar histórico do árbitro = varrer N eventos um a um, caro demais p/ um sinal de texto | só com fonte de **perfil de árbitro** pronta |
