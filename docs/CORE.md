@@ -7,12 +7,19 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-15 (**FASE 2 / CLV do forward LIGADA** — spike revelou o formato REAL do
+> **Atualizado:** 2026-06-15 (**VITÓRIA investigada a fundo — 2 fantasmas dissipados com prova**: o
+> "favorito subestimado" era (1) **artefato de campo** [`investigate-vitoria-calibration.mts` n=1133: a
+> amostra de eliminatória é casa/fora (mando 46/30%), o modelo usa neutro (correto p/ a Copa) → botar
+> mando faz ECE 0.116→0.02; mecanismo do 1X2 SÃO, gols insensível] + (2) ao vivo NEUTRO o **modelo BATE
+> o mercado** [`copa-model-vs-market.mts` n=15: Brier 0.261<0.282, ECE 0.22<0.40; favoritos-de-mercado
+> venceram 40% vs 72% precificado] → mercado superprecifica favorito; conservadorismo do modelo está
+> CERTO (n=15, pista). **NÃO consertar vitória** (não está quebrada); hipótese forward nova = FADAR
+> favorito. $0, nada em `src/`, gate intacto. Ver §3.1 e [`mercados-nao-validados`](features/mercados-nao-validados/) Exp vitória)
+> · 2026-06-15 (**FASE 2 / CLV do forward LIGADA** — spike revelou o formato REAL do
 > `/events/{id}/odds/` da BSD [PLANO: `home_win/draw/away_win/over_NN_goals/…`, não bookmakers/outcomes];
 > parser puro `src/odds/bsdMatchOdds.ts` + de-vig 3-vias `devigThreeWay`; `forwardLog` anexa odd de
 > abertura+de-vig+edge/ev, `snapshotClosing` ganhou modo bulk → CLV. **445 testes, gate de paridade intacto.**
-> Run ao vivo: 48 previsões, 4/4 com odd; gols n=46 BrierSkill +0.128/ECE 0.082; vitória ainda suja
-> [amostra do modelo velho]. Forward expôs edge de vitória −pp sistemática p/ favoritos → vigiar. Ver
+> Run ao vivo: 48 previsões, 4/4 com odd; gols n=46 BrierSkill +0.128/ECE 0.082. Ver
 > [`forward-loop-copa`](features/forward-loop-copa/) §Estado e §3.1)
 > · 2026-06-15 (**PAINEL DE ATAQUE + round de validação** — montado o painel em
 > [`features/mercados-nao-validados/`](features/mercados-nao-validados/) com protocolo anti-retrabalho;
@@ -104,7 +111,7 @@ e no campo que a casa **liquida**. A banda separa estrela real de **fantasma** (
 | **desarmes** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | decomp `μ_tentativas × aproveitamento(won/total)`, paga `won_tackle`. clube 0.5 full +0.110/banda +0.008. seleção 1.5 era fantasma (full +0.0085, banda **−0.081**/ECE 0.13) → **DEMOVIDA**. **2.5 morto** |
 | **faltas** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | comete `fouls` × adversário provoca `was_fouled`. clube 0.5 full +0.063/banda ~0. 1.5/2.5 negativos nas duas → sem ⭐ |
 | **passes** | ⬛ **diagnóstico** | ⬛ **diagnóstico** | off=0 ≈ 0 nas duas (sel −0.011, clube +0.003); posse-dominado. **de-vig de escada** `value/ladderDevig.ts`; acumula forward, SEM ⭐ → [`mercados-nao-validados`](features/mercados-nao-validados/) |
-| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05). **FIX 2026-06-15:** o forward expôs vitória miscalibrando (ECE 0.32, probs extremas tipo `Iran×NZ 85%/16%`) — causa: time de histórico raso (NZ 2 jogos) era **inelegível (floor=5) → caía na média-crua cega** que invertia o mismatch. Corrigido: **floor=1 (usa o rating encolhido, não o fallback) + `shrinkK=3`** (sweep `sweep-shrink-selecao.mts` n=1006: floor=1 dá vitória full BrierSkill +0.10; Elo de LR lento já regulariza raso). `Iran×NZ` → 60%/50% (são). **Fase 2/CLV LIGADA 2026-06-15** (forwardLog anexa odd de abertura+de-vig+edge da BSD; payload PLANO real, parser `src/odds/bsdMatchOdds.ts`+`devigThreeWay`; snapshotClosing bulk). **Falta só ACUMULAR forward/CLV** p/ flippar `validated_lines` → sem ⭐ ainda. ⚠️ forward expôs vitória com edge sistemática −pp p/ favoritos (subestima favorito? vigiar) |
+| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05). **FIX 2026-06-15:** o forward expôs vitória miscalibrando (ECE 0.32, probs extremas tipo `Iran×NZ 85%/16%`) — causa: time de histórico raso (NZ 2 jogos) era **inelegível (floor=5) → caía na média-crua cega** que invertia o mismatch. Corrigido: **floor=1 (usa o rating encolhido, não o fallback) + `shrinkK=3`** (sweep `sweep-shrink-selecao.mts` n=1006: floor=1 dá vitória full BrierSkill +0.10; Elo de LR lento já regulariza raso). `Iran×NZ` → 60%/50% (são). **Fase 2/CLV LIGADA 2026-06-15** (forwardLog anexa odd de abertura+de-vig+edge da BSD; payload PLANO real, parser `src/odds/bsdMatchOdds.ts`+`devigThreeWay`; snapshotClosing bulk). **Falta só ACUMULAR forward/CLV** p/ flippar `validated_lines` → sem ⭐ ainda. **VITÓRIA investigada a fundo 2026-06-15** (`investigate-vitoria-calibration.mts` n=1133, `copa-model-vs-market.mts` n=15): o "favorito subestimado" era (1) **artefato de campo** (amostra de eliminatória é casa/fora mando 46/30%, modelo usa neutro=correto p/ Copa; botar mando faz ECE 0.116→0.02 → mecanismo SÃO, NÃO mexer) + (2) ao vivo neutro o **modelo BATE o mercado** (Brier 0.261<0.282; favoritos-de-mercado venceram 40% vs 72% precificado) → mercado superprecifica favorito, conservadorismo do modelo está certo (n=15, pista). **NÃO consertar** vitória; hipótese forward nova = fadar favorito |
 | **escanteios** | corner ausente | sem edge | clube baseline over 10.5 só +0.007 (sem edge); **eixo de concessão TESTADO 2026-06-12 → reprovado**. seleção sem `corner_kicks`. sem ⭐ → forward |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:

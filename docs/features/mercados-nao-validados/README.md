@@ -69,10 +69,25 @@ esgotado) · ⛔ morto §5 (não re-tentar)
   n=19, BrierSkill −0.126, ECE 0.317 — miscalibrando**: bate com prob extrema observada (ex.
   `Iran×NZ 85% over 2.5`) → **pista de fallback/ratings raso a investigar**, não é só "falta dado". Resto
   (sot/fin/desarme/passes) n=3–11 = ruído.
-- **Próxima ação:** (1) seguir operando o forward (1→[apito]snapshotClosing→settle→report); (2) **vigiar
-  a vitória** — a miscalib. de probs extremas foi **consertada** (floor=1+shrinkK, 2026-06-15 manhã), MAS
-  a Fase 2 expôs **edge de vitória sistematicamente −pp p/ favoritos** (Portugal home 50% vs de-vig ~75%);
-  pista de **subestimar favorito** (shrinkK puxando seleção forte pro neutro?) — o forward decide.
+- **🔬 INVESTIGAÇÃO DA VITÓRIA (2026-06-15 tarde) — o "favorito subestimado" era 2 coisas, e o
+  modelo NÃO está quebrado:** ver Experimento "vitória" abaixo. Resumo:
+  1. **A "fraqueza" offline da vitória era ARTEFATO DE CAMPO, não defeito.** A amostra de seleção
+     (eliminatórias) é casa/fora (mando real: mandante vence 46% vs visitante 30%), mas o modelo usa
+     `homeAdv=0` (campo NEUTRO, correto p/ a Copa). `investigate-vitoria-calibration.mts` (n=1133): com
+     `homeAdv=0` a vitória ECE=0.116 (ruim); botando mando (`homeAdv=0.25-0.35`) ECE **despenca p/
+     0.02-0.04** e o skill vira +. Gols NÃO muda (insensível a mando). → o **mecanismo do 1X2 calibra
+     excelente**; julgar campo-neutro com dado casa/fora é que era injusto. **NÃO mexer na produção**
+     (`homeAdv=0` é o certo p/ a Copa neutra).
+  2. **Ao vivo (NEUTRO, sem o artefato) o modelo BATE o mercado.** `copa-model-vs-market.mts` (n=15
+     finalizados): Brier modelo **0.261** vs mercado **0.282**; ECE 0.22 vs 0.40. **Nos 5 jogos de
+     favorito-de-mercado (≥55%): mercado previu 72%, favoritos venceram só 40%, modelo previu 45%
+     (≈realidade).** → o "Portugal 50% vs 75%" é o **MERCADO superprecificando favorito** na Copa, e o
+     conservadorismo do modelo está CERTO (até aqui). ⚠️ **n=15, início de Copa = zebra demais** — é
+     PISTA encorajadora, não prova.
+- **Próxima ação:** (1) seguir operando o forward (1→[apito]snapshotClosing→settle→report); (2) **NÃO
+  consertar a vitória** (não está quebrada — investigado); (3) **hipótese forward nova p/ vigiar:** a
+  Copa pode ter **valor em FADAR o favorito** (mercado superprecifica zebra-killer; empate/azarão) —
+  testar com CLV ao longo da fase de grupos, n crescente.
 - **✅ Fase 2 (CLV) LIGADA (2026-06-15 tarde):** spike revelou o payload PLANO real do `/events/{id}/odds/`
   (o `BSDMatchOdds` antigo estava cego); parser puro `src/odds/bsdMatchOdds.ts` + `devigThreeWay` (3-vias);
   `forwardLog` anexa odd de abertura+de-vig+edge/ev; `snapshotClosing` bulk → CLV. 445 testes, gate intacto.
@@ -142,6 +157,43 @@ scripts novos em `scripts/`, nada em `src/`). O forward foi operado no mesmo dia
    matchup fica no nível **por-mercado (concessão)**, já validado/productionizado. Frente B → §5.
 4. **Forward (gols) é o ponto positivo real do round:** n=40, BrierSkill +0.135 — único caminho com
    amostra de verdade. Revelou também a **miscalib. de vitória** (ECE 0.32 / probs extremas) = pista de bug.
+
+---
+
+## 🧪 Experimento 2026-06-15 (tarde): VITÓRIA — "favorito subestimado" investigado a fundo 🟢
+
+**Gatilho:** a Fase 2 (CLV) expôs edge de vitória sistematicamente −pp p/ favoritos (Portugal home 50%
+vs de-vig ~75%) + a vitória reprovava a banda offline (ECE ~0.11, n=583). Suspeita: `shrinkK` comprime
+favorito? Investiguei a fundo (2 scripts novos, $0, NADA mexido em `src/`).
+
+**Achado 1 — a fraqueza OFFLINE era ARTEFATO DE CAMPO, não defeito** (`scripts/investigate-vitoria-calibration.mts`, n=1133 seleção, engrenagem de produção causal, varredura homeAdv×shrinkK×rho):
+
+| config | 1X2 mandante FULL ECE | 1X2 BANDA ECE/bss | gols 2.5 ECE |
+|---|---|---|---|
+| `homeAdv=0` (PRODUÇÃO, neutro) | 0.116 | 0.151 / **−0.044** | 0.045 |
+| `homeAdv=0.25` | 0.043 | 0.046 / **+0.040** | 0.030 |
+| `homeAdv=0.35` | **0.019** | 0.015 / +0.032 | 0.040 |
+
+A amostra de eliminatória é **casa/fora** (mando real: mandante vence **46%** vs visitante **30%**); o
+modelo usa `homeAdv=0` (campo NEUTRO, correto p/ a Copa). Curva de calibração: em TODOS os 10 decis o
+mandante vence MAIS do que o modelo prevê (média 37.5% prevista vs 49.1% real) — **subestimação uniforme
+= a assinatura de mando faltando**, não de favorito mal estimado. Botar mando **conserta** (ECE
+0.116→0.02). Gols não muda (insensível a mando). rho (Dixon-Coles): −0.05 vs 0 ≈ empate (draw já
+calibra: prev 25.1% vs real 25.2%). **→ o mecanismo do 1X2 está SÃO; medir campo-neutro com dado
+casa/fora é que enganava. NÃO mexer na produção (`homeAdv=0` é o certo p/ a Copa).**
+
+**Achado 2 — ao vivo (NEUTRO), o modelo BATE o mercado** (`scripts/copa-model-vs-market.mts`, n=15
+finalizados da Copa, modelo runMatch × de-vig 3-vias da BSD × resultado):
+- Agregado: Brier **modelo 0.261 < mercado 0.282**; ECE **0.22 < 0.40**.
+- **Favoritos-de-mercado (de-vig ≥55%, n=5): mercado previu 72%, venceram só 40%, modelo previu 45%
+  (≈realidade).** Spain (mercado 87%) não venceu; Brazil (59%) não venceu; Germany (92%) venceu.
+- **→ o "Portugal 50% vs 75%" é o MERCADO superprecificando favorito** na Copa; o conservadorismo do
+  modelo está CERTO até aqui. ⚠️ **n=15, início de Copa = zebra demais** → PISTA encorajadora, não prova.
+
+**Veredito:** vitória **não está quebrada** — a alavanca "consertar o favorito" está RISCADA (não há o
+que consertar). Dois fantasmas dissipados com prova (artefato de campo + market-overprice). **Ganho
+real:** (a) não vamos gastar esforço num não-problema; (b) **nova hipótese forward**: pode haver **valor
+em FADAR o favorito** na Copa — testar via CLV ao longo da fase de grupos. Money-path intacto (só scripts).
 
 ---
 

@@ -100,12 +100,14 @@ rodando — o loop acumula.
   funcionando). `settle`: 8302 Iran×NZ liquidou (0-0). `report`: **gols n=46 BrierSkill +0.128 / ECE
   0.082** (melhorando); **vitória n=21 ainda −0.105/ECE 0.255** (amostra contaminada pelo modelo velho —
   limpa conforme jogos novos liquidam). CLV `n/d` (snapshots de fechamento só acumulam perto dos apitos).
-  - **⚠️ Observação forward p/ VIGIAR (vitória):** as edges de vitória vieram **sistematicamente
-    negativas pros favoritos** (ex. Portugal×DR Congo home 50% vs odd 1.27/de-vig ~75% = −25pp;
-    France −23pp; Austria −28pp). Ou o modelo ainda **subestima favorito** (resíduo do shrinkK puxando
-    seleção forte pro neutro / pool raso) ou o mercado superprecifica favorito. Só log do MANDANTE hoje
-    — o forward (settle+report) decide. **Não é veredito, é pista.**
-  - **PRÓXIMO:** seguir rodando (1→[apito]2→3→4); a vitória limpa e o CLV começa a aparecer.
+  - **✅ Observação da vitória RESOLVIDA no mesmo dia (investigação a fundo):** o "favorito subestimado"
+    era 2 fantasmas, NÃO defeito do modelo. (1) **Artefato de campo** (`investigate-vitoria-calibration.mts`
+    n=1133): a amostra de eliminatória é casa/fora (mando 46/30%) mas o modelo usa neutro (correto p/ a
+    Copa) → botar mando faz ECE 0.116→0.02; o mecanismo do 1X2 é SÃO. (2) Ao vivo NEUTRO o **modelo BATE
+    o mercado** (`copa-model-vs-market.mts` n=15: Brier 0.261<0.282; favoritos-de-mercado venceram 40% vs
+    72% precificado) → é o mercado que superprecifica favorito; o conservadorismo do modelo está certo
+    (n=15, pista). **NÃO consertar a vitória.** Hipótese forward nova: **FADAR favorito** pode ter valor.
+  - **PRÓXIMO:** seguir rodando (1→[apito]2→3→4); o CLV começa a aparecer com os jogos desta semana.
 - **📍 2026-06-15 (manhã) — CHECKPOINT (handoff p/ outro chat):** loop operado (gols **n=43 BrierSkill +0.16**;
   vitória **n=20**). O forward **expôs um BUG** e ele foi **CONSERTADO no mesmo dia**:
   - **Bug:** vitória miscalibrava (ECE 0.32, probs extremas — `Iran×NZ 85% over2.5 / vitória 16%`,
