@@ -10,6 +10,7 @@ import { parseKambi, ktoBetofferUrl, ktoListViewUrl, parseKambiListView } from "
 import { parseBet6, bet6EventOddsUrl, bet6EventsBySeasonUrl, parseBet6EventList } from "./adapters/bet6.js";
 import { parseSuperbet, superbetEventOddsUrl, superbetEventsByDateUrl, parseSuperbetEventList } from "./adapters/superbet.js";
 import { parseStake, stakeEventOddsUrl, stakeTournamentUrl, parseStakeEventList } from "./adapters/stake.js";
+import { parseBetano, betanoEventOddsUrl, betanoUpcomingUrl, parseBetanoEventList } from "./adapters/betano.js";
 import { matchEventByName, type HouseEvent } from "./matchEvent.js";
 import type { RawCollectedLine } from "./normalizer.js";
 import type { OddsCollector, CollectContext } from "./types.js";
@@ -56,6 +57,16 @@ export const HOUSES: HouseDef[] = [
     book: "stake", needsBrowser: true,
     oddsUrl: stakeEventOddsUrl, parseOdds: parseStake,
     listUrl: () => stakeTournamentUrl(), parseList: parseStakeEventList,
+  },
+  {
+    // Betano (plataforma PRÓPRIA, www.betano.bet.br): motor de preço próprio (Kaizen) → diversidade
+    // real no line shopping. needsBrowser:false — a captura BR 2026-06-15 (França×Senegal 77353568)
+    // provou feed de 1ª parte por fetch puro, 200 deslogado, sem Turnstile interativo nem geoblock.
+    // ⚠ Se o `fetch` do Node tomar 403 no edge (Cloudflare por fingerprint, como na Stake), flipar
+    // needsBrowser:true — o "200 no navegador" nem sempre transfere pro Node.
+    book: "betano", needsBrowser: false,
+    oddsUrl: betanoEventOddsUrl, parseOdds: parseBetano,
+    listUrl: () => betanoUpcomingUrl(), parseList: parseBetanoEventList,
   },
 ];
 

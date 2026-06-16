@@ -71,6 +71,23 @@ export const STAKE_TABLE: HouseMarketTable = {
   "1007684761": { reject: "faltas SOFRIDAS (Faltas ganhas pelo jogador) — modelamos só as COMETIDAS" },
 };
 
+// Betano (plataforma PRÓPRIA, www.betano.bet.br). CONFIRMADO na captura de 2026-06-15 (deslogado,
+// BR; França×Senegal, eventId 77353568). A CHAVE é o market.typeId NUMÉRICO (id de TIPO de mercado,
+// GLOBAL — o mesmo em qualquer jogo), emitido como string pelo parser. Liquidação Opta: "Total de
+// Desarmes" (599) = GANHOS (won_tackle) — a pesquisa web confirmou que a Betano conta tackle GANHO
+// via Opta, não tentado; "Faltas cometidas" (1000679) = fouls committed. Rejeitados explícitos:
+// "Faltas ganhas" (1000678) = SOFRIDAS, e os subtipos de 1º tempo (1000680/1000681). Demais typeIds
+// (assistências/passes/cartão/gols...) caem como "não mapeado" → fail-closed.
+export const BETANO_TABLE: HouseMarketTable = {
+  "596": { market_type: "sot" },          // "{Jogador} Chutes no gol" (on-target)
+  "595": { market_type: "finalizacoes" }, // "{Jogador} Total de chutes" (total shots)
+  "599": { market_type: "desarmes" },     // "{Jogador} Total de Desarmes" = ganhos (won_tackle)
+  "1000679": { market_type: "faltas" },   // "{Jogador} Faltas cometidas" (fouls committed)
+  "1000678": { reject: "faltas SOFRIDAS (Faltas ganhas) — modelamos só as COMETIDAS" },
+  "1000680": { reject: "subtipo de 1º tempo (Total de chutes - Primeiro Tempo)" },
+  "1000681": { reject: "subtipo de 1º tempo (Chutes no gol - Primeiro Tempo)" },
+};
+
 /** Tabela de-para de uma casa pelo slug. Casa desconhecida → tabela vazia (rejeita tudo). */
 export function tableFor(book: string): HouseMarketTable {
   switch (book) {
@@ -78,6 +95,7 @@ export function tableFor(book: string): HouseMarketTable {
     case "betnacional": return BETNACIONAL_TABLE;
     case "superbet": return SUPERBET_TABLE;
     case "stake": return STAKE_TABLE;
+    case "betano": return BETANO_TABLE;
     default: return {};
   }
 }
