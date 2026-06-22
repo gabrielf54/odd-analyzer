@@ -80,6 +80,26 @@ create table if not exists odds_unificadas (
 );
 create index if not exists odds_unificadas_event_idx on odds_unificadas (event_id);
 
+-- odds_snapshots: histórico IMUTÁVEL de odds p/ CLV / movimento de linha (append-only,
+-- NUNCA update/delete). Cada (re)coleta fotografa as odds unificadas com o `lineup_status`
+-- do momento (marca a fronteira pré/pós-escalação no tempo). O CLV é DERIVADO daqui na
+-- leitura (não mais capturado por gatilho). Migração: create_odds_snapshots (2026-06-22).
+create table if not exists odds_snapshots (
+  id bigint generated always as identity primary key,
+  event_id text not null,
+  entidade_norm text not null,        -- identidade normalizada (casa com a aposta)
+  entidade text not null,             -- nome de exibição
+  market_type text not null,
+  linha numeric not null,
+  odd_over numeric not null,
+  odd_under numeric,
+  book text not null,
+  lineup_status text not null default 'unknown',  -- 'predicted'|'confirmed'|'unknown' no retrato
+  coletado_em timestamptz not null default now()
+);
+create index if not exists odds_snapshots_lookup_idx
+  on odds_snapshots (event_id, entidade_norm, market_type, linha, coletado_em);
+
 -- lido/escrito por SupabaseRepo.save_crosswalk/get_crosswalk
 create table if not exists jogadores_crosswalk (
   id_canonico bigint primary key,  -- id canonico do jogador, fornecido pelo caller (ex.: ID API-Football)

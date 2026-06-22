@@ -21,6 +21,21 @@ export interface OddsRow {
   coletado_em?: string;
 }
 
+/** Retrato IMUTÁVEL de uma odd num instante (histórico p/ CLV/movimento de linha).
+ * `lineup_status` = situação da escalação NO momento do retrato (marca a fronteira
+ * pré/pós-escalação no tempo). Append-only: nunca atualiza/apaga. */
+export interface OddsSnapshotRow {
+  entidade_norm: string;
+  entidade: string;
+  market_type: string;
+  linha: number;
+  odd_over: number;
+  odd_under: number | null;
+  book: string;
+  lineup_status: string; // 'predicted' | 'confirmed' | 'unknown'
+  coletado_em: string;
+}
+
 export interface OddsEventSummary {
   event_id: string;
   total_linhas: number;
@@ -44,6 +59,9 @@ export interface Repo {
   saveOddsUnificadas(eventId: string, rows: UnifiedOddsRow[]): Promise<void> | void;
   getOddsUnificadas(eventId: string): Promise<UnifiedOddsRow[]> | UnifiedOddsRow[];
   deleteOddsUnificadas(eventId: string): Promise<void> | void;
+  // odds_snapshots (histórico imutável p/ CLV/movimento de linha): append-only.
+  appendOddsSnapshot(eventId: string, rows: OddsSnapshotRow[]): Promise<void> | void;
+  getOddsSnapshots(eventId: string): Promise<OddsSnapshotRow[]> | OddsSnapshotRow[];
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
   getLedger(eventId: string): Promise<any[]> | any[];
@@ -66,6 +84,7 @@ export class InMemoryRepo implements Repo {
   crosswalk = new Map<number, any>();
   odds = new Map<string, OddsRow[]>();
   oddsUnificadas = new Map<string, UnifiedOddsRow[]>();
+  snapshots = new Map<string, OddsSnapshotRow[]>();
 
   saveAnalysis(eventId: string, payload: any) { this.analyses.set(eventId, payload); }
   getAnalysis(eventId: string) { return this.analyses.get(eventId) ?? null; }
@@ -126,6 +145,14 @@ export class InMemoryRepo implements Repo {
   }
   getOddsUnificadas(eventId: string): UnifiedOddsRow[] { return this.oddsUnificadas.get(eventId) ?? []; }
   deleteOddsUnificadas(eventId: string) { this.oddsUnificadas.delete(eventId); }
+
+  appendOddsSnapshot(eventId: string, rows: OddsSnapshotRow[]) {
+    const cur = this.snapshots.get(eventId) ?? [];
+    this.snapshots.set(eventId, [...cur, ...rows]);
+  }
+  getOddsSnapshots(eventId: string): OddsSnapshotRow[] {
+    return [...(this.snapshots.get(eventId) ?? [])].sort((a, b) => a.coletado_em.localeCompare(b.coletado_em));
+  }
 
   listOddsEvents(): OddsEventSummary[] {
     const out: OddsEventSummary[] = [];
@@ -295,6 +322,27 @@ export class SupabaseRepo implements Repo {
   }
   async deleteOddsUnificadas(eventId: string) {
     await this.mutate("deleteOddsUnificadas", this.client.from("odds_unificadas").delete().eq("event_id", eventId), { eventId });
+  }
+
+  async appendOddsSnapshot(eventId: string, rows: OddsSnapshotRow[]) {
+    if (!rows.length) return;
+    const out = rows.map((r) => ({ ...r, event_id: eventId }));
+    await this.mutate("appendOddsSnapshot", this.client.from("odds_snapshots").insert(out), { eventId, linhas: out.length });
+  }
+  async getOddsSnapshots(eventId: string): Promise<OddsSnapshotRow[]> {
+    const PAGE = 1000;
+    const out: OddsSnapshotRow[] = [];
+    for (let from = 0; ; from += PAGE) {
+      const page = await this.query<OddsSnapshotRow[]>(
+        "getOddsSnapshots",
+        this.client.from("odds_snapshots").select("*").eq("event_id", eventId)
+          .order("coletado_em").range(from, from + PAGE - 1),
+        [], { eventId, from },
+      );
+      out.push(...page);
+      if (page.length < PAGE) break;
+    }
+    return out;
   }
   async listOddsEvents(): Promise<OddsEventSummary[]> {
     const data = await this.query<any[]>("listOddsEvents", this.client.from("odds").select("event_id, coletado_em"), []);
