@@ -17,6 +17,10 @@ export interface RunCollectionOpts {
   /** registry de casas (injetável p/ teste); default = HOUSES real. */
   houses?: HouseDef[];
   log?: (msg: string) => void;
+  /** Agendador: marca o snapshot resultante com o marco (base/deriva/salto/fechamento). */
+  snapshotMark?: string;
+  /** Origem do snapshot: 'manual' (botão, default) | 'scheduler' (agendador 24h). */
+  snapshotOrigem?: string;
 }
 
 export interface RunCollectionResult {
