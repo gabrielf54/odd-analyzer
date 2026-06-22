@@ -9,8 +9,9 @@ export interface Deps {
   client: any;
   repo: any;
   reviewerFn?: ReviewerFn;
-  /** Agendador 24h (opcional): expõe os jobs agendados p/ o painel. Ausente = desligado. */
-  scheduler?: { status: () => { scheduled: any[] } };
+  /** Agendador 24h (opcional): expõe os jobs agendados p/ o painel + `kick` (re-descobre
+   *  AGORA, chamado após busca manual → o jogo buscado entra no rastreio). Ausente = desligado. */
+  scheduler?: { status: () => { scheduled: any[] }; kick?: () => void };
 }
 
 const analyzeSchema = z.object({
@@ -129,7 +130,11 @@ export function createApp(deps: Deps): express.Express {
     const evId = String(req.params.eventId);
     const log = (m: string) => console.log(`[coletar ${evId}] ${m}`);
     try {
-      res.json(await service.coletarOddsService(deps.client, deps.repo, evId, fetchers, { dry, overrides, log }));
+      const out = await service.coletarOddsService(deps.client, deps.repo, evId, fetchers, { dry, overrides, log });
+      // Gatilho "após a 1ª busca": o jogo buscado agora tem odds → o agendador o adota no
+      // rastreio (deriva/salto/fechamento) sem esperar a varredura horária.
+      if (!dry) deps.scheduler?.kick?.();
+      res.json(out);
     } finally {
       await fetchers.close();
     }

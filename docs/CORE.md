@@ -161,15 +161,19 @@ número).
   mercado), `snapshotClosing`. **É o que valida a seleção AO VIVO** (a calib offline foi em AFCON/
   amistoso, não na Copa).
 - **Agendador 24h IN-PROCESS (2026-06-22):** subir a API (`npm run dev`) já liga um daemon
-  (`src/scheduler/`) que, **sozinho e sem custo** (sem Claude, sem OpenRouter), por jogo da Copa:
-  fotografa odds nos **marcos que movem a linha** (abertura K−6h · deriva K−3h · **salto da
-  escalação** via vigília K−90→−15min · fechamento K−3min), e em varreduras roda `forwardLog`
-  (6h) + `settle` (1h) + re-descoberta (1h). Núcleo PURO (`plan.computeSchedule`/`lineupWatch.detectFlip`)
-  + casca (`runner`, deps injetadas): **fila serializada de 1 coleta** (headless não tolera concorrência),
+  (`src/scheduler/`) que, **sozinho e sem custo** (sem Claude, sem OpenRouter), fotografa odds nos
+  **marcos que movem a linha** (deriva K−3h · **salto da escalação** via vigília K−90→−15min ·
+  fechamento K−3min; abertura K−6h se ainda futura), e em varreduras roda `forwardLog` (6h) +
+  `settle` (1h) + re-descoberta (1h). **GATILHO "após a 1ª busca" (decisão do dono):** a coleta de
+  odds só rastreia jogos que o dono **JÁ BUSCOU** (têm linhas em `odds`) — a 1ª busca = a entrada/CLV;
+  o `POST /coletar-odds` dá `kick()` → o jogo entra no rastreio na hora. Jogo nunca aberto = não
+  coletado (não se apostaria nele). **`forwardLog`/`settle` (gols/vitória, $0) seguem GLOBAIS** (todos
+  os jogos da Copa). Núcleo PURO (`plan`/`lineupWatch`) + casca (`runner`, deps injetadas): **fila
+  serializada de 1 coleta** (headless não tolera concorrência) com **timeout** (não trava 24/7),
   **dedup restart-safe** e **erro isolado**. Diário em **`scheduler_runs`** (auditável) e cada snapshot
-  carrega **`mark`+`origem`** (`odds_snapshots`). "Enriquecer ≠ poluir": ~4–5 coletas/jogo, só Copa,
-  anti-trap já filtra. Flag `SCHEDULER_ENABLED=false` desliga; `GET /scheduler/status` + painel
-  **Agendador** no front. Não toca money-path (gate intacto). Substitui o "cron manual" do runbook.
+  carrega **`mark`+`origem`** (`odds_snapshots`). Flag `SCHEDULER_ENABLED=false` desliga;
+  `GET /scheduler/status` + painel **Agendador** no front. Não toca money-path (gate intacto).
+  Substitui o "cron manual" do runbook.
 - **Sinais de contexto p/ a IA (texto, fora do número):** `forma_tendencia` (alta/queda/estável) e
   `posse_adversario` (% posse do rival, com orientação por-mercado). `populacao_motivo` (selo).
 - **Odds unificadas — espelho canônico (2026-06-15):** tabela `odds_unificadas` = 1 linha por aposta

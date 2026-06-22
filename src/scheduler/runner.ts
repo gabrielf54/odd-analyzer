@@ -83,6 +83,10 @@ export class SchedulerRunner {
     return { scheduled: this.jobs.filter((j) => j.fireAt > now).sort((a, b) => a.fireAt - b.fireAt) };
   }
 
+  /** Re-roda a descoberta AGORA. Chamado logo após uma busca MANUAL de odds → o jogo
+   *  recém-buscado entra no rastreio na hora, sem esperar a varredura horária. */
+  kick(): void { if (this.started) void this.discoverAndSchedule(); }
+
   private addInterval(i: ReturnType<typeof setInterval>) { this.intervals.add(i); }
 
   private async discoverAndSchedule(): Promise<void> {

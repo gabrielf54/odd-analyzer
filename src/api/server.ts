@@ -7,7 +7,7 @@ import { BSDClient } from "../bsd/client.js";
 import { createSupabaseRepo } from "../store/repo.js";
 import { BSDStatsProvider } from "../providers/stats.js";
 import { SchedulerRunner, withTimeout, type RunnerDeps } from "../scheduler/runner.js";
-import { upcomingGames } from "../scheduler/plan.js";
+import { upcomingGames, filterEngaged } from "../scheduler/plan.js";
 import { runForwardLog, runSettle } from "../scheduler/jobs.js";
 import { coletarOddsService, lineupStatusFromLineups } from "../service.js";
 
@@ -23,7 +23,12 @@ function buildScheduler(client: any, repo: any): SchedulerRunner {
         const data = await client.events({ league_id: lg, status: "notstarted", limit: 200 });
         all.push(...(data?.results ?? []));
       }
-      return upcomingGames(all, new Date(), horizonH, leagues);
+      const upcoming = upcomingGames(all, new Date(), horizonH, leagues);
+      // Gatilho "após a 1ª busca": só rastreia odds dos jogos que o dono JÁ BUSCOU (têm
+      // linhas em `odds`). Jogo nunca aberto = não coletado (não se apostaria nele). O
+      // forwardLog/settle (gols/vitória, $0) seguem GLOBAIS, fora deste filtro.
+      const engagedIds = (await repo.listOddsEvents()).map((e: any) => e.event_id);
+      return filterEngaged(upcoming, engagedIds);
     },
     collect: async (eventId, mark) => {
       const { makeFetchers } = await import("../cli/fetchers.js");

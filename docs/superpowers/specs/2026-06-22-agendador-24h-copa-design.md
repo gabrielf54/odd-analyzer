@@ -35,6 +35,14 @@ Módulo novo `src/scheduler/`, núcleo **PURO** (testável) + casca **ADAPTER** 
   - **Sem dependência nova:** jobs one-shot em horário absoluto = `setTimeout`; varreduras
     periódicas = `setInterval`. (node-cron seria YAGNI.)
 
+## Gatilho da coleta — "após a 1ª busca" (decisão do dono, 2026-06-22)
+
+A coleta de odds só rastreia jogos que o dono **já buscou** (têm linhas em `odds`): a 1ª busca
+manual = a entrada/CLV; daí o robô coleta os marcos restantes. `discover` = `upcomingGames ∩
+filterEngaged(listOddsEvents)`; o `POST /coletar-odds` chama `scheduler.kick()` → o jogo entra no
+rastreio na hora (sem esperar a varredura horária). Jogo nunca aberto = não coletado. **`forwardLog`
+e `settle` (gols/vitória, $0) seguem GLOBAIS** (todos os jogos da Copa), fora deste filtro.
+
 ## Marcos por jogo (kickoff = K) — "enriquecer ≠ poluir"
 
 | Marco (`mark`) | Quando | Ação |

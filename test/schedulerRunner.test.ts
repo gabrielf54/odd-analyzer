@@ -131,6 +131,22 @@ describe("SchedulerRunner", () => {
     runner.stop();
   });
 
+  it("kick() re-descobre AGORA (pega jogo recém-buscado sem esperar a varredura)", async () => {
+    vi.setSystemTime(new Date("2026-06-22T06:00:00Z"));
+    let games: any[] = [];
+    const discover = vi.fn(async () => games);
+    const deps = makeDeps({ discover });
+    const runner = new SchedulerRunner(deps);
+    runner.start();
+    await vi.advanceTimersByTimeAsync(50); // discover inicial → vazio
+    expect(runner.status().scheduled.length).toBe(0);
+    games = [{ event_id: "1", jogo: "A x B", kickoff: KICKOFF }]; // usuário buscou odds
+    runner.kick();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(runner.status().scheduled.length).toBeGreaterThan(0);
+    runner.stop();
+  });
+
   it("status() devolve jogos agendados (futuros)", async () => {
     vi.setSystemTime(new Date("2026-06-22T06:00:00Z"));
     const deps = makeDeps({ discover: vi.fn(async () => [{ event_id: "1", jogo: "A x B", kickoff: KICKOFF }]) });

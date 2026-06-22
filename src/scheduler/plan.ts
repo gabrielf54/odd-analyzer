@@ -48,6 +48,13 @@ export function upcomingGames(events: any[], now: Date, horizonH: number, league
   return out.sort((a, b) => a.kickoff.localeCompare(b.kickoff));
 }
 
+/** Filtra os jogos que o dono ENGAJOU (já buscou odds) — o agendador só rastreia esses
+ *  (gatilho "após a 1ª busca": enriquecer ≠ poluir). `engagedIds` = event_ids com odds. */
+export function filterEngaged(games: Game[], engagedIds: Iterable<string>): Game[] {
+  const set = new Set([...engagedIds].map((x) => String(x)));
+  return games.filter((g) => set.has(String(g.event_id)));
+}
+
 /** Agenda de marcos por jogo (horário absoluto). Pula marco já passado; o lineup_watch
  *  agenda no início da janela (ou já, se a janela começou), desde que ela não tenha
  *  fechado (K - lineupEndMin). */

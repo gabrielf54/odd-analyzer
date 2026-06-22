@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { upcomingGames, computeSchedule, SCHED } from "../src/scheduler/plan.js";
+import { upcomingGames, computeSchedule, filterEngaged, SCHED } from "../src/scheduler/plan.js";
 
 const H = 3600_000, M = 60_000;
 const ev = (id: string, home: string, away: string, dateISO: string, league = 27) =>
@@ -30,6 +30,22 @@ describe("upcomingGames", () => {
       ev("b", "W", "Z", "2026-06-22T12:00:00Z"),
     ];
     expect(upcomingGames(evs, now, 30, [27]).map((x) => x.event_id)).toEqual(["b", "a"]);
+  });
+});
+
+describe("filterEngaged (só rastreia jogos que o dono buscou)", () => {
+  const games = [
+    { event_id: "1", jogo: "A x B", kickoff: "2026-06-22T14:00:00Z" },
+    { event_id: "2", jogo: "C x D", kickoff: "2026-06-22T18:00:00Z" },
+  ];
+  it("mantém só os com odds buscadas", () => {
+    expect(filterEngaged(games, ["1"]).map((g) => g.event_id)).toEqual(["1"]);
+  });
+  it("nenhum engajado → vazio", () => {
+    expect(filterEngaged(games, [])).toEqual([]);
+  });
+  it("normaliza tipo (number vs string)", () => {
+    expect(filterEngaged(games, [2 as any]).map((g) => g.event_id)).toEqual(["2"]);
   });
 });
 
