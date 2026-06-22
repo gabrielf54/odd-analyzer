@@ -92,6 +92,18 @@ function playersFromLineup(side: any): any[] {
   }));
 }
 
+/** Status da escalação a partir do payload de `client.lineups()` (/events/{id}/lineups/) —
+ * É A FONTE do status (o getEvent NÃO traz lineup_status; ler de lá dava 'unknown' sempre).
+ * confirmed > predicted (tem escalação provável) > unknown. Espelha probableLineup. */
+export function lineupStatusFromLineups(data: any): "predicted" | "confirmed" | "unknown" {
+  const lineups = data?.lineups ?? {};
+  const confirmed = data?.lineup_status === "confirmed" ||
+    Object.values(lineups).some((v: any) => v && typeof v === "object" && v.confirmed);
+  if (confirmed) return "confirmed";
+  const tem = playersFromLineup(lineups.home ?? {}).length || playersFromLineup(lineups.away ?? {}).length;
+  return tem ? "predicted" : "unknown";
+}
+
 async function playersFromRecentGames(client: any, teamId: string, nGames = 3): Promise<any[]> {
   if (!teamId) return [];
   const evs = await client.events({ team_id: teamId, status: "finished", limit: nGames });
@@ -336,8 +348,7 @@ export async function getOddsService(repo: any, eventId: string): Promise<OddsRo
 export async function coletarOddsService(
   client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
 ): Promise<RunCollectionResult> {
-  const raw = await client.getEvent(eventId);
-  const ev = normalizeEvent(raw);
+  const ev = normalizeEvent(await client.getEvent(eventId));
   const home = ev.home_team?.name ?? "", away = ev.away_team?.name ?? "";
   opts.log?.(`jogo BSD ${ev.id}: "${home}" x "${away}" — resolvendo nas casas...`);
   const res = await runCollection(
@@ -347,8 +358,10 @@ export async function coletarOddsService(
   // Espelho automático: re-gera odds_unificadas do cru recém-gravado (dry não grava).
   if (!opts.dry) {
     await reprojectUnifiedOdds(repo, String(ev.id));
-    // Retrato no histórico imutável, marcando a escalação DESTE momento (pré/pós).
-    await appendSnapshotFromUnified(repo, String(ev.id), String(raw.lineup_status ?? "unknown"));
+    // Status da escalação DESTE momento (pré/pós) vem do /lineups/ — o getEvent não traz.
+    let lineupStatus = "unknown";
+    try { lineupStatus = lineupStatusFromLineups(await client.lineups(eventId)); } catch { /* unknown */ }
+    await appendSnapshotFromUnified(repo, String(ev.id), lineupStatus);
   }
   return res;
 }
