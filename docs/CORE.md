@@ -7,7 +7,13 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-22 (**VALIDAÇÃO HONESTA + CLV AUTOMÁTICO (TDD, 463 testes, gate intacto):**
+> **Atualizado:** 2026-06-22 (**AGENDADOR 24h IN-PROCESS (TDD, 498 testes back + 96 front, gate intacto):**
+> subir a API liga um daemon (`src/scheduler/`) que coleta odds nos marcos de cada jogo da Copa (abertura/
+> deriva/**salto da escalação**/fechamento) + roda `forwardLog`/`settle` em varredura, **sozinho e sem custo**
+> (sem Claude, sem OpenRouter). Núcleo PURO (`plan`/`lineupWatch`) + casca (`runner`): fila serializada,
+> dedup restart-safe, erro isolado. Diário `scheduler_runs` + `mark`/`origem` em `odds_snapshots` (migrações
+> aplicadas) + `GET /scheduler/status` + painel **Agendador** no front. Portas trocadas (back **5926**/front
+> **5927**, fora das genéricas). Ver §3.2 + `docs/superpowers/`.) · 2026-06-22 (**VALIDAÇÃO HONESTA + CLV AUTOMÁTICO (TDD, 463 testes, gate intacto):**
 > (1) **Painel de validação no `report.ts`** (`src/backtest/validation.ts`): **modelo×casa** (Brier do nosso
 > número × o de-vig da casa, ambos vs resultado — só linhas de 2 lados) revela que **a CASA ainda ganha em
 > gols/vitória** (sem edge mensurável); **IC 95% por bootstrap** no BrierSkill revela que **TODOS os skills
@@ -154,6 +160,16 @@ número).
   CLIs `settle` (liquida pelo resultado real; desarme por `won_tackle`), `report` (Brier/ECE/CLV por
   mercado), `snapshotClosing`. **É o que valida a seleção AO VIVO** (a calib offline foi em AFCON/
   amistoso, não na Copa).
+- **Agendador 24h IN-PROCESS (2026-06-22):** subir a API (`npm run dev`) já liga um daemon
+  (`src/scheduler/`) que, **sozinho e sem custo** (sem Claude, sem OpenRouter), por jogo da Copa:
+  fotografa odds nos **marcos que movem a linha** (abertura K−6h · deriva K−3h · **salto da
+  escalação** via vigília K−90→−15min · fechamento K−3min), e em varreduras roda `forwardLog`
+  (6h) + `settle` (1h) + re-descoberta (1h). Núcleo PURO (`plan.computeSchedule`/`lineupWatch.detectFlip`)
+  + casca (`runner`, deps injetadas): **fila serializada de 1 coleta** (headless não tolera concorrência),
+  **dedup restart-safe** e **erro isolado**. Diário em **`scheduler_runs`** (auditável) e cada snapshot
+  carrega **`mark`+`origem`** (`odds_snapshots`). "Enriquecer ≠ poluir": ~4–5 coletas/jogo, só Copa,
+  anti-trap já filtra. Flag `SCHEDULER_ENABLED=false` desliga; `GET /scheduler/status` + painel
+  **Agendador** no front. Não toca money-path (gate intacto). Substitui o "cron manual" do runbook.
 - **Sinais de contexto p/ a IA (texto, fora do número):** `forma_tendencia` (alta/queda/estável) e
   `posse_adversario` (% posse do rival, com orientação por-mercado). `populacao_motivo` (selo).
 - **Odds unificadas — espelho canônico (2026-06-15):** tabela `odds_unificadas` = 1 linha por aposta
@@ -165,8 +181,9 @@ número).
   Endpoints `POST /jogos/:id/unificar-odds` (botão) + `GET /jogos/:id/odds-unificadas`. Front: tela única
   (decisão + log) com botão "Unificar odds". Validado live (8299): 1485 cruas → 982 apostas, 27 divergências.
 - **Persistência:** Supabase — `odds` (LOG cru das odds), `odds_unificadas` (espelho canônico = o que a
-  análise considera), `analises` (resultado completo por jogo), `paper_ledger` (apostas-papel + CLV),
-  `jogadores_crosswalk`.
+  análise considera), `odds_snapshots` (histórico IMUTÁVEL p/ CLV, com `lineup_status`/`mark`/`origem`),
+  `analises` (resultado completo por jogo), `paper_ledger` (apostas-papel + CLV), `scheduler_runs`
+  (diário do agendador 24h), `jogadores_crosswalk`.
 - **Stack:** Node/TS (raiz, `src/`+`test/`), Express **:5926**, front Next **:5927** (portas
   específicas, fora das genéricas), em repo separado. Ports & Adapters; motor são funções puras;
   gate de paridade protege os números.
@@ -178,7 +195,7 @@ número).
 ### 🔴 DURANTE a Copa (população seleção)
 | # | Feature | Por que na Copa | Detalhe |
 |---|---|---|---|
-| ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa), valida **gols/vitória** (ratings) e regrada as linhas demovidas se mostrarem skill ao vivo. **RUNBOOK pronto** (3 comandos: `forwardLog`→`settle`→`report`) — **Claude: siga** [`features/forward-loop-copa`](features/forward-loop-copa/). 40 previsões já logadas (2026-06-12). | [`forward-loop-copa`](features/forward-loop-copa/) |
+| ① | **Forward (RODAR)** | não é feature nova — é OPERAR. Confirma a seleção ao vivo (calib foi em AFCON, não Copa), valida **gols/vitória** (ratings) e regrada as linhas demovidas se mostrarem skill ao vivo. **Agora AUTOMÁTICO:** o agendador 24h (§3.2) roda `forwardLog`/`settle` sozinho; o `report.ts`/painel CLV dão o veredito. RUNBOOK (`forwardLog`→`settle`→`report`) segue válido p/ rodar à mão — **Claude: siga** [`features/forward-loop-copa`](features/forward-loop-copa/). | [`forward-loop-copa`](features/forward-loop-copa/) |
 | ①b | **RATINGS de força no λ de partida** ✅ **FEITO 2026-06-12** | gols/1X2 reprovaram com média-cruda; ratings tipo Elo VENCEM (ECE 0.13→0.04). **PRODUCTIONIZADO** (`src/model/ratings.ts` puro + `pipeline.runMatch` com fallback + `leaguePool` no provider; 17 testes novos, gate intacto). **Resta:** acumular **forward/CLV** → flippar `validated_lines` de gols/vitória. | prova em [`mercados-nao-validados`](features/mercados-nao-validados/) (exp. 2026-06-12b); `recalibrate-match-strength.mts` |
 | ② | **N5 — mismatch/posse** | fase de grupos = jogos MUITO desiguais; favorito massacra → afeta os props direto | [`features/durante-copa/N5-mismatch-posse`](features/durante-copa/N5-mismatch-posse/) |
 | ④ | **N2 — prior por força de liga** | forma de seleção fraca é ruidosa → aperta a precisão nos times menores | [`features/durante-copa/N2-prior-forca-liga`](features/durante-copa/N2-prior-forca-liga/) |

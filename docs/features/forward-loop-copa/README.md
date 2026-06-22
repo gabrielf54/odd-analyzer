@@ -132,9 +132,14 @@ rodando — o loop acumula.
 
 ## Automação
 
-Idealmente um agente agendado (cron) roda os 3 comandos 1×/dia durante a Copa. Se houver um cron
-configurado, ele aponta para este runbook. Se não, **qualquer sessão** em que o dono mencione a Copa/
-forward: rode os 3 comandos e reporte o `report.ts` em linguagem leiga (lembre: o dono não lê código).
+**LIGADA desde 2026-06-22 — agendador 24h IN-PROCESS** (`src/scheduler/`, ver CORE §3.2). Subir a API
+(`npm run dev`) já roda sozinho, por jogo da Copa: coleta de odds nos marcos (abertura/deriva/**salto da
+escalação**/fechamento) + `forwardLog` (varredura 6h) + `settle` (varredura 1h). Diário em `scheduler_runs`
+e painel **Agendador** no front (`GET /scheduler/status`). Flag `SCHEDULER_ENABLED=false` desliga.
+
+Os 3 comandos abaixo seguem válidos para rodar **à mão** (são as mesmas funções que o agendador chama —
+`runForwardLog`/`runSettle` em `src/scheduler/jobs.ts`; os CLIs são cascas finas). **Qualquer sessão** em
+que o dono mencione a Copa/forward: rode-os e reporte o `report.ts` em linguagem leiga (o dono não lê código).
 
 ## Quando ARQUIVAR esta pasta
 
