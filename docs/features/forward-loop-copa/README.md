@@ -79,6 +79,26 @@ rodando — o loop acumula.
 
 ## Estado atual (atualize a cada rodada)
 
+- **📍 2026-06-22 — FORWARD LIMPO (2 bugs de MEDIÇÃO consertados, TDD, 452 testes, gate intacto):**
+  o forward foi rodado (`settle`+`report`) e a investigação expôs que o "modelo ruim" era ~80%
+  **medição**, não motor:
+  - **BUG 1 — settle da vitória:** `settleMatchRows` liquidava os 3 lados (1/X/2) como "mandante
+    venceu?" → as linhas `(2)`/`(X)` recebiam resultado ERRADO. Fix: lê o lado do rótulo
+    (`outcome1x2FromLabel`). Vitória forward **BrierSkill −0.33→+0.14** (ECE 0.26→0.10, n=57).
+    Re-liquidado o histórico (22 linhas de vitória corrigidas).
+  - **BUG 2 — DNP no settle:** o forward logava reserva/banco como aposta (ex.: Berhalter 16'/0
+    chutes contava como modelo errado). Fix: `MIN_SETTLE_MINUTES=60` em `settlePlayerRows` (espelha
+    a calib offline) + limpeza retroativa de **112 linhas DNP** (anuladas). → **sot +0.016→+0.26**
+    (linha validada disse 28%/real 26%, calibrado), **faltas +0.18→+0.31**.
+  - **Estado limpo do report:** gols +0.06/ECE 0.11 (n=82) · vitória +0.14/ECE 0.10 (n=57) · faltas
+    +0.31 (n=57) · sot +0.26 (n=26) · **finalizações −0.25 (n=66)** · desarmes n=6.
+  - **Resíduo REAL único — finalizações over-prediz os picks de edge** (linha validada disse 40%/real
+    17%, n=35): **maldição do vencedor** (edge>0 seleciona os exageros do modelo) + viés de zagueiro
+    (a casa precifica zagueiro baixo, o modelo infla via prior 1.2 chutes). Offline a banda é ~OK
+    (audit 2026-06-11) → **NÃO mexer no μ**; mitigação = corte de edge / shrink do edge, mas precisa de
+    forward LIMPO p/ calibrar sem overfitar n=35. **Não implementado** (doutrina: sem validar, não entra).
+  - **GRADUAÇÃO:** nada cruza ainda (ECE>0.05 em gols/vitória; n modesto). O loop agora acumula
+    HONESTO — seguir rodando os 3 comandos; vitória/sot/faltas são os candidatos mais próximos.
 - **📍 2026-06-15 — CHECKPOINT (handoff p/ outro chat):** loop operado (gols **n=43 BrierSkill +0.16**;
   vitória **n=20**). O forward **expôs um BUG** e ele foi **CONSERTADO no mesmo dia**:
   - **Bug:** vitória miscalibrava (ECE 0.32, probs extremas — `Iran×NZ 85% over2.5 / vitória 16%`,

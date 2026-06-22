@@ -32,6 +32,16 @@ describe("settlePlayerRows", () => {
     const ledger = [{ event_id: "e1", jogador: "Z", player_id: "9999", linha: 0.5, market_type: "sot" }];
     expect(settlePlayerRows(ledger, ps)).toEqual([]);
   });
+  it("poucos minutos (<60) → NÃO liquida: prop pressupõe que o jogador atuou (espelha calib ≥60min)", () => {
+    const reserva = [{ player_id: 3000, minutes_played: 16, shots_on_target: 0, total_shots: 0 }];
+    const ledger = [{ event_id: "e1", jogador: "Reserva", player_id: "3000", linha: 0.5, market_type: "sot" }];
+    expect(settlePlayerRows(ledger, reserva)).toEqual([]);
+  });
+  it("minutos suficientes (>=60) → liquida normalmente", () => {
+    const titular = [{ player_id: 3000, minutes_played: 75, shots_on_target: 2, total_shots: 3 }];
+    const ledger = [{ event_id: "e1", jogador: "Titular", player_id: "3000", linha: 0.5, market_type: "sot" }];
+    expect(settlePlayerRows(ledger, titular)[0]!.resultado).toBe(1);
+  });
 });
 
 describe("settleMatchRows (gols/vitória pelo placar)", () => {
@@ -63,5 +73,36 @@ describe("settleMatchRows (gols/vitória pelo placar)", () => {
   it("ignora linhas de player prop (só partida)", () => {
     const mixed = [{ event_id: "e1", jogador: "X", player_id: "1", linha: 0.5, market_type: "sot" }];
     expect(settleMatchRows(mixed, { home_score: 1, away_score: 1 })).toEqual([]);
+  });
+});
+
+describe("settleMatchRows (1X2 — liquida o LADO certo pelo rótulo (1)/(X)/(2))", () => {
+  // A vitória loga 3 linhas por jogo (mandante/empate/visitante), distinguidas pelo
+  // sufixo do `jogador`. Liquidar TODAS como "mandante venceu?" (bug pré-2026-06-21)
+  // marca (2)/(X) com resultado errado e arruína a calibração da vitória.
+  const ledger = [
+    { event_id: "e1", jogador: "A x B (1)", linha: 0.5, market_type: "vitoria" },
+    { event_id: "e1", jogador: "A x B (X)", linha: 0.5, market_type: "vitoria" },
+    { event_id: "e1", jogador: "A x B (2)", linha: 0.5, market_type: "vitoria" },
+  ];
+  it("visitante vence (1x2): só (2) bate", () => {
+    const out = settleMatchRows(ledger, { home_score: 1, away_score: 2 });
+    const byLado = Object.fromEntries(out.map((r) => [r.jogador, r.resultado]));
+    expect(byLado).toEqual({ "A x B (1)": 0, "A x B (X)": 0, "A x B (2)": 1 });
+  });
+  it("empate (1x1): só (X) bate", () => {
+    const out = settleMatchRows(ledger, { home_score: 1, away_score: 1 });
+    const byLado = Object.fromEntries(out.map((r) => [r.jogador, r.resultado]));
+    expect(byLado).toEqual({ "A x B (1)": 0, "A x B (X)": 1, "A x B (2)": 0 });
+  });
+  it("mandante vence (2x0): só (1) bate", () => {
+    const out = settleMatchRows(ledger, { home_score: 2, away_score: 0 });
+    const byLado = Object.fromEntries(out.map((r) => [r.jogador, r.resultado]));
+    expect(byLado).toEqual({ "A x B (1)": 1, "A x B (X)": 0, "A x B (2)": 0 });
+  });
+  it("linha 1X2 sem sufixo (legado) → assume mandante (retrocompat)", () => {
+    const legado = [{ event_id: "e1", jogador: "A x B", linha: 0.5, market_type: "vitoria" }];
+    expect(settleMatchRows(legado, { home_score: 2, away_score: 0 })[0]!.resultado).toBe(1);
+    expect(settleMatchRows(legado, { home_score: 0, away_score: 2 })[0]!.resultado).toBe(0);
   });
 });

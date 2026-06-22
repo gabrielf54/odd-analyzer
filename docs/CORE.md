@@ -7,7 +7,17 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-15 (**PAINEL DE ATAQUE + round de validação** — montado o painel em
+> **Atualizado:** 2026-06-22 (**FORWARD LIMPO — 2 bugs de MEDIÇÃO consertados (TDD, 452 testes,
+> gate de paridade intacto), não o motor:** (1) **settle da vitória** liquidava os 3 lados (1/X/2)
+> como "mandante venceu?" → (2)/(X) recebiam resultado ERRADO; `settleMatchRows` agora lê o lado do
+> rótulo → vitória forward **BrierSkill −0.33→+0.14** (ECE 0.26→0.10). (2) **gate de minutos no settle**
+> (≥60min, espelha a calib offline) + limpeza retroativa de **112 linhas DNP** (reserva/banco logado como
+> aposta, ex.: Berhalter 16') → **sot +0.016→+0.26** (linha validada disse 28%/real 26%, calibrado),
+> **faltas +0.18→+0.31**. Resíduo REAL único: **finalizações over-prediz seus picks de edge** (linha
+> validada disse 40%/real 17%, n=35) = **maldição do vencedor** (edge>0 seleciona os exageros) + viés
+> de zagueiro; offline a banda é ~OK → NÃO mexer no μ, precisa de forward limpo p/ calibrar o corte de
+> edge (não overfitar n=35). **NADA gradua ainda** (ECE>0.05/n modesto); o loop agora acumula HONESTO.
+> Ver §3.1 e [`forward-loop-copa`](features/forward-loop-copa/)) · 2026-06-15 (**PAINEL DE ATAQUE + round de validação** — montado o painel em
 > [`features/mercados-nao-validados/`](features/mercados-nao-validados/) com protocolo anti-retrabalho;
 > round offline ($0): **escanteios-produção, faltas-R-por-linha e o EIXO DIRECIONAL inteiro REPROVARAM**
 > → §5. O **eixo direcional (a "alma do produto") está MORTO com prova** — StatsBomb (dado posicional rico,
@@ -97,7 +107,7 @@ e no campo que a casa **liquida**. A banda separa estrela real de **fantasma** (
 | **desarmes** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | decomp `μ_tentativas × aproveitamento(won/total)`, paga `won_tackle`. clube 0.5 full +0.110/banda +0.008. seleção 1.5 era fantasma (full +0.0085, banda **−0.081**/ECE 0.13) → **DEMOVIDA**. **2.5 morto** |
 | **faltas** | **só 0.5** ✅ | **só 0.5** ✅ (**GRADUOU**) | comete `fouls` × adversário provoca `was_fouled`. clube 0.5 full +0.063/banda ~0. 1.5/2.5 negativos nas duas → sem ⭐ |
 | **passes** | ⬛ **diagnóstico** | ⬛ **diagnóstico** | off=0 ≈ 0 nas duas (sel −0.011, clube +0.003); posse-dominado. **de-vig de escada** `value/ladderDevig.ts`; acumula forward, SEM ⭐ → [`mercados-nao-validados`](features/mercados-nao-validados/) |
-| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05). **FIX 2026-06-15:** o forward expôs vitória miscalibrando (ECE 0.32, probs extremas tipo `Iran×NZ 85%/16%`) — causa: time de histórico raso (NZ 2 jogos) era **inelegível (floor=5) → caía na média-crua cega** que invertia o mismatch. Corrigido: **floor=1 (usa o rating encolhido, não o fallback) + `shrinkK=3`** (sweep `sweep-shrink-selecao.mts` n=1006: floor=1 dá vitória full BrierSkill +0.10; Elo de LR lento já regulariza raso). `Iran×NZ` → 60%/50% (são). **Falta só forward/CLV** p/ flippar `validated_lines` → sem ⭐ ainda |
+| **gols / vitória** | ratings em prod | ratings em prod | λ=média-gols-cru REPROVOU (gols ECE 0.10-0.15; vitória mando ECE 0.13). **RATINGS tipo Elo VENCEM e estão PRODUCTIONIZADOS 2026-06-12** (`model/ratings.ts`+`runMatch`, fallback; ECE→0.03-0.05). **FIX 2026-06-15:** o forward expôs vitória miscalibrando (ECE 0.32, probs extremas tipo `Iran×NZ 85%/16%`) — causa: time de histórico raso (NZ 2 jogos) era **inelegível (floor=5) → caía na média-crua cega** que invertia o mismatch. Corrigido: **floor=1 (usa o rating encolhido, não o fallback) + `shrinkK=3`** (sweep `sweep-shrink-selecao.mts` n=1006: floor=1 dá vitória full BrierSkill +0.10; Elo de LR lento já regulariza raso). `Iran×NZ` → 60%/50% (são). **FORWARD LIMPO 2026-06-22** (após consertar o bug de settle dos lados 1/X/2): vitória BrierSkill **+0.14**/ECE 0.10 (n=57) — **mandante SUBESTIMADO** (disse 40%/venceu 57%; resíduo Modo 2 cross-confederação); gols +0.06/ECE 0.11 (n=82, leve sub). **Falta só forward/CLV** (ECE ainda >0.05) p/ flippar `validated_lines` → sem ⭐ ainda |
 | **escanteios** | corner ausente | sem edge | clube baseline over 10.5 só +0.007 (sem edge); **eixo de concessão TESTADO 2026-06-12 → reprovado**. seleção sem `corner_kicks`. sem ⭐ → forward |
 
 Graduação **gradual por (mercado, população, linha)** conforme calibração/forward provar. Config:
