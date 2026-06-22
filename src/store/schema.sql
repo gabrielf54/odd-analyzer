@@ -37,6 +37,9 @@ create table if not exists paper_ledger (
   resultado int,
   clv numeric,
   criado_em timestamptz default now(),
+  -- CLV automático (Rec 2, add_fechamento_em_to_paper_ledger 2026-06-22): quando o
+  -- fechamento foi capturado (re-coleta de odds perto do kickoff). criado_em = entrada.
+  fechamento_em timestamptz,
   unique (event_id, jogador, linha, market_type)
 );
 

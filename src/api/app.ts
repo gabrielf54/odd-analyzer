@@ -143,6 +143,13 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.unificarOddsService(deps.repo, String(req.params.eventId)));
   }));
 
+  // CLV automático (Rec 2): captura a odd de FECHAMENTO (= odds atuais) p/ as apostas já
+  // logadas e grava odd_fechamento/prob_devig_fechamento/clv/fechamento_em. Já roda sozinho
+  // ao (re)coletar/unificar odds; este é o gatilho EXPLÍCITO (ex.: re-buscar odds às 14h).
+  app.post("/jogos/:eventId/capturar-fechamento", wrap(async (req, res) => {
+    res.json(await service.capturarFechamentoService(deps.repo, String(req.params.eventId)));
+  }));
+
   app.get("/jogos/:eventId/odds-unificadas", wrap(async (req, res) => {
     res.json(await service.getOddsUnificadasService(deps.repo, String(req.params.eventId)));
   }));
