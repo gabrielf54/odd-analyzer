@@ -84,6 +84,8 @@ create index if not exists odds_unificadas_event_idx on odds_unificadas (event_i
 -- NUNCA update/delete). Cada (re)coleta fotografa as odds unificadas com o `lineup_status`
 -- do momento (marca a fronteira pré/pós-escalação no tempo). O CLV é DERIVADO daqui na
 -- leitura (não mais capturado por gatilho). Migração: create_odds_snapshots (2026-06-22).
+-- add_mark_origem_to_odds_snapshots (2026-06-22): `mark`+`origem` p/ rastrear QUAL marco do
+-- agendador 24h produziu o retrato e se veio do botão (manual) ou do agendador.
 create table if not exists odds_snapshots (
   id bigint generated always as identity primary key,
   event_id text not null,
@@ -95,10 +97,30 @@ create table if not exists odds_snapshots (
   odd_under numeric,
   book text not null,
   lineup_status text not null default 'unknown',  -- 'predicted'|'confirmed'|'unknown' no retrato
+  mark text,                                      -- marco do agendador: 'base'|'deriva'|'salto'|'fechamento' (nullable; manual=null)
+  origem text not null default 'manual',          -- 'manual' (botão) | 'scheduler' (agendador 24h)
   coletado_em timestamptz not null default now()
 );
 create index if not exists odds_snapshots_lookup_idx
   on odds_snapshots (event_id, entidade_norm, market_type, linha, coletado_em);
+
+-- scheduler_runs: diário de bordo do agendador 24h (1 linha por job). Torna a operação
+-- desassistida AUDITÁVEL (o dono vê o que rodou) e RESISTENTE A RESTART (no boot lê o que
+-- já disparou e não re-coleta à toa). detalhe jsonb = formato livre (sem migração p/ campo
+-- novo). Migração: create_scheduler_runs (2026-06-22).
+create table if not exists scheduler_runs (
+  id bigint generated always as identity primary key,
+  event_id text,                 -- nullable: varreduras (discover/settle-all) não têm 1 evento
+  jogo text,                     -- nome do jogo p/ leitura humana (nullable)
+  job_type text not null,        -- 'collect'|'lineup_watch'|'forward_log'|'settle'|'discover'
+  mark text,                     -- 'base'|'deriva'|'salto'|'fechamento' p/ coletas (nullable)
+  status text not null,          -- 'ok'|'erro'|'pulado'
+  detalhe jsonb,                 -- {retratos, lineup_status, erro, ...} — formato livre
+  criado_em timestamptz not null default now()
+);
+create index if not exists scheduler_runs_event_idx on scheduler_runs (event_id, criado_em);
+create index if not exists scheduler_runs_recent_idx on scheduler_runs (criado_em desc);
+alter table scheduler_runs enable row level security;
 
 -- lido/escrito por SupabaseRepo.save_crosswalk/get_crosswalk
 create table if not exists jogadores_crosswalk (
