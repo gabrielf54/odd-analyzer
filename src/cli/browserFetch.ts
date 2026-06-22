@@ -24,10 +24,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * pressão de recurso da sessão), e o launch joga "Target ... has been closed". É transiente:
  * retentar com backoff curto resolve sem 500 no endpoint. */
 async function launchWithRetry(tentativas = 3) {
+  // Em container (Docker, root) o Chromium precisa de --no-sandbox + --disable-dev-shm-usage
+  // (sandbox de namespace não funciona como root; /dev/shm é pequeno). Gateado por env
+  // (PW_NO_SANDBOX=1, setado só no container) → o launch local no Windows fica inalterado.
+  const args = process.env.PW_NO_SANDBOX === "1" ? ["--no-sandbox", "--disable-dev-shm-usage"] : [];
   let ultimo: unknown;
   for (let t = 1; t <= tentativas; t++) {
     try {
-      return await chromium.launch({ headless: process.env.HEADFUL !== "1" });
+      return await chromium.launch({ headless: process.env.HEADFUL !== "1", args });
     } catch (e) {
       ultimo = e;
       if (t < tentativas) await sleep(600 * t);

@@ -1,0 +1,17 @@
+# Não bakeia no build (npm ci reconstrói; segredos entram via env_file no runtime).
+node_modules
+.git
+.gitignore
+.env
+.env.example
+.mcp.json
+test
+docs
+scripts
+.claude
+.vscode
+tmp-*.json
+*.log
+Dockerfile
+.dockerignore
+docker-compose.yml
