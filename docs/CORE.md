@@ -7,7 +7,17 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-22 (**FORWARD LIMPO — 2 bugs de MEDIÇÃO consertados (TDD, 452 testes,
+> **Atualizado:** 2026-06-22 (**VALIDAÇÃO HONESTA + CLV AUTOMÁTICO (TDD, 463 testes, gate intacto):**
+> (1) **Painel de validação no `report.ts`** (`src/backtest/validation.ts`): **modelo×casa** (Brier do nosso
+> número × o de-vig da casa, ambos vs resultado — só linhas de 2 lados) revela que **a CASA ainda ganha em
+> gols/vitória** (sem edge mensurável); **IC 95% por bootstrap** no BrierSkill revela que **TODOS os skills
+> positivos cruzam o zero** (n pequeno) → protege de graduar por sorte. Bater a média ≠ bater a casa. (2)
+> **CLV automático** (`src/backtest/clvCapture.ts`): ao re-coletar odds perto do kickoff, o backend casa as
+> apostas logadas (odd_flag=entrada) às odds atuais=fechamento e grava `odd_fechamento`/`clv`/`fechamento_em`
+> sozinho (hook em coletar/colar/unificar; endpoint `POST /capturar-fechamento`; migração `add_fechamento_em`).
+> (3) **odds 2 lados (Rec 1) ESCOPADO**: pipeline já suporta `odd_under`; KTO captura, mas Betnacional/Betano/
+> Stake/Superbet só pegam o over → falta parsing por-casa com payload real (ritual `IMPLEMENTAR-CASA.md`) p/
+> destravar edge/CLV em player props. Branch `feat/validacao-edge-clv-odds`.) · 2026-06-22 (**FORWARD LIMPO — 2 bugs de MEDIÇÃO consertados (TDD, 452 testes,
 > gate de paridade intacto), não o motor:** (1) **settle da vitória** liquidava os 3 lados (1/X/2)
 > como "mandante venceu?" → (2)/(X) recebiam resultado ERRADO; `settleMatchRows` agora lê o lado do
 > rótulo → vitória forward **BrierSkill −0.33→+0.14** (ECE 0.26→0.10). (2) **gate de minutos no settle**
