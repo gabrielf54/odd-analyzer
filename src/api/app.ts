@@ -147,6 +147,12 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.getOddsUnificadasService(deps.repo, String(req.params.eventId)));
   }));
 
+  // CLV derivado (Rec 2 v2): por aposta, segmenta o movimento da linha pela escalação
+  // (pré/salto/pós/total) + recomendação de timing. Read-only (calcula do histórico).
+  app.get("/jogos/:eventId/clv", wrap(async (req, res) => {
+    res.json(await service.clvService(deps.client, deps.repo, String(req.params.eventId)));
+  }));
+
   app.get("/jogos/:eventId/analise", wrap(async (req, res) => {
     res.json(await service.getManualAnalysisService(deps.repo, String(req.params.eventId)));
   }));

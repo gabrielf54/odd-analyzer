@@ -10,6 +10,7 @@ import { normalize } from "./crosswalk/match.js";
 import { InMemoryRepo, type OddsRow, type UnifiedOddsRow, type OddsSnapshotRow } from "./store/repo.js";
 import { runCollection, type RunCollectionOpts, type RunCollectionResult } from "./collect/run.js";
 import { buildUnifiedOdds } from "./collect/unify.js";
+import { computeClvSegments, lineupEdge, recommendTiming, type ClvSegments, type LineupEdge } from "./backtest/clvSegments.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
@@ -245,6 +246,65 @@ export async function appendSnapshotFromUnified(
   }));
   await repo.appendOddsSnapshot(eventId, rows);
   return { retratos: rows.length, coletado_em };
+}
+
+export interface ClvBet {
+  jogador: string;
+  player_id: string | null;
+  market_type: string;
+  linha: number;
+  segmentos: ClvSegments;
+  pre_lineup: boolean; // ainda sem retrato 'confirmed' → dá pra agir no timing
+  recomendacao: "apostar_pre" | "sem_sinal";
+}
+export interface ClvResult {
+  kickoff: string | null;
+  apostas: ClvBet[];
+  resumo_por_mercado: Record<string, LineupEdge>;
+}
+
+/** CLV DERIVADO do histórico (Rec 2 v2): casa cada aposta logada aos seus retratos de odds,
+ * segmenta o movimento pela escalação (pré/salto/pós/total) e agrega a "vantagem do modelo
+ * no salto" por mercado, com recomendação de timing. Kickoff vem da BSD. Read-only, não
+ * grava nada — desacoplado da coleta (coletar N vezes não muda este resultado). */
+export async function clvService(client: any, repo: any, eventId: string): Promise<ClvResult> {
+  let kickoff: string | null = null;
+  try {
+    const raw = await client.getEvent(eventId);
+    kickoff = String(raw?.event_date ?? raw?.date ?? raw?.start_time ?? "") || null;
+  } catch { /* sem kickoff → best effort */ }
+  const kickoffCalc = kickoff ?? "9999-12-31T23:59:59Z"; // desconhecido → fechamento = último retrato
+
+  const ledger = await repo.getLedger(eventId);
+  const snaps = await repo.getOddsSnapshots(eventId);
+  const push = (m: Map<string, any[]>, k: string, v: any) => { const a = m.get(k); if (a) a.push(v); else m.set(k, [v]); };
+  const byLinha = new Map<string, any[]>();
+  for (const s of snaps) push(byLinha, `${s.entidade_norm}|${s.market_type}|${Number(s.linha)}`, s);
+
+  const apostas: ClvBet[] = [];
+  const saltosPorMercado = new Map<string, number[]>();
+  for (const b of ledger) {
+    const linhaSnaps = byLinha.get(`${normalize(b.jogador)}|${b.market_type}|${Number(b.linha)}`) ?? [];
+    if (!linhaSnaps.length) continue;
+    const segmentos = computeClvSegments(
+      linhaSnaps.map((s) => ({ coletado_em: s.coletado_em, lineup_status: s.lineup_status, odd_over: s.odd_over })),
+      b.criado_em ?? kickoffCalc, kickoffCalc,
+    );
+    if (segmentos.marcos.entrada_odd == null) continue; // sem retrato de entrada → ignora
+    const pre_lineup = segmentos.marcos.escalacao_em == null;
+    apostas.push({
+      jogador: b.jogador, player_id: b.player_id ?? null, market_type: b.market_type,
+      linha: Number(b.linha), segmentos, pre_lineup, recomendacao: "sem_sinal",
+    });
+    if (segmentos.salto_escalacao != null) push(saltosPorMercado, b.market_type, segmentos.salto_escalacao);
+  }
+
+  const resumo_por_mercado: Record<string, LineupEdge> = {};
+  for (const [mk, saltos] of saltosPorMercado) resumo_por_mercado[mk] = lineupEdge(saltos);
+  for (const a of apostas) {
+    a.recomendacao = recommendTiming(a.pre_lineup, resumo_por_mercado[a.market_type] ?? { media: 0, lo: 0, hi: 0, n: 0 });
+  }
+  return { kickoff, apostas, resumo_por_mercado };
 }
 
 /** Lê o espelho canônico (o que a ANÁLISE considera). */

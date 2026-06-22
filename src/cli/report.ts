@@ -42,5 +42,7 @@ if (!comMercado.length) {
 
 console.log("\nLeitura: BrierSkill>0 = bate a média (chute burro). Mas o que PAGA é vantagem>0 =");
 console.log("bater a CASA. IC95% que cruza o zero = skill ainda pode ser ruído (n pequeno).");
+console.log("CLVm aqui = n/d: o CLV virou DERIVADO do histórico de odds, por jogo, segmentado");
+console.log("pela escalação → ver GET /jogos/:id/clv (acumula conforme você coleta odds ao vivo).");
 // Nota: no Windows pode aparecer um "Assertion failed ... async.c" no encerramento —
 // artefato do libuv/undici (handle keep-alive do supabase-js) APÓS o resultado; exit 0, benigno.
