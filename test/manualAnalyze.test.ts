@@ -63,6 +63,38 @@ describe("analyzeManual", () => {
     expect(out.linhas_rejeitadas.length).toBe(1);
   });
 
+  it("auto-link com confiança intermediária surge em auto_ligados (revisar) e casa o candidato", async () => {
+    // "Kai Habertz" pontua ~0.833 contra "Kai Havertz" (id 10): casa sozinho, mas na
+    // faixa [0.75,0.85) → o front mostra "liguei sozinho — confira".
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "Kai Habertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer, diagnostics: true });
+
+    expect(out.jogadores_sem_match).toHaveLength(0);
+    expect(out.auto_ligados).toHaveLength(1);
+    expect(out.auto_ligados[0]!.nome_casa).toBe("Kai Habertz");
+    expect(out.auto_ligados[0]!.player_id).toBe("1000"); // stats-id do Havertz (squad resolve por nome)
+    expect(out.auto_ligados[0]!.market_type).toBe("sot");
+    expect(out.auto_ligados[0]!.confianca).toBeGreaterThanOrEqual(0.75);
+    expect(out.auto_ligados[0]!.confianca).toBeLessThan(0.85);
+    // o jogador foi de fato analisado (casou)
+    const all = [...out.candidatos, ...out.reprovados];
+    expect(all.find((c: any) => String(c.jogador).includes("Havertz"))).toBeDefined();
+  });
+
+  it("sem auto-link na faixa: auto_ligados vem vazio (match alto é silencioso)", async () => {
+    const repo = new InMemoryRepo();
+    const out = await analyzeManual(fakeClient(), {
+      event_id: "e1", coletado_em: "2026-06-14T18:30:00Z",
+      odds: [{ market_type: "sot", entidade: "K. Havertz", linha: 0.5, odd_over: 3.0, odd_under: null, book: "b" }],
+      linhas_rejeitadas: [], escopo_historico: "todos",
+    }, { repo, reviewerFn: fakeReviewer });
+    expect(out.auto_ligados).toEqual([]);
+  });
+
   it("jogador descasado em várias linhas/mercados aparece UMA vez em jogadores_sem_match", async () => {
     const repo = new InMemoryRepo();
     const out = await analyzeManual(fakeClient(), {

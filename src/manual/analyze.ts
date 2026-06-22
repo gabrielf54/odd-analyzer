@@ -73,6 +73,7 @@ export async function analyzeManual(
   const byMarket = groupByMarket(odds);
   const allCandidates: any[] = [];
   const jogadores_sem_match: any[] = [];
+  const jogadores_auto_ligados: any[] = [];
 
   logInfo("analise", `analisando ${event.jogo ?? event.id}`, { event_id: event.id, mercados: [...byMarket.keys()], casas: [...new Set(input.odds.map((l) => l.book))], divergencias: divergencias.length });
 
@@ -82,7 +83,7 @@ export async function analyzeManual(
     const t0 = Date.now();
     let cands: any[];
     if (PLAYER_MARKETS.has(marketKey)) {
-      cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match, input.escopo_historico);
+      cands = await playerCandidates(event, market, stats, lines, leagueId, overrides, jogadores_sem_match, jogadores_auto_ligados, input.escopo_historico);
     } else {
       const provider = new ManualOdds(lines.map((l) => ({
         entidade: l.entidade, linha: l.linha, odd_over: l.odd_over,
@@ -114,6 +115,10 @@ export async function analyzeManual(
   // jogador, inflando a contagem que o front mostra. Mantém a 1ª grafia vista.
   const semMatchUnico = [...new Map(jogadores_sem_match.map((j) => [normalize(j.nome_casa), j])).values()];
 
+  // Auto-ligados (confiança [0.75,0.85)): 1 entrada por jogador (dedup por nome normalizado,
+  // mesma regra do sem_match) p/ o aviso "liguei sozinho — confira" no front.
+  const autoLigadosUnico = [...new Map(jogadores_auto_ligados.map((j) => [normalize(j.nome_casa), j])).values()];
+
   // Pré-lineup (escalação não confirmada) → algum candidato fica "provavel".
   // N1: a UI mostra "análise provisória — aguarde a escalação (~1h antes)" e
   // nenhum candidato sai recomendado firme (ver rankCandidates).
@@ -130,6 +135,7 @@ export async function analyzeManual(
     candidatos: revisados,
     reprovados: opts.diagnostics ? rejected : [],
     jogadores_sem_match: semMatchUnico,
+    auto_ligados: autoLigadosUnico,
     linhas_rejeitadas: input.linhas_rejeitadas,
     // Line shopping: divergências cross-casa marcadas p/ REVISÃO (não bloqueiam nada).
     divergencias,
@@ -165,12 +171,13 @@ export async function analyzeManual(
 async function playerCandidates(
   event: any, market: MarketSpec, stats: any, lines: ManualOddsLine[],
   leagueId: unknown, overrides: Record<string, string>, semMatchSink: any[],
-  scope: string,
+  autoLigadoSink: any[], scope: string,
 ): Promise<any[]> {
   const squad: any[] = await stats.squad(event);
   const squadForMatch = squad.map((p) => ({ id: String(p.id), name: p.name }));
-  const { casados, sem_match } = matchPlayerOdds(lines, squadForMatch, overrides);
+  const { casados, sem_match, auto_ligados } = matchPlayerOdds(lines, squadForMatch, overrides);
   for (const sm of sem_match) semMatchSink.push({ ...sm, market_type: market.key });
+  for (const al of auto_ligados) autoLigadoSink.push({ ...al, market_type: market.key });
 
   const homeId = String(event.home_team?.id ?? "");
   const awayId = String(event.away_team?.id ?? "");

@@ -77,3 +77,53 @@ describe("matchPlayerOdds", () => {
     expect(r.casados[0]!.player_id).toBe("1687");
   });
 });
+
+describe("matchPlayerOdds — auto-link com revisão (limiar 0.75)", () => {
+  // "Ali Youssef" vs "Ali Yousif" pontua ~0.77 (transliteração): cai na faixa de
+  // auto-link COM revisão [0.75, 0.85). O 2º candidato está longe → não-ambíguo.
+  const transliterado = [
+    { id: "1", name: "Ali Yousif" },
+    { id: "2", name: "Ahmed Hassan" },
+  ];
+
+  it("nome certo em [0.75,0.85) casa SOZINHO e entra em auto_ligados (revisar)", () => {
+    const r = matchPlayerOdds([line("Ali Youssef")], transliterado, {});
+    expect(r.casados).toHaveLength(1);
+    expect(r.casados[0]!.player_id).toBe("1");
+    expect(r.sem_match).toHaveLength(0);
+    expect(r.auto_ligados).toHaveLength(1);
+    expect(r.auto_ligados[0]!.nome_casa).toBe("Ali Youssef");
+    expect(r.auto_ligados[0]!.player_id).toBe("1");
+    expect(r.auto_ligados[0]!.confianca).toBeGreaterThanOrEqual(0.75);
+    expect(r.auto_ligados[0]!.confianca).toBeLessThan(0.85);
+    // carrega os parecidos pra UI de "corrigir"
+    expect(r.auto_ligados[0]!.candidatos.length).toBeGreaterThan(0);
+  });
+
+  it("match muito alto (>=0.85) casa SILENCIOSO — fora de auto_ligados", () => {
+    const r = matchPlayerOdds([line("K. Havertz")], squad, {});
+    expect(r.casados).toHaveLength(1);
+    expect(r.casados[0]!.player_id).toBe("10");
+    expect(r.auto_ligados).toHaveLength(0);
+    expect(r.sem_match).toHaveLength(0);
+  });
+
+  it("nome certo porém baixo (<0.75) NÃO auto-liga — vai pra sem_match", () => {
+    // "Manaf Younis" vs "Munaf Younus" ~0.55: abaixo do piso, decisão fica do operador.
+    const r = matchPlayerOdds([line("Manaf Younis")], [{ id: "9", name: "Munaf Younus" }], {});
+    expect(r.casados).toHaveLength(0);
+    expect(r.auto_ligados).toHaveLength(0);
+    expect(r.sem_match).toHaveLength(1);
+  });
+
+  it("ambíguo na faixa nova (dois ~0.77) continua fail-closed → sem_match", () => {
+    const doisParecidos = [
+      { id: "1", name: "Ali Yousif" },
+      { id: "2", name: "Ali Yousof" },
+    ];
+    const r = matchPlayerOdds([line("Ali Youssef")], doisParecidos, {});
+    expect(r.casados).toHaveLength(0);
+    expect(r.auto_ligados).toHaveLength(0);
+    expect(r.sem_match).toHaveLength(1);
+  });
+});
