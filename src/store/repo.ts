@@ -65,6 +65,9 @@ export interface Repo {
   deleteAnalysis(eventId: string): Promise<void> | void;
   saveOdds(eventId: string, lines: OddsRow[]): Promise<void> | void;
   getOdds(eventId: string): Promise<OddsRow[]> | OddsRow[];
+  // engajamento (agendador): o evento tem odds? query DIRECIONADA (indexada) — não varre a
+  // tabela inteira (listOddsEvents estoura o cap de 1000 do Supabase com 56k+ linhas).
+  hasOdds(eventId: string): Promise<boolean> | boolean;
   deleteOdds(eventId: string, filter?: Partial<OddsRow>): Promise<void> | void;
   listOddsEvents(): Promise<OddsEventSummary[]> | OddsEventSummary[];
   // odds_unificadas (espelho): saveOddsUnificadas SUBSTITUI todas as linhas do evento.
@@ -145,6 +148,11 @@ export class InMemoryRepo implements Repo {
 
   getOdds(eventId: string): OddsRow[] {
     return this.odds.get(eventId) ?? [];
+  }
+
+  hasOdds(eventId: string): boolean {
+    const r = this.odds.get(eventId);
+    return !!r && r.length > 0;
   }
 
   deleteOdds(eventId: string, filter?: Partial<OddsRow>) {
@@ -299,6 +307,11 @@ export class SupabaseRepo implements Repo {
       if (page.length < PAGE) break;
     }
     return out;
+  }
+  async hasOdds(eventId: string): Promise<boolean> {
+    const data = await this.query<any[]>("hasOdds",
+      this.client.from("odds").select("event_id").eq("event_id", eventId).limit(1), []);
+    return Array.isArray(data) && data.length > 0;
   }
   async deleteOdds(eventId: string, filter?: Partial<OddsRow>) {
     let q = this.client.from("odds").delete().eq("event_id", eventId);
