@@ -247,6 +247,7 @@ export async function unificarOddsService(
  * contaminar. Chamado onde ENTRAM odds novas (coletar/colar), não na re-unificação. */
 export async function appendSnapshotFromUnified(
   repo: any, eventId: string, lineupStatus: string,
+  opts: { mark?: string; origem?: string } = {},
 ): Promise<{ retratos: number; coletado_em: string }> {
   const coletado_em = new Date().toISOString();
   const unified: UnifiedOddsRow[] = await repo.getOddsUnificadas(eventId);
@@ -254,7 +255,8 @@ export async function appendSnapshotFromUnified(
   const rows: OddsSnapshotRow[] = unified.map((o) => ({
     entidade_norm: o.entidade_norm, entidade: o.entidade, market_type: o.market_type,
     linha: Number(o.linha), odd_over: o.odd_over, odd_under: o.odd_under ?? null,
-    book: o.book, lineup_status: lineupStatus || "unknown", coletado_em,
+    book: o.book, lineup_status: lineupStatus || "unknown",
+    mark: opts.mark ?? null, origem: opts.origem ?? "manual", coletado_em,
   }));
   await repo.appendOddsSnapshot(eventId, rows);
   return { retratos: rows.length, coletado_em };
@@ -278,7 +280,13 @@ export interface ClvResult {
 /** CLV DERIVADO do histórico (Rec 2 v2): casa cada aposta logada aos seus retratos de odds,
  * segmenta o movimento pela escalação (pré/salto/pós/total) e agrega a "vantagem do modelo
  * no salto" por mercado, com recomendação de timing. Kickoff vem da BSD. Read-only, não
- * grava nada — desacoplado da coleta (coletar N vezes não muda este resultado). */
+ * grava nada — desacoplado da coleta (coletar N vezes não muda este resultado).
+ *
+ * NOTA (revisão 2026-06-22): agrega TODOS os retratos por (linha, tempo), de propósito —
+ * manual (botão) E scheduler são retratos REAIS do mercado e mesclam num só histórico
+ * imutável (é o design do CLV-por-snapshot). Como os retratos são ordenados por tempo e o
+ * `lineup_status` é monotônico (uma vez `confirmed`, segue), a ordem pré→salto→pós fica
+ * coerente independente da origem. Por isso NÃO filtramos por `origem` aqui. */
 export async function clvService(client: any, repo: any, eventId: string): Promise<ClvResult> {
   let kickoff: string | null = null;
   try {
@@ -347,21 +355,22 @@ export async function getOddsService(repo: any, eventId: string): Promise<OddsRo
  * monta via import dinâmico p/ não carregar Playwright no boot). Resolve home/away pela BSD. */
 export async function coletarOddsService(
   client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
-): Promise<RunCollectionResult> {
+): Promise<RunCollectionResult & { snapshot?: { retratos: number; lineup_status: string; coletado_em: string } }> {
   const ev = normalizeEvent(await client.getEvent(eventId));
   const home = ev.home_team?.name ?? "", away = ev.away_team?.name ?? "";
   opts.log?.(`jogo BSD ${ev.id}: "${home}" x "${away}" — resolvendo nas casas...`);
-  const res = await runCollection(
-    { id: String(ev.id), jogo: ev.jogo, home, away },
-    repo, fetchers, opts,
-  );
+  const res: RunCollectionResult & { snapshot?: { retratos: number; lineup_status: string; coletado_em: string } } =
+    await runCollection({ id: String(ev.id), jogo: ev.jogo, home, away }, repo, fetchers, opts);
   // Espelho automático: re-gera odds_unificadas do cru recém-gravado (dry não grava).
   if (!opts.dry) {
     await reprojectUnifiedOdds(repo, String(ev.id));
     // Status da escalação DESTE momento (pré/pós) vem do /lineups/ — o getEvent não traz.
     let lineupStatus = "unknown";
     try { lineupStatus = lineupStatusFromLineups(await client.lineups(eventId)); } catch { /* unknown */ }
-    await appendSnapshotFromUnified(repo, String(ev.id), lineupStatus);
+    const snap = await appendSnapshotFromUnified(repo, String(ev.id), lineupStatus, {
+      mark: opts.snapshotMark, origem: opts.snapshotOrigem ?? "manual",
+    });
+    res.snapshot = { retratos: snap.retratos, lineup_status: lineupStatus, coletado_em: snap.coletado_em };
   }
   return res;
 }

@@ -22,6 +22,27 @@ describe("odds_snapshots (histórico imutável de odds)", () => {
     expect(snaps[1]!.lineup_status).toBe("confirmed");
   });
 
+  it("appendSnapshotFromUnified grava mark + origem quando passados (default = manual)", async () => {
+    const repo = new InMemoryRepo();
+    repo.saveOddsUnificadas("e1", [{
+      event_id: "e1", entidade_norm: "pedri", entidade: "Pedri", market_type: "sot",
+      linha: 1.5, odd_over: 2.0, odd_under: 1.8, book: "kto", casas_comparadas: [], divergencia: false,
+    } as any]);
+    await appendSnapshotFromUnified(repo, "e1", "predicted", { mark: "base", origem: "scheduler" });
+    const s = repo.getOddsSnapshots("e1")[0]!;
+    expect(s.mark).toBe("base");
+    expect(s.origem).toBe("scheduler");
+    // sem opts → manual, mark null
+    repo.saveOddsUnificadas("e2", [{
+      event_id: "e2", entidade_norm: "gavi", entidade: "Gavi", market_type: "sot",
+      linha: 0.5, odd_over: 1.9, odd_under: 1.9, book: "kto", casas_comparadas: [], divergencia: false,
+    } as any]);
+    await appendSnapshotFromUnified(repo, "e2", "unknown");
+    const s2 = repo.getOddsSnapshots("e2")[0]!;
+    expect(s2.origem).toBe("manual");
+    expect(s2.mark ?? null).toBe(null);
+  });
+
   it("appendSnapshotFromUnified fotografa as odds unificadas atuais + lineup_status; re-coleta acumula", async () => {
     const repo = new InMemoryRepo();
     const uni = (over: number) => [{

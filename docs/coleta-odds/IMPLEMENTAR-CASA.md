@@ -215,7 +215,7 @@ no `HOUSES` (F2), o botão a coleta **automaticamente**: grava no `odds`, re-esp
 análise lê. **Nenhuma mudança de front/endpoint/serviço é necessária.**
 
 Verificação:
-1. Suba o backend: `npm run dev` (Express na 3001). Suba o front (`odd-analyzer-frontend`).
+1. Suba o backend: `npm run dev` (Express na 5926). Suba o front (`odd-analyzer-frontend`, na 5927).
 2. Abra um jogo **real** da Copa e clique **"obter odds"**.
 3. **Confirme**: no retorno (e na tela de conferência) a casa nova vem entre as casas, com `ok:true` e
    `n>0`; as linhas dela entram no **line shopping** e na análise. Cruze com o site pra ver que o preço bate.

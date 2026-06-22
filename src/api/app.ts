@@ -9,6 +9,9 @@ export interface Deps {
   client: any;
   repo: any;
   reviewerFn?: ReviewerFn;
+  /** Agendador 24h (opcional): expõe os jobs agendados p/ o painel + `kick` (re-descobre
+   *  AGORA, chamado após busca manual → o jogo buscado entra no rastreio). Ausente = desligado. */
+  scheduler?: { status: () => { scheduled: any[] }; kick?: () => void };
 }
 
 const analyzeSchema = z.object({
@@ -45,7 +48,7 @@ const oddsFilterQuery = z.object({
 export function createApp(deps: Deps): express.Express {
   const app = express();
 
-  // CORS permissivo (front Next em outra origem, ex.: localhost:3000). ANTES do json() de
+  // CORS permissivo (front Next em outra origem, ex.: localhost:5927). ANTES do json() de
   // propósito: se o body-parser estoura (ex.: PayloadTooLargeError), o erro pula os
   // middlewares seguintes e cai direto no handler — mas os headers de CORS já estão setados,
   // então o front CONSEGUE LER o erro em vez de "Failed to fetch" com corpo vazio.
@@ -127,7 +130,11 @@ export function createApp(deps: Deps): express.Express {
     const evId = String(req.params.eventId);
     const log = (m: string) => console.log(`[coletar ${evId}] ${m}`);
     try {
-      res.json(await service.coletarOddsService(deps.client, deps.repo, evId, fetchers, { dry, overrides, log }));
+      const out = await service.coletarOddsService(deps.client, deps.repo, evId, fetchers, { dry, overrides, log });
+      // Gatilho "após a 1ª busca": o jogo buscado agora tem odds → o agendador o adota no
+      // rastreio (deriva/salto/fechamento) sem esperar a varredura horária.
+      if (!dry) deps.scheduler?.kick?.();
+      res.json(out);
     } finally {
       await fetchers.close();
     }
@@ -151,6 +158,14 @@ export function createApp(deps: Deps): express.Express {
   // (pré/salto/pós/total) + recomendação de timing. Read-only (calcula do histórico).
   app.get("/jogos/:eventId/clv", wrap(async (req, res) => {
     res.json(await service.clvService(deps.client, deps.repo, String(req.params.eventId)));
+  }));
+
+  // Status do agendador 24h (só-leitura): jogos agendados (memória do daemon) + últimas
+  // execuções (scheduler_runs do banco). enabled=false quando o daemon não está montado.
+  app.get("/scheduler/status", wrap(async (_req, res) => {
+    const runs = deps.repo.getRecentSchedulerRuns ? await deps.repo.getRecentSchedulerRuns(30) : [];
+    const scheduled = deps.scheduler ? deps.scheduler.status().scheduled : [];
+    res.json({ enabled: !!deps.scheduler, scheduled, runs });
   }));
 
   app.get("/jogos/:eventId/analise", wrap(async (req, res) => {

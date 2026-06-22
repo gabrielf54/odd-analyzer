@@ -32,7 +32,20 @@ export interface OddsSnapshotRow {
   odd_under: number | null;
   book: string;
   lineup_status: string; // 'predicted' | 'confirmed' | 'unknown'
+  mark?: string | null;  // marco do agendador: 'base'|'deriva'|'salto'|'fechamento' (null = manual)
+  origem?: string;       // 'manual' (botão) | 'scheduler' (agendador 24h)
   coletado_em: string;
+}
+
+/** 1 linha do diário de bordo do agendador 24h (tabela scheduler_runs). */
+export interface SchedulerRunRow {
+  event_id?: string | null;
+  jogo?: string | null;
+  job_type: string;      // 'collect'|'lineup_watch'|'forward_log'|'settle'|'discover'
+  mark?: string | null;  // 'base'|'deriva'|'salto'|'fechamento' p/ coletas (null nas varreduras)
+  status: string;        // 'ok'|'erro'|'pulado'
+  detalhe?: any;         // {retratos, lineup_status, erro, ...} — formato livre
+  criado_em: string;
 }
 
 export interface OddsEventSummary {
@@ -61,6 +74,11 @@ export interface Repo {
   // odds_snapshots (histórico imutável p/ CLV/movimento de linha): append-only.
   appendOddsSnapshot(eventId: string, rows: OddsSnapshotRow[]): Promise<void> | void;
   getOddsSnapshots(eventId: string): Promise<OddsSnapshotRow[]> | OddsSnapshotRow[];
+  // scheduler_runs (diário de bordo do agendador 24h): append-only, leitura recente.
+  appendSchedulerRun(row: SchedulerRunRow): Promise<void> | void;
+  getRecentSchedulerRuns(limit?: number): Promise<SchedulerRunRow[]> | SchedulerRunRow[];
+  // dedup DIRECIONADO (restart-safe independente da janela): existe run (event,mark,job,status)?
+  hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): Promise<boolean> | boolean;
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
   getLedger(eventId: string): Promise<any[]> | any[];
@@ -149,6 +167,15 @@ export class InMemoryRepo implements Repo {
   }
   getOddsSnapshots(eventId: string): OddsSnapshotRow[] {
     return [...(this.snapshots.get(eventId) ?? [])].sort((a, b) => a.coletado_em.localeCompare(b.coletado_em));
+  }
+
+  schedulerRuns: SchedulerRunRow[] = [];
+  appendSchedulerRun(row: SchedulerRunRow) { this.schedulerRuns.push(row); }
+  getRecentSchedulerRuns(limit = 50): SchedulerRunRow[] {
+    return [...this.schedulerRuns].sort((a, b) => b.criado_em.localeCompare(a.criado_em)).slice(0, limit);
+  }
+  hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): boolean {
+    return this.schedulerRuns.some((r) => r.event_id === eventId && r.mark === mark && r.job_type === jobType && r.status === status);
   }
 
   listOddsEvents(): OddsEventSummary[] {
@@ -329,6 +356,21 @@ export class SupabaseRepo implements Repo {
       if (page.length < PAGE) break;
     }
     return out;
+  }
+  async appendSchedulerRun(row: SchedulerRunRow) {
+    await this.mutate("appendSchedulerRun", this.client.from("scheduler_runs").insert(row), { job: row.job_type, status: row.status });
+  }
+  async getRecentSchedulerRuns(limit = 50): Promise<SchedulerRunRow[]> {
+    return this.query<SchedulerRunRow[]>("getRecentSchedulerRuns",
+      this.client.from("scheduler_runs").select("*").order("criado_em", { ascending: false }).limit(limit), []);
+  }
+  async hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): Promise<boolean> {
+    // query DIRECIONADA (usa o índice por event_id) — não varre 200 linhas; dedup confiável
+    // mesmo depois que o diário cresce além da janela recente (restart-safe de verdade).
+    const data = await this.query<any[]>("hasSchedulerRun",
+      this.client.from("scheduler_runs").select("id")
+        .eq("event_id", eventId).eq("mark", mark).eq("job_type", jobType).eq("status", status).limit(1), []);
+    return Array.isArray(data) && data.length > 0;
   }
   async listOddsEvents(): Promise<OddsEventSummary[]> {
     const data = await this.query<any[]>("listOddsEvents", this.client.from("odds").select("event_id, coletado_em"), []);
