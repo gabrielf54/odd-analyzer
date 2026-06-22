@@ -167,8 +167,9 @@ número).
 - **Persistência:** Supabase — `odds` (LOG cru das odds), `odds_unificadas` (espelho canônico = o que a
   análise considera), `analises` (resultado completo por jogo), `paper_ledger` (apostas-papel + CLV),
   `jogadores_crosswalk`.
-- **Stack:** Node/TS (raiz, `src/`+`test/`), Express :3001, front Next em repo separado. Ports &
-  Adapters; motor são funções puras; gate de paridade protege os números.
+- **Stack:** Node/TS (raiz, `src/`+`test/`), Express **:5926**, front Next **:5927** (portas
+  específicas, fora das genéricas), em repo separado. Ports & Adapters; motor são funções puras;
+  gate de paridade protege os números.
 
 ## 4. Próximas features
 

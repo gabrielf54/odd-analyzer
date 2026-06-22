@@ -47,7 +47,7 @@ const oddsFilterQuery = z.object({
 export function createApp(deps: Deps): express.Express {
   const app = express();
 
-  // CORS permissivo (front Next em outra origem, ex.: localhost:3000). ANTES do json() de
+  // CORS permissivo (front Next em outra origem, ex.: localhost:5927). ANTES do json() de
   // propósito: se o body-parser estoura (ex.: PayloadTooLargeError), o erro pula os
   // middlewares seguintes e cai direto no handler — mas os headers de CORS já estão setados,
   // então o front CONSEGUE LER o erro em vez de "Failed to fetch" com corpo vazio.
