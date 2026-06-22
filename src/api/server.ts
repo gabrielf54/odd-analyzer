@@ -6,7 +6,7 @@ import { getRequired } from "../config.js";
 import { BSDClient } from "../bsd/client.js";
 import { createSupabaseRepo } from "../store/repo.js";
 import { BSDStatsProvider } from "../providers/stats.js";
-import { SchedulerRunner, type RunnerDeps } from "../scheduler/runner.js";
+import { SchedulerRunner, withTimeout, type RunnerDeps } from "../scheduler/runner.js";
 import { upcomingGames } from "../scheduler/plan.js";
 import { runForwardLog, runSettle } from "../scheduler/jobs.js";
 import { coletarOddsService, lineupStatusFromLineups } from "../service.js";
@@ -29,13 +29,18 @@ function buildScheduler(client: any, repo: any): SchedulerRunner {
       const { makeFetchers } = await import("../cli/fetchers.js");
       const fetchers = await makeFetchers();
       try {
-        const res = await coletarOddsService(client, repo, eventId, fetchers, {
-          snapshotOrigem: "scheduler", snapshotMark: mark,
-          log: (m: string) => console.log(`[sched ${eventId}/${mark}] ${m}`),
-        });
+        // timeout MENOR que o do runner (180s) → no hang, abortamos aqui e o finally FECHA o
+        // browser (evita Chromium zumbi acumulando em dias de execução).
+        const res = await withTimeout(
+          coletarOddsService(client, repo, eventId, fetchers, {
+            snapshotOrigem: "scheduler", snapshotMark: mark,
+            log: (m: string) => console.log(`[sched ${eventId}/${mark}] ${m}`),
+          }),
+          150_000, `coletar ${eventId}/${mark}`,
+        );
         return { retratos: res.snapshot?.retratos ?? 0, lineup_status: res.snapshot?.lineup_status ?? "unknown" };
       } finally {
-        await fetchers.close();
+        try { await fetchers.close(); } catch (e) { console.error(`[sched ${eventId}] fechar headless falhou:`, e); }
       }
     },
     lineupStatus: async (eventId) => lineupStatusFromLineups(await client.lineups(eventId)),

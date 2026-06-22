@@ -108,6 +108,29 @@ describe("SchedulerRunner", () => {
     runner.stop();
   });
 
+  it("coleta TRAVADA sofre timeout e LIBERA a fila (não empaca 24/7)", async () => {
+    vi.setSystemTime(new Date("2026-06-22T07:59:00Z"));
+    let secondRan = false;
+    const collect = vi.fn()
+      .mockImplementationOnce(() => new Promise(() => {})) // trava p/ sempre
+      .mockImplementation(async () => { secondRan = true; return { retratos: 1, lineup_status: "predicted" }; });
+    const deps = makeDeps({
+      discover: vi.fn(async () => [
+        { event_id: "1", jogo: "A x B", kickoff: KICKOFF },
+        { event_id: "2", jogo: "C x D", kickoff: KICKOFF },
+      ]),
+      collect,
+      collectTimeoutMs: 5_000,
+    });
+    const runner = new SchedulerRunner(deps);
+    runner.start();
+    await vi.advanceTimersByTimeAsync(3 * 60_000); // ambas as 'base' disparam; a 1ª trava
+    await vi.advanceTimersByTimeAsync(10_000);     // passa do timeout da 1ª
+    expect(secondRan).toBe(true); // a fila não travou → a 2ª rodou
+    expect(logged(deps).some((r: any) => r.status === "erro" && r.job_type === "collect")).toBe(true);
+    runner.stop();
+  });
+
   it("status() devolve jogos agendados (futuros)", async () => {
     vi.setSystemTime(new Date("2026-06-22T06:00:00Z"));
     const deps = makeDeps({ discover: vi.fn(async () => [{ event_id: "1", jogo: "A x B", kickoff: KICKOFF }]) });

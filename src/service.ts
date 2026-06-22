@@ -280,7 +280,13 @@ export interface ClvResult {
 /** CLV DERIVADO do histórico (Rec 2 v2): casa cada aposta logada aos seus retratos de odds,
  * segmenta o movimento pela escalação (pré/salto/pós/total) e agrega a "vantagem do modelo
  * no salto" por mercado, com recomendação de timing. Kickoff vem da BSD. Read-only, não
- * grava nada — desacoplado da coleta (coletar N vezes não muda este resultado). */
+ * grava nada — desacoplado da coleta (coletar N vezes não muda este resultado).
+ *
+ * NOTA (revisão 2026-06-22): agrega TODOS os retratos por (linha, tempo), de propósito —
+ * manual (botão) E scheduler são retratos REAIS do mercado e mesclam num só histórico
+ * imutável (é o design do CLV-por-snapshot). Como os retratos são ordenados por tempo e o
+ * `lineup_status` é monotônico (uma vez `confirmed`, segue), a ordem pré→salto→pós fica
+ * coerente independente da origem. Por isso NÃO filtramos por `origem` aqui. */
 export async function clvService(client: any, repo: any, eventId: string): Promise<ClvResult> {
   let kickoff: string | null = null;
   try {
