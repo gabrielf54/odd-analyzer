@@ -7,7 +7,7 @@ import { BSDClient } from "../bsd/client.js";
 import { createSupabaseRepo } from "../store/repo.js";
 import { BSDStatsProvider } from "../providers/stats.js";
 import { SchedulerRunner, withTimeout, type RunnerDeps } from "../scheduler/runner.js";
-import { upcomingGames, filterEngaged } from "../scheduler/plan.js";
+import { upcomingGames } from "../scheduler/plan.js";
 import { runForwardLog, runSettle } from "../scheduler/jobs.js";
 import { coletarOddsService, lineupStatusFromLineups } from "../service.js";
 
@@ -25,10 +25,13 @@ function buildScheduler(client: any, repo: any): SchedulerRunner {
       }
       const upcoming = upcomingGames(all, new Date(), horizonH, leagues);
       // Gatilho "após a 1ª busca": só rastreia odds dos jogos que o dono JÁ BUSCOU (têm
-      // linhas em `odds`). Jogo nunca aberto = não coletado (não se apostaria nele). O
+      // linhas em `odds`). Checagem DIRECIONADA por jogo (hasOdds, indexada) — não usar
+      // listOddsEvents, que estoura o cap de 1000 do PostgREST com 56k+ linhas e some com
+      // os jogos (bug do França 8328). São poucos jogos na janela → poucas queries baratas.
       // forwardLog/settle (gols/vitória, $0) seguem GLOBAIS, fora deste filtro.
-      const engagedIds = (await repo.listOddsEvents()).map((e: any) => e.event_id);
-      return filterEngaged(upcoming, engagedIds);
+      const engaged: typeof upcoming = [];
+      for (const g of upcoming) if (await repo.hasOdds(g.event_id)) engaged.push(g);
+      return engaged;
     },
     collect: async (eventId, mark) => {
       const { makeFetchers } = await import("../cli/fetchers.js");

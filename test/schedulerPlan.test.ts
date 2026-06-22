@@ -24,6 +24,13 @@ describe("upcomingGames", () => {
     expect(upcomingGames(evs, now, 30, [27]).length).toBe(0);
     expect(upcomingGames(evs, now, 30, [99]).length).toBe(1);
   });
+  it("evento SEM league_id NÃO é excluído (a BSD não ecoa league_id por item; query já filtrou)", () => {
+    // raw da BSD vindo de client.events({league_id:27}) NÃO traz league_id em cada result —
+    // por isso o listMatches usa `?? leagueId`. upcomingGames não pode excluir esses (excluía
+    // TODOS → discover devolvia [] → nada agendava). Regressão do bug do França 8328.
+    const semLiga = { id: "8328", home_team: "France", away_team: "Iraq", event_date: "2026-06-22T14:00:00Z" };
+    expect(upcomingGames([semLiga], now, 30, [27]).map((g) => g.event_id)).toEqual(["8328"]);
+  });
   it("ordena por kickoff", () => {
     const evs = [
       ev("a", "X", "Y", "2026-06-22T18:00:00Z"),

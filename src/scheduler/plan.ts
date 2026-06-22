@@ -37,8 +37,12 @@ export function upcomingGames(events: any[], now: Date, horizonH: number, league
   const t0 = now.getTime(), t1 = t0 + horizonH * H;
   const out: Game[] = [];
   for (const e of events ?? []) {
+    // A BSD NÃO ecoa league_id em cada item de client.events({league_id}) — o filtro foi no
+    // servidor. Só excluímos quando league_id VEM e não bate (espelha o `?? leagueId` do
+    // listMatches); league-less passa (a query já escopou a liga). Excluir league-less zerava
+    // o discover → nada agendava (bug do França 8328).
     const lg = Number(e.league_id);
-    if (leagueIds.length && !leagueIds.includes(lg)) continue;
+    if (leagueIds.length && e.league_id != null && Number.isFinite(lg) && !leagueIds.includes(lg)) continue;
     if (isPlaceholder(e.home_team) || isPlaceholder(e.away_team)) continue;
     const k = e.event_date ?? e.date ?? e.start_time ?? "";
     const t = Date.parse(k);
