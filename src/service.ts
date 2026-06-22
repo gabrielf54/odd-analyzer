@@ -7,10 +7,9 @@ import { parseManualOdds } from "./manual/schema.js";
 import { analyzeManual } from "./manual/analyze.js";
 import { buildOddsPrompt } from "./manual/prompt.js";
 import { normalize } from "./crosswalk/match.js";
-import { InMemoryRepo, type OddsRow, type UnifiedOddsRow } from "./store/repo.js";
+import { InMemoryRepo, type OddsRow, type UnifiedOddsRow, type OddsSnapshotRow } from "./store/repo.js";
 import { runCollection, type RunCollectionOpts, type RunCollectionResult } from "./collect/run.js";
 import { buildUnifiedOdds } from "./collect/unify.js";
-import { computeClosingUpdates } from "./backtest/clvCapture.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
@@ -224,37 +223,28 @@ export async function reprojectUnifiedOdds(
 /** Botão "Unificar odds": re-gera o espelho e devolve o resumo p/ a tela de conferência. */
 export async function unificarOddsService(
   repo: any, eventId: string,
-): Promise<{ n_cru: number; n_unificado: number; divergencias: any[]; linhas: UnifiedOddsRow[];
-  fechamento: { capturadas: number; clv_medio: number | null; fechamento_em: string } }> {
+): Promise<{ n_cru: number; n_unificado: number; divergencias: any[]; linhas: UnifiedOddsRow[] }> {
   const { linhas, divergencias, nCru } = await reprojectUnifiedOdds(repo, eventId);
-  const fechamento = await capturarFechamentoService(repo, eventId); // CLV automático
-  return { n_cru: nCru, n_unificado: linhas.length, divergencias, linhas, fechamento };
+  return { n_cru: nCru, n_unificado: linhas.length, divergencias, linhas };
 }
 
-/** CLV automático (Rec 2). Pega as odds ATUAIS (odds_unificadas — quando você re-coleta
- * perto do kickoff, elas SÃO o fechamento) e grava odd_fechamento + prob_devig_fechamento
- * + clv + fechamento_em nas apostas já logadas (cujo `odd_flag` = a odd de ENTRADA da 1ª
- * análise). Idempotente: cada re-coleta atualiza o fechamento; a última antes do apito é o
- * fechamento verdadeiro. Casa por (nome normalizado, mercado, linha). É chamado sozinho a
- * cada (re)escrita de odds — o usuário não precisa fazer nada além de buscar odds de novo. */
-export async function capturarFechamentoService(
-  repo: any, eventId: string,
-): Promise<{ capturadas: number; clv_medio: number | null; fechamento_em: string }> {
-  const ledger = await repo.getLedger(eventId);
+/** Fotografa as odds unificadas ATUAIS no histórico IMUTÁVEL (odds_snapshots), marcando o
+ * `lineup_status` do momento. É a base do CLV DERIVADO — substitui a captura-por-gatilho
+ * (gambiarra): coletar N vezes só acrescenta retratos, nunca sobrescreve → impossível
+ * contaminar. Chamado onde ENTRAM odds novas (coletar/colar), não na re-unificação. */
+export async function appendSnapshotFromUnified(
+  repo: any, eventId: string, lineupStatus: string,
+): Promise<{ retratos: number; coletado_em: string }> {
+  const coletado_em = new Date().toISOString();
   const unified: UnifiedOddsRow[] = await repo.getOddsUnificadas(eventId);
-  const bets = ledger.map((r: any) => ({
-    event_id: r.event_id, jogador: r.jogador, linha: Number(r.linha),
-    market_type: r.market_type, odd_flag: r.odd_flag ?? null,
+  if (!unified.length) return { retratos: 0, coletado_em };
+  const rows: OddsSnapshotRow[] = unified.map((o) => ({
+    entidade_norm: o.entidade_norm, entidade: o.entidade, market_type: o.market_type,
+    linha: Number(o.linha), odd_over: o.odd_over, odd_under: o.odd_under ?? null,
+    book: o.book, lineup_status: lineupStatus || "unknown", coletado_em,
   }));
-  const odds = unified.map((o) => ({
-    entidade_norm: o.entidade_norm, market_type: o.market_type,
-    linha: Number(o.linha), odd_over: o.odd_over, odd_under: o.odd_under,
-  }));
-  const updates = computeClosingUpdates(bets, odds);
-  const fechamento_em = new Date().toISOString();
-  if (updates.length) await repo.applyClosingUpdates(updates, fechamento_em);
-  const clv_medio = updates.length ? updates.reduce((a, u) => a + u.clv, 0) / updates.length : null;
-  return { capturadas: updates.length, clv_medio, fechamento_em };
+  await repo.appendOddsSnapshot(eventId, rows);
+  return { retratos: rows.length, coletado_em };
 }
 
 /** Lê o espelho canônico (o que a ANÁLISE considera). */
@@ -272,7 +262,7 @@ export async function saveOddsService(repo: any, body: unknown): Promise<{ salva
   }));
   await repo.saveOdds(input.event_id, rows);
   await reprojectUnifiedOdds(repo, input.event_id); // espelho automático
-  await capturarFechamentoService(repo, input.event_id); // CLV automático
+  await appendSnapshotFromUnified(repo, input.event_id, "unknown"); // retrato no histórico (sem evento BSD aqui)
   return { salvas: rows.length, linhas_rejeitadas: input.linhas_rejeitadas };
 }
 
@@ -286,7 +276,8 @@ export async function getOddsService(repo: any, eventId: string): Promise<OddsRo
 export async function coletarOddsService(
   client: any, repo: any, eventId: string, fetchers: Fetchers, opts: RunCollectionOpts = {},
 ): Promise<RunCollectionResult> {
-  const ev = normalizeEvent(await client.getEvent(eventId));
+  const raw = await client.getEvent(eventId);
+  const ev = normalizeEvent(raw);
   const home = ev.home_team?.name ?? "", away = ev.away_team?.name ?? "";
   opts.log?.(`jogo BSD ${ev.id}: "${home}" x "${away}" — resolvendo nas casas...`);
   const res = await runCollection(
@@ -296,7 +287,8 @@ export async function coletarOddsService(
   // Espelho automático: re-gera odds_unificadas do cru recém-gravado (dry não grava).
   if (!opts.dry) {
     await reprojectUnifiedOdds(repo, String(ev.id));
-    await capturarFechamentoService(repo, String(ev.id)); // CLV automático ao re-coletar
+    // Retrato no histórico imutável, marcando a escalação DESTE momento (pré/pós).
+    await appendSnapshotFromUnified(repo, String(ev.id), String(raw.lineup_status ?? "unknown"));
   }
   return res;
 }

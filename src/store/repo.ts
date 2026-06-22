@@ -2,7 +2,6 @@ import { logError, logWarn } from "../lib/log.js";
 // O tipo da linha unificada mora na camada que a PRODUZ (collect/unify); o store só
 // persiste. Re-exporto p/ quem já importa de store/repo (compat) — sem inverter a camada.
 import type { UnifiedOddsRow } from "../collect/unify.js";
-import type { ClosingUpdate } from "../backtest/clvCapture.js";
 export type { UnifiedOddsRow };
 
 /** Closing Line Value: positivo = peguei preço melhor que o fechamento. */
@@ -73,8 +72,6 @@ export interface Repo {
   getCrosswalk(canonicalId: number): Promise<any | null> | (any | null);
   listCrosswalk(): Promise<Record<string, string>> | Record<string, string>;
   snapshotClosing(eventId: string, jogador: string, linha: number, marketType: string | null, closingOdd: number): Promise<void> | void;
-  // CLV automático: aplica fechamento+CLV em lote (computeClosingUpdates já fez a conta).
-  applyClosingUpdates(updates: ClosingUpdate[], fechamentoEm: string): Promise<void> | void;
 }
 
 export class InMemoryRepo implements Repo {
@@ -198,17 +195,6 @@ export class InMemoryRepo implements Repo {
     }
   }
 
-  applyClosingUpdates(updates: ClosingUpdate[], fechamentoEm: string) {
-    for (const u of updates) {
-      const row = this.ledger.find((r) => r.event_id === u.event_id && r.jogador === u.jogador
-        && Number(r.linha) === u.linha && r.market_type === u.market_type);
-      if (!row) continue;
-      row.odd_fechamento = u.odd_fechamento;
-      row.prob_devig_fechamento = u.prob_devig_fechamento;
-      row.clv = u.clv;
-      row.fechamento_em = fechamentoEm;
-    }
-  }
 }
 
 /** Persiste no Supabase via @supabase/supabase-js. Tabelas em store/schema.sql. */
@@ -425,15 +411,6 @@ export class SupabaseRepo implements Repo {
     await this.mutate("snapshotClosing", upd, { eventId, jogador, linha, marketType });
   }
 
-  async applyClosingUpdates(updates: ClosingUpdate[], fechamentoEm: string) {
-    for (const u of updates) {
-      await this.mutate("applyClosingUpdates", this.client.from("paper_ledger").update({
-        odd_fechamento: u.odd_fechamento, prob_devig_fechamento: u.prob_devig_fechamento,
-        clv: u.clv, fechamento_em: fechamentoEm,
-      }).eq("event_id", u.event_id).eq("jogador", u.jogador).eq("linha", u.linha).eq("market_type", u.market_type),
-      { event_id: u.event_id, jogador: u.jogador, linha: u.linha });
-    }
-  }
 }
 
 /** Monta um SupabaseRepo lendo URL/key do ambiente. */
