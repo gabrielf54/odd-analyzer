@@ -18,7 +18,9 @@ export interface RunnerDeps {
   forwardLog: () => Promise<any>;
   settle: () => Promise<any>;
   logRun: (row: SchedulerRunRow) => Promise<void> | void;
-  recentRuns: () => Promise<SchedulerRunRow[]> | SchedulerRunRow[];
+  /** dedup restart-safe DIRECIONADO: já coletou OK esse (evento, marco)? (query indexada,
+   *  não varre janela recente → confiável mesmo com o diário grande). */
+  alreadyCollected: (eventId: string, mark: string) => Promise<boolean> | boolean;
   now: () => number;
   cfg?: Partial<ScheduleConfig>;
   /** teto p/ UMA coleta (default 180s). Sem isso, 1 coleta pendurada trava a fila p/ sempre. */
@@ -123,15 +125,14 @@ export class SchedulerRunner {
     // dedup restart-safe: já coletou OK esse event+mark? então pula (snapshots são
     // append-only — re-coletar não corrompe, mas evita retrato redundante).
     try {
-      const recent = await this.deps.recentRuns();
-      if (recent.some((r) => r.event_id === eventId && r.mark === mark && r.job_type === "collect" && r.status === "ok")) {
+      if (await this.deps.alreadyCollected(eventId, mark)) {
         await this.safeLog({ event_id: eventId, jogo, job_type: "collect", mark, status: "pulado", detalhe: { motivo: "já coletado" } });
         return;
       }
     } catch (e) {
-      // recentRuns falhou (BD intermitente) → segue e coleta (melhor 1 retrato a mais que
+      // dedup falhou (BD intermitente) → segue e coleta (melhor 1 retrato a mais que
       // nenhum), mas LOGA — senão a intermitência fica invisível e gera retrato redundante mudo.
-      logWarn("scheduler:dedup", "recentRuns falhou — coletando sem dedup", { eventId, mark, erro: msg(e) });
+      logWarn("scheduler:dedup", "alreadyCollected falhou — coletando sem dedup", { eventId, mark, erro: msg(e) });
     }
     try {
       const r = await withTimeout(this.deps.collect(eventId, mark), this.collectTimeoutMs, `collect ${eventId}/${mark}`);

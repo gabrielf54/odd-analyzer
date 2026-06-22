@@ -52,7 +52,7 @@ function buildScheduler(client: any, repo: any): SchedulerRunner {
     forwardLog: () => runForwardLog(client, repo, sp),
     settle: () => runSettle(client, repo),
     logRun: (row) => repo.appendSchedulerRun(row),
-    recentRuns: () => repo.getRecentSchedulerRuns(200),
+    alreadyCollected: (eventId, mark) => repo.hasSchedulerRun(eventId, mark, "collect", "ok"),
     now: () => Date.now(),
   };
   return new SchedulerRunner(deps);

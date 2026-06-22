@@ -77,6 +77,8 @@ export interface Repo {
   // scheduler_runs (diário de bordo do agendador 24h): append-only, leitura recente.
   appendSchedulerRun(row: SchedulerRunRow): Promise<void> | void;
   getRecentSchedulerRuns(limit?: number): Promise<SchedulerRunRow[]> | SchedulerRunRow[];
+  // dedup DIRECIONADO (restart-safe independente da janela): existe run (event,mark,job,status)?
+  hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): Promise<boolean> | boolean;
   getAnalysis(eventId: string): Promise<any | null> | (any | null);
   saveLedger(rows: any[]): Promise<void> | void;
   getLedger(eventId: string): Promise<any[]> | any[];
@@ -171,6 +173,9 @@ export class InMemoryRepo implements Repo {
   appendSchedulerRun(row: SchedulerRunRow) { this.schedulerRuns.push(row); }
   getRecentSchedulerRuns(limit = 50): SchedulerRunRow[] {
     return [...this.schedulerRuns].sort((a, b) => b.criado_em.localeCompare(a.criado_em)).slice(0, limit);
+  }
+  hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): boolean {
+    return this.schedulerRuns.some((r) => r.event_id === eventId && r.mark === mark && r.job_type === jobType && r.status === status);
   }
 
   listOddsEvents(): OddsEventSummary[] {
@@ -358,6 +363,14 @@ export class SupabaseRepo implements Repo {
   async getRecentSchedulerRuns(limit = 50): Promise<SchedulerRunRow[]> {
     return this.query<SchedulerRunRow[]>("getRecentSchedulerRuns",
       this.client.from("scheduler_runs").select("*").order("criado_em", { ascending: false }).limit(limit), []);
+  }
+  async hasSchedulerRun(eventId: string, mark: string, jobType: string, status: string): Promise<boolean> {
+    // query DIRECIONADA (usa o índice por event_id) — não varre 200 linhas; dedup confiável
+    // mesmo depois que o diário cresce além da janela recente (restart-safe de verdade).
+    const data = await this.query<any[]>("hasSchedulerRun",
+      this.client.from("scheduler_runs").select("id")
+        .eq("event_id", eventId).eq("mark", mark).eq("job_type", jobType).eq("status", status).limit(1), []);
+    return Array.isArray(data) && data.length > 0;
   }
   async listOddsEvents(): Promise<OddsEventSummary[]> {
     const data = await this.query<any[]>("listOddsEvents", this.client.from("odds").select("event_id, coletado_em"), []);

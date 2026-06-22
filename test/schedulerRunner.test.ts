@@ -11,7 +11,7 @@ function makeDeps(over: Partial<RunnerDeps> = {}): RunnerDeps {
     forwardLog: vi.fn(async () => ({ logged: 0 })),
     settle: vi.fn(async () => ({ liquidadas_player: 0 })),
     logRun: vi.fn(async () => {}),
-    recentRuns: vi.fn(async () => []),
+    alreadyCollected: vi.fn(async () => false),
     now: () => Date.now(),
     ...over,
   };
@@ -62,7 +62,7 @@ describe("SchedulerRunner", () => {
     vi.setSystemTime(new Date("2026-06-22T07:59:00Z"));
     const deps = makeDeps({
       discover: vi.fn(async () => [{ event_id: "1", jogo: "A x B", kickoff: KICKOFF }]),
-      recentRuns: vi.fn(async () => [{ event_id: "1", mark: "base", job_type: "collect", status: "ok", criado_em: "2026-06-22T07:00:00Z" }]),
+      alreadyCollected: vi.fn(async (eid: string, mk: string) => eid === "1" && mk === "base"),
     });
     const runner = new SchedulerRunner(deps);
     runner.start();

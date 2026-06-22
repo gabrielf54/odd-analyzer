@@ -53,7 +53,8 @@ e `settle` (gols/vitória, $0) seguem GLOBAIS** (todos os jogos da Copa), fora d
 | `fechamento` | K−3min | `coletarOddsService` → snapshot (linha de fechamento) |
 
 Varreduras periódicas (idempotentes, fora da fila de coleta):
-- **forwardLog** 1×/dia (06:00) — prevê gols/vitória dos jogos das próximas ~30h ($0).
+- **forwardLog** (varredura 6h) — prevê gols/vitória dos jogos das próximas **72h** ($0; janela
+  própria do `runForwardLog`, distinta do horizonte de coleta `SCHEDULER_HORIZON_H=30h`).
 - **settle** de hora em hora — liquida qualquer jogo terminado (sem arg = todos pendentes).
 - **discover** de hora em hora — re-descobre jogos da Copa e reprograma (restart-safe).
 

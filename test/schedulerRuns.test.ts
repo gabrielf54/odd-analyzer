@@ -16,4 +16,14 @@ describe("scheduler_runs (diário de bordo do agendador)", () => {
     for (let i = 0; i < 5; i++) repo.appendSchedulerRun({ job_type: "discover", status: "ok", criado_em: `2026-06-22T0${i}:00:00Z` });
     expect(repo.getRecentSchedulerRuns(3).length).toBe(3);
   });
+
+  it("hasSchedulerRun: dedup direcionado (não depende da janela recente)", async () => {
+    const repo = new InMemoryRepo();
+    repo.appendSchedulerRun({ event_id: "e1", job_type: "collect", mark: "base", status: "ok", criado_em: "2026-06-01T00:00:00Z" });
+    repo.appendSchedulerRun({ event_id: "e1", job_type: "collect", mark: "deriva", status: "erro", criado_em: "2026-06-01T00:00:00Z" });
+    expect(await repo.hasSchedulerRun("e1", "base", "collect", "ok")).toBe(true);
+    expect(await repo.hasSchedulerRun("e1", "deriva", "collect", "ok")).toBe(false); // só 'erro' → não conta
+    expect(await repo.hasSchedulerRun("e1", "fechamento", "collect", "ok")).toBe(false);
+    expect(await repo.hasSchedulerRun("e2", "base", "collect", "ok")).toBe(false);
+  });
 });
