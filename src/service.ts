@@ -12,6 +12,7 @@ import { runCollection, type RunCollectionOpts, type RunCollectionResult } from 
 import { buildUnifiedOdds } from "./collect/unify.js";
 import { computeClvSegments, lineupEdge, recommendTiming, type ClvSegments, type LineupEdge } from "./backtest/clvSegments.js";
 import { aggregateClvByMarket, type MarketClv } from "./backtest/clvByMarket.js";
+import { makeRng } from "./backtest/validation.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
@@ -342,11 +343,21 @@ const CLV_LIMITACAO =
   "(forwardLog) entram sem odds, então ficam de fora. Medir EDGE (modelo×casa) exige odds dos " +
   "dois lados (over+under) — a maioria das casas só captura o over hoje (gap conhecido da Rec 1).";
 
+// Seed FIXO do bootstrap: este é endpoint de LEITURA que alimenta um selo de confiança (o IC
+// cruza zero ou não). Sem seed, `bootstrapMetricCI` cai em `Math.random` e o lo/hi mudaria a
+// cada refresh — o selo "piscaria" entre confiável e ruído com o mesmo ledger. Reseed a cada
+// chamada → reprodutível. (1000 reamostragens num PRNG semeado = determinístico.)
+const CLV_BOOTSTRAP_SEED = 1;
+
 /** CLV AGREGADO por mercado, entre TODOS os jogos do paper_ledger. Para cada aposta com odd
- * de entrada, casa aos retratos do seu evento (mesma regra do clvService: nome normalizado |
- * mercado | linha), calcula o CLV-total (entrada→fechamento) via computeClvSegments e agrega
- * por market_type (média + IC bootstrap + n). Read-only. Kickoff vem da BSD por evento. */
+ * de entrada, casa aos retratos do seu evento — a CHAVE de casamento (nome normalizado |
+ * mercado | linha) é a MESMA do clvService; este agrega adicionalmente só o que tem fechamento
+ * (`total != null`), pois faz a média do segmento entrada→fechamento. Read-only. Kickoff vem
+ * da BSD por evento. */
 export async function clvPorMercadoService(client: any, repo: any): Promise<ClvPorMercadoResult> {
+  // NOTA: allLedger() é um select sem paginação → sujeito ao cap de 1000 linhas do Supabase
+  // (diferente de getOddsSnapshots, que pagina). Na escala da Copa (dezenas de eventos) ok; se
+  // o ledger passar de 1000 linhas, paginar aqui como em getOddsSnapshots.
   const ledger = await repo.allLedger();
   const push = (m: Map<string, any[]>, k: string, v: any) => { const a = m.get(k); if (a) a.push(v); else m.set(k, [v]); };
 
@@ -382,7 +393,10 @@ export async function clvPorMercadoService(client: any, repo: any): Promise<ClvP
     }
   }
 
-  return { por_mercado: aggregateClvByMarket(clvsByMarket), limitacao: CLV_LIMITACAO };
+  return {
+    por_mercado: aggregateClvByMarket(clvsByMarket, { rng: makeRng(CLV_BOOTSTRAP_SEED) }),
+    limitacao: CLV_LIMITACAO,
+  };
 }
 
 /** Lê o espelho canônico (o que a ANÁLISE considera). */

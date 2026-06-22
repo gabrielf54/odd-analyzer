@@ -44,6 +44,28 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
     expect(r.limitacao.length).toBeGreaterThan(0);
   });
 
+  it("é DETERMINÍSTICO: o IC (bootstrap) não muda entre chamadas (endpoint de leitura/selo de confiança)", async () => {
+    const repo = new InMemoryRepo();
+    // 6 apostas com CLVs-total distintos no mesmo mercado → o bootstrap percentila valores
+    // variados; sem seed, Math.random faria lo/hi mudar a cada chamada.
+    const ledger: any[] = [];
+    for (let i = 0; i < 6; i++) {
+      const jogador = `J${i}`;
+      ledger.push({ event_id: "e1", jogador, linha: 0.5, market_type: "sot", odd_flag: 2.0, criado_em: "2026-06-22T09:00:00Z" });
+      repo.appendOddsSnapshot("e1", [snap(jogador, "sot", 0.5, 2.0 + i * 0.1, "predicted", "2026-06-22T09:00:00Z")]);
+      repo.appendOddsSnapshot("e1", [snap(jogador, "sot", 0.5, 1.5 + i * 0.05, "confirmed", "2026-06-22T14:00:00Z")]);
+    }
+    repo.saveLedger(ledger);
+    const client = { getEvent: async () => ({ event_date: "2026-06-22T15:00:00Z" }) };
+
+    const a = await clvPorMercadoService(client, repo);
+    const b = await clvPorMercadoService(client, repo);
+    expect(a.por_mercado).toEqual(b.por_mercado);
+    const sot = a.por_mercado.find((m) => m.market_type === "sot")!;
+    expect(sot.n).toBe(6);
+    expect(sot.lo).toBeLessThan(sot.hi); // IC não-degenerado (valores distintos)
+  });
+
   it("pula aposta de forwardLog (odd_flag=null) e aposta sem retrato correspondente", async () => {
     const repo = new InMemoryRepo();
     repo.saveLedger([
