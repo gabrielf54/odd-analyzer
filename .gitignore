@@ -1,5 +1,6 @@
 .env
 .mcp.json
+.claude/
 docs/superpowers/reports/
 .superpowers/
 node_modules/
