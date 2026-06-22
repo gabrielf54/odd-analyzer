@@ -9,6 +9,8 @@ export interface Deps {
   client: any;
   repo: any;
   reviewerFn?: ReviewerFn;
+  /** Agendador 24h (opcional): expõe os jobs agendados p/ o painel. Ausente = desligado. */
+  scheduler?: { status: () => { scheduled: any[] } };
 }
 
 const analyzeSchema = z.object({
@@ -151,6 +153,14 @@ export function createApp(deps: Deps): express.Express {
   // (pré/salto/pós/total) + recomendação de timing. Read-only (calcula do histórico).
   app.get("/jogos/:eventId/clv", wrap(async (req, res) => {
     res.json(await service.clvService(deps.client, deps.repo, String(req.params.eventId)));
+  }));
+
+  // Status do agendador 24h (só-leitura): jogos agendados (memória do daemon) + últimas
+  // execuções (scheduler_runs do banco). enabled=false quando o daemon não está montado.
+  app.get("/scheduler/status", wrap(async (_req, res) => {
+    const runs = deps.repo.getRecentSchedulerRuns ? await deps.repo.getRecentSchedulerRuns(30) : [];
+    const scheduled = deps.scheduler ? deps.scheduler.status().scheduled : [];
+    res.json({ enabled: !!deps.scheduler, scheduled, runs });
   }));
 
   app.get("/jogos/:eventId/analise", wrap(async (req, res) => {
