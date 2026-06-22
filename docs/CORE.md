@@ -12,9 +12,13 @@
 > número × o de-vig da casa, ambos vs resultado — só linhas de 2 lados) revela que **a CASA ainda ganha em
 > gols/vitória** (sem edge mensurável); **IC 95% por bootstrap** no BrierSkill revela que **TODOS os skills
 > positivos cruzam o zero** (n pequeno) → protege de graduar por sorte. Bater a média ≠ bater a casa. (2)
-> **CLV automático** (`src/backtest/clvCapture.ts`): ao re-coletar odds perto do kickoff, o backend casa as
-> apostas logadas (odd_flag=entrada) às odds atuais=fechamento e grava `odd_fechamento`/`clv`/`fechamento_em`
-> sozinho (hook em coletar/colar/unificar; endpoint `POST /capturar-fechamento`; migração `add_fechamento_em`).
+> **CLV DERIVADO ciente da ESCALAÇÃO** (`src/backtest/clvSegments.ts` + tabela `odds_snapshots`): cada coleta
+> FOTOGRAFA as odds no histórico IMUTÁVEL (com `lineup_status` do momento); o CLV é CALCULADO na LEITURA
+> (`clvService` → `GET /jogos/:id/clv`), segmentado em pré-escalação / **salto-da-escalação** / pós / total +
+> recomendação de TIMING (apostar pré-escalação quando o IC do salto não cruza zero). Desacoplado da coleta —
+> coletar N vezes só acrescenta retratos, NÃO contamina. Aba "CLV · Linha" no front. **Substituiu a 1ª versão
+> por-gatilho (`clvCapture.ts`), que acoplava coleta×CLV e era frágil — REMOVIDA.** Migrações
+> `create_odds_snapshots` + `add_fechamento_em`. Spec/plano em `docs/superpowers/`.
 > (3) **odds 2 lados (Rec 1) ESCOPADO**: pipeline já suporta `odd_under`; KTO captura, mas Betnacional/Betano/
 > Stake/Superbet só pegam o over → falta parsing por-casa com payload real (ritual `IMPLEMENTAR-CASA.md`) p/
 > destravar edge/CLV em player props. Branch `feat/validacao-edge-clv-odds`.) · 2026-06-22 (**FORWARD LIMPO — 2 bugs de MEDIÇÃO consertados (TDD, 452 testes,
