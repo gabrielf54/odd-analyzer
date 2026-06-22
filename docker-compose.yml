@@ -1,0 +1,32 @@
+# Sobe backend + front em containers que se reerguem sozinhos. RODA LOCAL NO BR (os coletores
+# precisam de IP brasileiro). Sempre-ligado = Docker Desktop "iniciar ao logar" + restart abaixo.
+#   subir/atualizar:  docker compose up -d --build
+#   ver logs:         docker compose logs -f backend
+#   parar:            docker compose down
+services:
+  backend:
+    build: .
+    image: odd-analyzer-backend
+    container_name: odd-analyzer-backend
+    env_file: .env            # BZZOIRO/SUPABASE/OPENROUTER/THE_ODDS... (segredos, não vão pra imagem)
+    environment:
+      PORT: "5926"
+      SCHEDULER_ENABLED: "true"
+      PW_NO_SANDBOX: "1"
+    ports:
+      - "5926:5926"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ../odd-analyzer-frontend   # repo irmão (lado a lado no disco do dono)
+      args:
+        # Next inlina no build. O navegador roda na máquina do dono → localhost:5926 = backend.
+        NEXT_PUBLIC_API_URL: "http://localhost:5926"
+    image: odd-analyzer-frontend
+    container_name: odd-analyzer-frontend
+    ports:
+      - "5927:5927"
+    restart: unless-stopped
+    depends_on:
+      - backend
