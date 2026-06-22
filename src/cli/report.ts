@@ -5,10 +5,14 @@
 //  • CLV médio quando houver.
 // Uso: npx tsx src/cli/report.ts
 import "dotenv/config";
+import { BSDClient } from "../bsd/client.js";
+import { getRequired } from "../config.js";
 import { createSupabaseRepo } from "../store/repo.js";
 import { validationByMarket } from "../backtest/ledgerReport.js";
+import { clvPorMercadoService } from "../service.js";
 
 const repo = await createSupabaseRepo();
+const client = new BSDClient(getRequired("BZZOIRO_API_KEY"));
 const rows = await repo.allLedger();
 const rep = validationByMarket(rows);
 
@@ -42,7 +46,21 @@ if (!comMercado.length) {
 
 console.log("\nLeitura: BrierSkill>0 = bate a média (chute burro). Mas o que PAGA é vantagem>0 =");
 console.log("bater a CASA. IC95% que cruza o zero = skill ainda pode ser ruído (n pequeno).");
-console.log("CLVm aqui = n/d: o CLV virou DERIVADO do histórico de odds, por jogo, segmentado");
-console.log("pela escalação → ver GET /jogos/:id/clv (acumula conforme você coleta odds ao vivo).");
+
+// CLV AGREGADO por mercado (entrada→fechamento), entre TODOS os jogos. Resolve o "CLVm n/d"
+// acima: aquele era por-jogo (GET /jogos/:id/clv); este junta o paper_ledger inteiro.
+const pct = (x: number) => (x >= 0 ? "+" : "−") + (Math.abs(x) * 100).toFixed(1) + "%";
+const clvAgg = await clvPorMercadoService(client, repo);
+console.log("\n=== CLV POR MERCADO (entrada→fechamento, todos os jogos) ===");
+console.log("mercado        n   CLV médio   IC95%");
+if (!clvAgg.por_mercado.length) {
+  console.log("  (sem CLV ainda — precisa de aposta com odd de entrada + retratos de odds ao longo do dia)");
+} else {
+  for (const m of clvAgg.por_mercado) {
+    const ic = `[${pct(m.lo)}, ${pct(m.hi)}]`;
+    console.log(`${m.market_type.padEnd(12)} ${String(m.n).padStart(3)}   ${pct(m.clv_medio).padStart(7)}   ${ic}`);
+  }
+}
+console.log(`\nLimitação: ${clvAgg.limitacao}`);
 // Nota: no Windows pode aparecer um "Assertion failed ... async.c" no encerramento —
 // artefato do libuv/undici (handle keep-alive do supabase-js) APÓS o resultado; exit 0, benigno.

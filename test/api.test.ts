@@ -63,6 +63,13 @@ describe("API", () => {
     expect(r.status).toBe(200);
     expect(r.body["1"]).toEqual({ valor_real: 3, bateu: true });
   });
+
+  it("GET /clv/por-mercado → 200 {por_mercado, limitacao}", async () => {
+    const r = await request(app()).get("/clv/por-mercado");
+    expect(r.status).toBe(200);
+    expect(Array.isArray(r.body.por_mercado)).toBe(true);
+    expect(typeof r.body.limitacao).toBe("string");
+  });
 });
 
 describe("API — fluxo manual de odds", () => {

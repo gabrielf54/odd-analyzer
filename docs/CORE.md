@@ -7,7 +7,16 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-22 (**AGENDADOR 24h IN-PROCESS (TDD, 498 testes back + 96 front, gate intacto):**
+> **Atualizado:** 2026-06-22 (**CLV AGREGADO POR MERCADO (TDD, 511 testes back + 100 front, gate intacto):**
+> o CLV por jogo (`GET /jogos/:id/clv`) já existia, mas o `report.ts` mostrava o CLV agregado como `n/d`.
+> Agora há o **CLV médio por `market_type` entre TODOS os jogos**: função PURA `aggregateClvByMarket`
+> (`src/backtest/clvByMarket.ts`, reusa `lineupEdge` p/ média + IC bootstrap + n) + serviço
+> `clvPorMercadoService` (percorre o `paper_ledger`, casa cada aposta aos retratos do seu evento como o
+> `clvService`, calcula o CLV-total entrada→fechamento via `clvSegments`, agrega) + `GET /clv/por-mercado`
+> + painel **CLV POR MERCADO** no `report.ts` + **tela `/clv`** no front (`ClvMarketPanel`, só-leitura,
+> verde = a meu favor, selo de confiança pelo IC). **Limitação anotada (honestidade, não escondida):** CLV
+> só existe p/ prop com odd de entrada; gols/vitória (forwardLog, `odd_flag=null`) ficam de fora; medir
+> EDGE exige odds dos 2 lados (gap da Rec 1). Branch `feat/clv-por-mercado`.) · 2026-06-22 (**AGENDADOR 24h IN-PROCESS (TDD, 498 testes back + 96 front, gate intacto):**
 > subir a API liga um daemon (`src/scheduler/`) que coleta odds nos marcos de cada jogo da Copa (abertura/
 > deriva/**salto da escalação**/fechamento) + roda `forwardLog`/`settle` em varredura, **sozinho e sem custo**
 > (sem Claude, sem OpenRouter). Núcleo PURO (`plan`/`lineupWatch`) + casca (`runner`): fila serializada,
@@ -160,6 +169,12 @@ número).
   CLIs `settle` (liquida pelo resultado real; desarme por `won_tackle`), `report` (Brier/ECE/CLV por
   mercado), `snapshotClosing`. **É o que valida a seleção AO VIVO** (a calib offline foi em AFCON/
   amistoso, não na Copa).
+- **CLV AGREGADO por mercado (2026-06-22):** o `report.ts` e a tela `/clv` mostram o **CLV médio
+  entrada→fechamento por `market_type`, juntando TODO o `paper_ledger`** (`aggregateClvByMarket` puro +
+  `clvPorMercadoService` + `GET /clv/por-mercado`; reusa `lineupEdge`=média+IC bootstrap+n e a regra de
+  casamento aposta↔retratos do `clvService`). Antes o agregado era `n/d` no `report` (o CLV só vinha
+  por jogo). **Só cobre prop com odd de entrada;** gols/vitória (forwardLog) sem odds ficam de fora, e
+  o EDGE (modelo×casa) ainda depende de odds dos 2 lados (Rec 1) — anotado na tela e no relatório.
 - **Agendador 24h IN-PROCESS (2026-06-22):** subir a API (`npm run dev`) já liga um daemon
   (`src/scheduler/`) que, **sozinho e sem custo** (sem Claude, sem OpenRouter), fotografa odds nos
   **marcos que movem a linha** (deriva K−3h · **salto da escalação** via vigília K−90→−15min ·

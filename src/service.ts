@@ -11,6 +11,7 @@ import { InMemoryRepo, type OddsRow, type UnifiedOddsRow, type OddsSnapshotRow }
 import { runCollection, type RunCollectionOpts, type RunCollectionResult } from "./collect/run.js";
 import { buildUnifiedOdds } from "./collect/unify.js";
 import { computeClvSegments, lineupEdge, recommendTiming, type ClvSegments, type LineupEdge } from "./backtest/clvSegments.js";
+import { aggregateClvByMarket, type MarketClv } from "./backtest/clvByMarket.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
@@ -325,6 +326,63 @@ export async function clvService(client: any, repo: any, eventId: string): Promi
     a.recomendacao = recommendTiming(a.pre_lineup, resumo_por_mercado[a.market_type] ?? { media: 0, lo: 0, hi: 0, n: 0 });
   }
   return { kickoff, apostas, resumo_por_mercado };
+}
+
+export interface ClvPorMercadoResult {
+  por_mercado: MarketClv[];
+  limitacao: string;
+}
+
+// Honestidade explícita (gap conhecido da Rec 1): CLV só existe pra aposta COM odd de entrada
+// (props da análise manual). Gols/vitória (forwardLog) entram sem odds → sem CLV. E o
+// MODELO×CASA, que mediria edge, precisa de odds dos 2 lados (over+under); hoje a maioria das
+// casas só captura o over. Por isso este painel cobre só os mercados de prop.
+const CLV_LIMITACAO =
+  "CLV só existe para aposta com odd de entrada (props da análise manual). Gols/vitória " +
+  "(forwardLog) entram sem odds, então ficam de fora. Medir EDGE (modelo×casa) exige odds dos " +
+  "dois lados (over+under) — a maioria das casas só captura o over hoje (gap conhecido da Rec 1).";
+
+/** CLV AGREGADO por mercado, entre TODOS os jogos do paper_ledger. Para cada aposta com odd
+ * de entrada, casa aos retratos do seu evento (mesma regra do clvService: nome normalizado |
+ * mercado | linha), calcula o CLV-total (entrada→fechamento) via computeClvSegments e agrega
+ * por market_type (média + IC bootstrap + n). Read-only. Kickoff vem da BSD por evento. */
+export async function clvPorMercadoService(client: any, repo: any): Promise<ClvPorMercadoResult> {
+  const ledger = await repo.allLedger();
+  const push = (m: Map<string, any[]>, k: string, v: any) => { const a = m.get(k); if (a) a.push(v); else m.set(k, [v]); };
+
+  const byEvent = new Map<string, any[]>();
+  for (const b of ledger) {
+    if (b.odd_flag == null) continue; // forwardLog (gols/vitória): sem odd de entrada → sem CLV
+    push(byEvent, String(b.event_id), b);
+  }
+
+  const clvsByMarket: Record<string, number[]> = {};
+  for (const [eventId, bets] of byEvent) {
+    const snaps = await repo.getOddsSnapshots(eventId);
+    if (!snaps.length) continue;
+    let kickoff: string | null = null;
+    try {
+      const raw = await client.getEvent(eventId);
+      kickoff = String(raw?.event_date ?? raw?.date ?? raw?.start_time ?? "") || null;
+    } catch { /* sem kickoff → best effort */ }
+    const kickoffCalc = kickoff ?? "9999-12-31T23:59:59Z";
+
+    const byLinha = new Map<string, any[]>();
+    for (const s of snaps) push(byLinha, `${s.entidade_norm}|${s.market_type}|${Number(s.linha)}`, s);
+
+    for (const b of bets) {
+      const linhaSnaps = byLinha.get(`${normalize(b.jogador)}|${b.market_type}|${Number(b.linha)}`) ?? [];
+      if (!linhaSnaps.length) continue;
+      const segmentos = computeClvSegments(
+        linhaSnaps.map((s) => ({ coletado_em: s.coletado_em, lineup_status: s.lineup_status, odd_over: s.odd_over })),
+        b.criado_em ?? kickoffCalc, kickoffCalc,
+      );
+      if (segmentos.total == null) continue; // sem fechamento → sem CLV-total
+      (clvsByMarket[b.market_type] ??= []).push(segmentos.total);
+    }
+  }
+
+  return { por_mercado: aggregateClvByMarket(clvsByMarket), limitacao: CLV_LIMITACAO };
 }
 
 /** Lê o espelho canônico (o que a ANÁLISE considera). */
