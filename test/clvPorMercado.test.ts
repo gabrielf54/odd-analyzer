@@ -12,9 +12,9 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
   it("casa cada aposta aos retratos do SEU evento, agrega o CLV-total por mercado", async () => {
     const repo = new InMemoryRepo();
     repo.saveLedger([
-      { event_id: "e1", jogador: "Pedri", linha: 1.5, market_type: "sot", odd_flag: 2.0, criado_em: "2026-06-22T09:00:00Z" },
-      { event_id: "e2", jogador: "Gavi", linha: 0.5, market_type: "sot", odd_flag: 1.8, criado_em: "2026-06-22T09:00:00Z" },
-      { event_id: "e2", jogador: "Rice", linha: 1.5, market_type: "desarmes", odd_flag: 2.2, criado_em: "2026-06-22T09:00:00Z" },
+      { event_id: "e1", jogador: "Pedri", linha: 1.5, market_type: "sot", odd_flag: 2.0, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
+      { event_id: "e2", jogador: "Gavi", linha: 0.5, market_type: "sot", odd_flag: 1.8, resultado: 0, criado_em: "2026-06-22T09:00:00Z" },
+      { event_id: "e2", jogador: "Rice", linha: 1.5, market_type: "desarmes", odd_flag: 2.2, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
     ]);
     // e1 / Pedri / sot: 09:00 @2.0 → 14:00 @1.7 ; apito 15:00 → total 2.0/1.7-1
     repo.appendOddsSnapshot("e1", [snap("Pedri", "sot", 1.5, 2.0, "predicted", "2026-06-22T09:00:00Z")]);
@@ -51,7 +51,7 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
     const ledger: any[] = [];
     for (let i = 0; i < 6; i++) {
       const jogador = `J${i}`;
-      ledger.push({ event_id: "e1", jogador, linha: 0.5, market_type: "sot", odd_flag: 2.0, criado_em: "2026-06-22T09:00:00Z" });
+      ledger.push({ event_id: "e1", jogador, linha: 0.5, market_type: "sot", odd_flag: 2.0, resultado: 1, criado_em: "2026-06-22T09:00:00Z" });
       repo.appendOddsSnapshot("e1", [snap(jogador, "sot", 0.5, 2.0 + i * 0.1, "predicted", "2026-06-22T09:00:00Z")]);
       repo.appendOddsSnapshot("e1", [snap(jogador, "sot", 0.5, 1.5 + i * 0.05, "confirmed", "2026-06-22T14:00:00Z")]);
     }
@@ -66,11 +66,31 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
     expect(sot.lo).toBeLessThan(sot.hi); // IC não-degenerado (valores distintos)
   });
 
+  it("conta SÓ apostas liquidadas: DNP/jogo não terminado (resultado nulo) fica fora", async () => {
+    const repo = new InMemoryRepo();
+    repo.saveLedger([
+      // liquidada (jogador jogou ≥60min) → entra
+      { event_id: "e1", jogador: "Pedri", linha: 0.5, market_type: "sot", odd_flag: 2.0, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
+      // não-liquidada (banco/DNP ou jogo não terminado) → fora, mesmo com retrato
+      { event_id: "e1", jogador: "Gavi", linha: 0.5, market_type: "sot", odd_flag: 1.8, resultado: null, criado_em: "2026-06-22T09:00:00Z" },
+    ]);
+    repo.appendOddsSnapshot("e1", [snap("Pedri", "sot", 0.5, 2.0, "predicted", "2026-06-22T09:00:00Z")]);
+    repo.appendOddsSnapshot("e1", [snap("Pedri", "sot", 0.5, 1.7, "confirmed", "2026-06-22T14:00:00Z")]);
+    repo.appendOddsSnapshot("e1", [snap("Gavi", "sot", 0.5, 1.8, "predicted", "2026-06-22T09:00:00Z")]);
+    repo.appendOddsSnapshot("e1", [snap("Gavi", "sot", 0.5, 1.5, "confirmed", "2026-06-22T14:00:00Z")]);
+    const client = { getEvent: async () => ({ event_date: "2026-06-22T15:00:00Z" }) };
+
+    const r = await clvPorMercadoService(client, repo);
+    const sot = r.por_mercado.find((m) => m.market_type === "sot")!;
+    expect(sot.n).toBe(1); // só a Pedri (liquidada); Gavi (resultado nulo) fora
+    expect(sot.clv_medio).toBeCloseTo(2.0 / 1.7 - 1, 9);
+  });
+
   it("pula aposta de forwardLog (odd_flag=null) e aposta sem retrato correspondente", async () => {
     const repo = new InMemoryRepo();
     repo.saveLedger([
-      { event_id: "e1", jogador: "Brasil", linha: 2.5, market_type: "gols", odd_flag: null, criado_em: "2026-06-22T09:00:00Z" },
-      { event_id: "e1", jogador: "SemRetrato", linha: 0.5, market_type: "sot", odd_flag: 1.9, criado_em: "2026-06-22T09:00:00Z" },
+      { event_id: "e1", jogador: "Brasil", linha: 2.5, market_type: "gols", odd_flag: null, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
+      { event_id: "e1", jogador: "SemRetrato", linha: 0.5, market_type: "sot", odd_flag: 1.9, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
     ]);
     const client = { getEvent: async (id: string) => ({ id, event_date: "2026-06-22T15:00:00Z" }) };
     const r = await clvPorMercadoService(client, repo);

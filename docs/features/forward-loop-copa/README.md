@@ -68,7 +68,9 @@ rodando — o loop acumula.
 ## Duas fases
 
 - **Fase 1 — CALIBRAÇÃO (agora, automática, SEM odds):** `forwardLog.ts` loga só a `prob_modelo`. O
-  `report.ts` dá Brier/ECE (CLV = `n/d`). Responde: *"o modelo acerta a probabilidade?"*
+  `report.ts` dá Brier/ECE. Responde: *"o modelo acerta a probabilidade?"* (O painel **CLV POR MERCADO**
+  do `report.ts`/tela `/clv` mede o **movimento de linha** das props de jogador já liquidadas — prova que
+  o preço andou a favor, **NÃO** EV; gols/vitória do forward seguem sem CLV até a Fase 2.)
 - **Fase 2 — CLV (precisa de odds):** a BSD dá odds de **partida** (1X2, over/under gols) em
   `/events/{id}/odds/` — 2 lados → de-vig + CLV automáticos. **Ainda NÃO está ligada ao loop**
   (`src/providers/odds.ts::BSDMatchOdds` não bate com o payload flat real — ver

@@ -334,14 +334,17 @@ export interface ClvPorMercadoResult {
   limitacao: string;
 }
 
-// Honestidade explícita (gap conhecido da Rec 1): CLV só existe pra aposta COM odd de entrada
-// (props da análise manual). Gols/vitória (forwardLog) entram sem odds → sem CLV. E o
-// MODELO×CASA, que mediria edge, precisa de odds dos 2 lados (over+under); hoje a maioria das
-// casas só captura o over. Por isso este painel cobre só os mercados de prop.
+// Enquadramento HONESTO (o que o CLV prova e o que NÃO prova). Três coisas distintas que é
+// fácil confundir: CALIBRAÇÃO = "o número está certo?" (prova offline); CLV = "o preço andou a
+// meu favor depois que escolhi?" (= o que isto mede); EV/EDGE = "quanto ganho por real?" (precisa
+// do preço justo da casa = odds dos 2 lados, que hoje NÃO temos). O CLV usa só o movimento do
+// over (não depende de de-vig), então é um sinal válido MESMO só-over — mas não autoriza falar de
+// EV. Gols/vitória (forwardLog, sem odd de entrada) ficam de fora.
 const CLV_LIMITACAO =
-  "CLV só existe para aposta com odd de entrada (props da análise manual). Gols/vitória " +
-  "(forwardLog) entram sem odds, então ficam de fora. Medir EDGE (modelo×casa) exige odds dos " +
-  "dois lados (over+under) — a maioria das casas só captura o over hoje (gap conhecido da Rec 1).";
+  "Isto mostra que o preço andou a favor das suas escolhas mais fortes (sinal bom) — NÃO diz " +
+  "quanto você ganha por real (EV). Pra medir EV/edge falta a odd do OUTRO lado (over+under): a " +
+  "maioria das casas só captura o over hoje (gap conhecido da Rec 1). Gols/vitória entram sem odd " +
+  "de entrada, então ficam de fora. Conta só apostas já liquidadas (jogador que entrou em campo).";
 
 // Seed FIXO do bootstrap: este é endpoint de LEITURA que alimenta um selo de confiança (o IC
 // cruza zero ou não). Sem seed, `bootstrapMetricCI` cai em `Math.random` e o lo/hi mudaria a
@@ -363,7 +366,10 @@ export async function clvPorMercadoService(client: any, repo: any): Promise<ClvP
 
   const byEvent = new Map<string, any[]>();
   for (const b of ledger) {
-    if (b.odd_flag == null) continue; // forwardLog (gols/vitória): sem odd de entrada → sem CLV
+    if (b.odd_flag == null) continue;   // forwardLog (gols/vitória): sem odd de entrada → sem CLV
+    if (b.resultado == null) continue;  // não-liquidada (DNP/banco ou jogo não terminado) → fora;
+    // o settle só liquida quem jogou ≥60min, então isto = mesma população da calibração (validação
+    // sobre jogos encerrados). O "ao vivo, hoje" segue na tela por-jogo (clvService).
     push(byEvent, String(b.event_id), b);
   }
 

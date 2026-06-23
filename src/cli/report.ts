@@ -51,10 +51,11 @@ console.log("bater a CASA. IC95% que cruza o zero = skill ainda pode ser ruído 
 // acima: aquele era por-jogo (GET /jogos/:id/clv); este junta o paper_ledger inteiro.
 const pct = (x: number) => (x >= 0 ? "+" : "−") + (Math.abs(x) * 100).toFixed(1) + "%";
 const clvAgg = await clvPorMercadoService(client, repo);
-console.log("\n=== CLV POR MERCADO (entrada→fechamento, todos os jogos) ===");
+console.log("\n=== CLV POR MERCADO (entrada→fechamento, jogos liquidados) ===");
+console.log("Prova: o preço ANDOU a favor das suas escolhas? (NÃO é EV — pra EV falta odd dos 2 lados.)");
 console.log("mercado        n   CLV médio   IC95%");
 if (!clvAgg.por_mercado.length) {
-  console.log("  (sem CLV ainda — precisa de aposta com odd de entrada + retratos de odds ao longo do dia)");
+  console.log("  (sem CLV ainda — precisa de aposta liquidada com odd de entrada + retratos de odds)");
 } else {
   for (const m of clvAgg.por_mercado) {
     const ic = `[${pct(m.lo)}, ${pct(m.hi)}]`;
