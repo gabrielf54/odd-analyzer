@@ -160,6 +160,13 @@ export function createApp(deps: Deps): express.Express {
     res.json(await service.clvService(deps.client, deps.repo, String(req.params.eventId)));
   }));
 
+  // CLV AGREGADO por mercado, entre TODOS os jogos do paper_ledger: CLV médio (entrada→
+  // fechamento) + IC bootstrap + n, por market_type. Só-leitura. Resolve o "CLV médio" do
+  // painel de validação (o report.ts mostrava n/d). Sem query → sem Zod.
+  app.get("/clv/por-mercado", wrap(async (_req, res) => {
+    res.json(await service.clvPorMercadoService(deps.client, deps.repo));
+  }));
+
   // Status do agendador 24h (só-leitura): jogos agendados (memória do daemon) + últimas
   // execuções (scheduler_runs do banco). enabled=false quando o daemon não está montado.
   app.get("/scheduler/status", wrap(async (_req, res) => {
