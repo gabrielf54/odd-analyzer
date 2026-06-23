@@ -353,7 +353,8 @@ const CLV_LIMITACAO =
 const CLV_BOOTSTRAP_SEED = 1;
 
 /** CLV AGREGADO por mercado, entre TODOS os jogos do paper_ledger. Para cada aposta com odd
- * de entrada, casa aos retratos do seu evento — a CHAVE de casamento (nome normalizado |
+ * de entrada E já LIQUIDADA (resultado não-nulo), casa aos retratos do seu evento — a CHAVE de
+ * casamento (nome normalizado |
  * mercado | linha) é a MESMA do clvService; este agrega adicionalmente só o que tem fechamento
  * (`total != null`), pois faz a média do segmento entrada→fechamento. Read-only. Kickoff vem
  * da BSD por evento. */

@@ -69,8 +69,9 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
   it("conta SÓ apostas liquidadas: DNP/jogo não terminado (resultado nulo) fica fora", async () => {
     const repo = new InMemoryRepo();
     repo.saveLedger([
-      // liquidada (jogador jogou ≥60min) → entra
-      { event_id: "e1", jogador: "Pedri", linha: 0.5, market_type: "sot", odd_flag: 2.0, resultado: 1, criado_em: "2026-06-22T09:00:00Z" },
+      // liquidada COM resultado 0 (jogou ≥60min, mas não bateu a linha) → ENTRA. Guarda o bug
+      // `== null` vs falsy: um filtro `if (!resultado)` derrubaria o 0 por engano.
+      { event_id: "e1", jogador: "Pedri", linha: 0.5, market_type: "sot", odd_flag: 2.0, resultado: 0, criado_em: "2026-06-22T09:00:00Z" },
       // não-liquidada (banco/DNP ou jogo não terminado) → fora, mesmo com retrato
       { event_id: "e1", jogador: "Gavi", linha: 0.5, market_type: "sot", odd_flag: 1.8, resultado: null, criado_em: "2026-06-22T09:00:00Z" },
     ]);
@@ -82,7 +83,7 @@ describe("clvPorMercadoService (todas as apostas → CLV agregado por mercado, e
 
     const r = await clvPorMercadoService(client, repo);
     const sot = r.por_mercado.find((m) => m.market_type === "sot")!;
-    expect(sot.n).toBe(1); // só a Pedri (liquidada); Gavi (resultado nulo) fora
+    expect(sot.n).toBe(1); // só a Pedri (liquidada, resultado=0); Gavi (resultado nulo) fora
     expect(sot.clv_medio).toBeCloseTo(2.0 / 1.7 - 1, 9);
   });
 
