@@ -7,7 +7,16 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-22 (**CLV AGREGADO POR MERCADO (TDD, 511 testes back + 100 front, gate intacto):**
+> **Atualizado:** 2026-06-23 (**CLV HONESTO + scoped à validação (TDD, 513 testes back + 103 front, gate intacto):**
+> a investigação (systematic-debugging) provou que o CLV-por-mercado mede o universo de **valor (edge>0)**, NÃO
+> "recomendadas" (seria circular: `prontoParaApostar` exige `isValidated`; e o ledger nem guarda `recomendado`).
+> O edge só-over é **conservador** (preço cru super-estima a prob do over → `edge>0` sub-seleciona), então o CLV
+> (movimento de linha, não usa de-vig) é sinal de **validação válido** mesmo só-over — mas **só prova que o preço
+> andou a favor, NÃO EV/edge** (pra EV falta odds dos 2 lados = Rec 1). Conserto (Approach A): (1) enquadramento
+> HONESTO na `/clv` + `report.ts` + string `limitacao` (calibração vs CLV vs EV); (2) `clvPorMercadoService` conta
+> **só apostas LIQUIDADAS** (`resultado` não-nulo → quem entrou em campo; exclui DNP/banco e jogo não terminado;
+> mesma população da calibração). Money-path intocado. Spec em `docs/superpowers/specs/2026-06-23-...`. Ver §3.2.)
+> · 2026-06-22 (**CLV AGREGADO POR MERCADO (TDD, 511 testes back + 100 front, gate intacto):**
 > o CLV por jogo (`GET /jogos/:id/clv`) já existia, mas o `report.ts` mostrava o CLV agregado como `n/d`.
 > Agora há o **CLV médio por `market_type` entre TODOS os jogos**: função PURA `aggregateClvByMarket`
 > (`src/backtest/clvByMarket.ts`, reusa `lineupEdge` p/ média + IC bootstrap + n) + serviço
@@ -169,12 +178,18 @@ número).
   CLIs `settle` (liquida pelo resultado real; desarme por `won_tackle`), `report` (Brier/ECE/CLV por
   mercado), `snapshotClosing`. **É o que valida a seleção AO VIVO** (a calib offline foi em AFCON/
   amistoso, não na Copa).
-- **CLV AGREGADO por mercado (2026-06-22):** o `report.ts` e a tela `/clv` mostram o **CLV médio
-  entrada→fechamento por `market_type`, juntando TODO o `paper_ledger`** (`aggregateClvByMarket` puro +
-  `clvPorMercadoService` + `GET /clv/por-mercado`; reusa `lineupEdge`=média+IC bootstrap+n e a regra de
-  casamento aposta↔retratos do `clvService`). Antes o agregado era `n/d` no `report` (o CLV só vinha
-  por jogo). **Só cobre prop com odd de entrada;** gols/vitória (forwardLog) sem odds ficam de fora, e
-  o EDGE (modelo×casa) ainda depende de odds dos 2 lados (Rec 1) — anotado na tela e no relatório.
+- **CLV AGREGADO por mercado (2026-06-22) + HONESTO/scoped à validação (2026-06-23):** o `report.ts`
+  e a tela `/clv` mostram o **CLV médio entrada→fechamento por `market_type`** do `paper_ledger`
+  (`aggregateClvByMarket` puro + `clvPorMercadoService` + `GET /clv/por-mercado`; reusa
+  `lineupEdge`=média+IC bootstrap+n e a regra de casamento aposta↔retratos do `clvService`). Antes o
+  agregado era `n/d` no `report` (o CLV só vinha por jogo). **Enquadramento HONESTO (2026-06-23):** a
+  população é o universo de **valor (edge>0)**, NÃO "recomendadas" (seria circular — `prontoParaApostar`
+  exige `isValidated`; e o ledger nem guarda `recomendado`). O edge só-over é **conservador** (preço cru
+  super-estima a prob do over → `edge>0` sub-seleciona), então o CLV (movimento de linha, não usa de-vig)
+  é sinal de **validação válido** mesmo só-over — mas **só prova que o preço andou a favor, NÃO EV/edge**
+  (pra EV falta odds dos 2 lados = Rec 1). Conta **só apostas LIQUIDADAS** (`resultado` não-nulo → jogador
+  que entrou em campo; exclui DNP/banco e jogo não terminado; mesma população da calibração). O "ao vivo,
+  hoje" segue na tela por-jogo (`clvService`, inalterada). Money-path intocado, gate de paridade intacto.
 - **Agendador 24h IN-PROCESS (2026-06-22):** subir a API (`npm run dev`) já liga um daemon
   (`src/scheduler/`) que, **sozinho e sem custo** (sem Claude, sem OpenRouter), fotografa odds nos
   **marcos que movem a linha** (deriva K−3h · **salto da escalação** via vigília K−90→−15min ·
