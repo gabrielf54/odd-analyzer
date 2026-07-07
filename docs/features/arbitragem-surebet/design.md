@@ -3,6 +3,22 @@
 > **Feature PENDENTE** (esta pasta some quando shipar — regra do CLAUDE.md).
 > Spec escrita em 2026-07-06.
 
+## STATUS (2026-07-06) — código PRONTO e provado dry; falta o fecho com banco
+
+**Feito e commitado (back main + front main):** motor `src/arb/surebet.ts` (12 testes) ·
+`odd_draw` ponta a ponta · parsers de partida+under nas 4 casas (fixtures reais) · job
+dia-inteiro + 3 rotas · tela `/imperdiveis` · smoke `scripts/arb-e2e-dry.mts`. Suítes: 549
+back + 103 front, gate de paridade intacto. **E2E dry AO VIVO OK** (Argentina×Egypt 8381:
+4 casas com gols/escanteios/1X2 completos; 4 "quase" S 1.014–1.02, incl. 3-vias cross-casa).
+
+**Pendências pro ship 100% (aí esta pasta morre → CORE §3):**
+1. **Dono: restaurar o projeto Supabase** (estava `INACTIVE` — free tier pausou; o restore
+   via API foi bloqueado pelo modo auto). Depois: `apply_migration add_odd_draw_to_odds`
+   (`alter table odds add column if not exists odd_draw numeric;` — schema.sql já reflete).
+2. E2E de TELA com banco: subir back+front, rodar um dia real pela `/imperdiveis`.
+3. Follow-up (não bloqueia): Betano-partida (mercados principais só no DOM/SSR — decidir se
+   vale raspagem) · KTO "Player Passes" tem under mas `passes` não está no de-para da KTO.
+
 ## O que é (linguagem leiga)
 
 Casas diferentes discordam de preço. Quando a **Betano paga 2.05 no "Mais de 1.5 gols"** e a

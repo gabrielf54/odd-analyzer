@@ -7,7 +7,21 @@
 > [`docs/features/`](features/) (uma pasta por feature) — **a pasta é APAGADA quando a feature shipa**
 > (a essência sobe pra §3 e o git guarda o detalhe). Ver a regra de não-poluição no `CLAUDE.md`.
 >
-> **Atualizado:** 2026-06-23 (**CLV HONESTO + scoped à validação (TDD, 513 testes back + 103 front, gate intacto):**
+> **Atualizado:** 2026-07-06 (**MÓDULO DE ARBITRAGEM (SUREBET) — "apostas imperdíveis" (TDD, 549 testes back + 103 front, gate intacto):**
+> módulo NOVO fora do money-path: para uma (liga, dia BR) coleta as odds de TODOS os jogos nas casas e compara
+> **lados opostos entre casas** (soma dos inversos < 1 = lucro travado). Motor puro `src/arb/surebet.ts` (2 vias
+> over/under + 3 vias 1X2; split de banca em R$ inteiros; lucro recalculado APÓS arredondar; tier "quase" <1.02;
+> `defasagem_min` anti-arb-fantasma) + job dia-inteiro `src/arb/dayRun.ts` (serial, in-memory, 1 por vez) + rotas
+> `POST /arbitragem/analisar-dia` / `GET /arbitragem/jobs/:id` / `GET /arbitragem/dia` + tela **`/imperdiveis`**
+> no front. Para isso os parsers ganharam **mercados de PARTIDA + lado under**: KTO ("Total Goals"/"Total
+> Corners"/"Full Time" 1X2), Betnacional ("Total"/"Total Corners X.5"/"Win-Draw-Win" por NOME), Superbet
+> (200734/704/547), Stake (1001159926/1001159897/1001159858 + pareia props Mais/Menos); `odd_draw` ponta a ponta
+> (novo na tabela `odds`; **migração PENDENTE — projeto Supabase estava INACTIVE**). Betano-partida FORA do v1
+> (mercados principais só existem renderizados no DOM/SSR — recon 2026-07-06). **E2E dry AO VIVO provado**
+> (Argentina×Egypt 8381: 4 casas com gols/escanteios/1X2 completos; motor achou 4 "quase" S 1.014–1.02, incl.
+> 3-vias cross-casa — arb plena é rara e efêmera, o radar mede certo). Detalhe pendente em
+> [`features/arbitragem-surebet/`](features/arbitragem-surebet/).) ·
+> 2026-06-23 (**CLV HONESTO + scoped à validação (TDD, 513 testes back + 103 front, gate intacto):**
 > a investigação (systematic-debugging) provou que o CLV-por-mercado mede o universo de **valor (edge>0)**, NÃO
 > "recomendadas" (seria circular: `prontoParaApostar` exige `isValidated`; e o ledger nem guarda `recomendado`).
 > O edge só-over é **conservador** (preço cru super-estima a prob do over → `edge>0` sub-seleciona), então o CLV
