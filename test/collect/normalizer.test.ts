@@ -117,3 +117,44 @@ describe("normalizeCollected", () => {
     expect(r.linhas[0]!.rotulo_cru).toBe("chutes a gol");
   });
 });
+
+// 1X2 (subtype "1x2"): linha fixa 0, exige os TRÊS lados (casa=odd_over, fora=odd_under,
+// empate=odd_draw) — sem empate não há trava de arbitragem e o de-vig 3-way não fecha.
+const TABELA_1X2: HouseMarketTable = { "full time": { market_type: "vitoria" } };
+const raw1x2 = (o: Partial<RawCollectedLine>): RawCollectedLine => ({
+  book: "kto", market_label: "Full Time", entidade: "partida", linha_raw: 0,
+  odd_over: 2.6, odd_under: 2.85, odd_draw: 3.15, subtype: "1x2", ...o,
+});
+
+describe("normalizeCollected — 1X2 (odd_draw)", () => {
+  it("1x2 completo → linha canônica vitoria com linha 0 e os 3 lados", () => {
+    const r = normalizeCollected([raw1x2({})], TABELA_1X2);
+    expect(r.linhas).toHaveLength(1);
+    expect(r.linhas[0]).toMatchObject({
+      market_type: "vitoria", entidade: "partida", linha: 0,
+      odd_over: 2.6, odd_under: 2.85, odd_draw: 3.15, book: "kto",
+    });
+  });
+
+  it("1x2 sem empate (odd_draw ausente) → rejeita", () => {
+    const r = normalizeCollected([raw1x2({ odd_draw: null })], TABELA_1X2);
+    expect(r.linhas).toHaveLength(0);
+    expect(r.linhas_rejeitadas[0]!.motivo).toMatch(/1x2/i);
+  });
+
+  it("1x2 sem o lado fora (odd_under ausente) → rejeita", () => {
+    const r = normalizeCollected([raw1x2({ odd_under: null })], TABELA_1X2);
+    expect(r.linhas).toHaveLength(0);
+  });
+
+  it("odd_draw inválida (<=1.01) → rejeita", () => {
+    const r = normalizeCollected([raw1x2({ odd_draw: 1.0 })], TABELA_1X2);
+    expect(r.linhas).toHaveLength(0);
+    expect(r.linhas_rejeitadas[0]!.motivo).toMatch(/odd_draw/i);
+  });
+
+  it("mercado over/under comum segue SEM odd_draw (null)", () => {
+    const r = normalizeCollected([raw({})], TABELA);
+    expect(r.linhas[0]!.odd_draw ?? null).toBeNull();
+  });
+});

@@ -16,6 +16,8 @@ export interface OddsRow {
   linha: number;
   odd_over: number;
   odd_under: number | null;
+  /** Só 1X2 (`vitoria`, linha 0): odd do EMPATE. null nos over/under comuns. */
+  odd_draw?: number | null;
   book: string;
   coletado_em?: string;
 }

@@ -13,6 +13,7 @@ const rawLineSchema = z.object({
   linha: z.number().optional(),
   odd_over: z.number(),
   odd_under: z.number().nullish(),
+  odd_draw: z.number().nullish(),
   book: z.string().default("manual"),
 });
 
@@ -29,6 +30,8 @@ export interface ManualOddsLine {
   linha: number;
   odd_over: number;
   odd_under: number | null;
+  /** Só 1X2 (`vitoria`): odd do EMPATE. Ausente/null nos over/under comuns. */
+  odd_draw?: number | null;
   book: string;
 }
 
@@ -63,6 +66,9 @@ export function parseManualOdds(body: unknown): ManualOddsInput {
     if (l.odd_under != null && l.odd_under <= 1.01) {
       linhas_rejeitadas.push({ linha_crua: raw, motivo: "odd_under deve ser > 1.01" }); continue;
     }
+    if (l.odd_draw != null && l.odd_draw <= 1.01) {
+      linhas_rejeitadas.push({ linha_crua: raw, motivo: "odd_draw deve ser > 1.01" }); continue;
+    }
     const isPlayer = PLAYER_MARKETS.has(l.market_type);
     if (isPlayer) {
       if (l.entidade === "partida" || l.linha == null) {
@@ -76,7 +82,7 @@ export function parseManualOdds(body: unknown): ManualOddsInput {
     }
     odds.push({
       market_type: l.market_type, entidade: l.entidade, linha: l.linha ?? 0,
-      odd_over: l.odd_over, odd_under: l.odd_under ?? null, book: l.book,
+      odd_over: l.odd_over, odd_under: l.odd_under ?? null, odd_draw: l.odd_draw ?? null, book: l.book,
     });
   }
   return { event_id: b.event_id, coletado_em: b.coletado_em, odds, linhas_rejeitadas, escopo_historico: b.escopo_historico };

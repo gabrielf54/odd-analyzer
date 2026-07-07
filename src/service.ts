@@ -416,8 +416,8 @@ export async function saveOddsService(repo: any, body: unknown): Promise<{ salva
   const input = parseManualOdds(body);
   const rows: OddsRow[] = input.odds.map((o) => ({
     event_id: input.event_id, entidade: o.entidade, market_type: o.market_type,
-    linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, book: o.book,
-    coletado_em: input.coletado_em,
+    linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, odd_draw: o.odd_draw ?? null,
+    book: o.book, coletado_em: input.coletado_em,
   }));
   await repo.saveOdds(input.event_id, rows);
   await reprojectUnifiedOdds(repo, input.event_id); // espelho automático
@@ -490,8 +490,8 @@ export async function analyzeManualService(client: any, body: unknown, opts: Ana
     linhas_rejeitadas = parsed.linhas_rejeitadas;
     const rows: OddsRow[] = parsed.odds.map((o) => ({
       event_id: parsed.event_id, entidade: o.entidade, market_type: o.market_type,
-      linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, book: o.book,
-      coletado_em: parsed.coletado_em,
+      linha: o.linha, odd_over: o.odd_over, odd_under: o.odd_under, odd_draw: o.odd_draw ?? null,
+      book: o.book, coletado_em: parsed.coletado_em,
     }));
     await repo.saveOdds(parsed.event_id, rows);
   }

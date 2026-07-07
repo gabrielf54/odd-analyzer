@@ -12,7 +12,8 @@ export interface RawCollectedLine {
   linha_raw: string | number;    // notação crua ("2+", "Mais de 1,5", point 2.5...)
   odd_over: number;
   odd_under?: number | null;
-  subtype?: string;              // tipo estruturado do JSON ("over_under"/"exact"/"handicap"/...)
+  odd_draw?: number | null;      // só 1X2 (subtype "1x2"): odd do EMPATE
+  subtype?: string;              // tipo estruturado do JSON ("over_under"/"exact"/"1x2"/...)
 }
 
 /** Mapeamento de UM rótulo de casa: vira um market_type canônico, OU é rejeitado com motivo. */
@@ -47,6 +48,26 @@ export function normalizeCollected(raws: RawCollectedLine[], table: HouseMarketT
   const rej = (linha_crua: unknown, motivo: string) => linhas_rejeitadas.push({ linha_crua, motivo });
 
   for (const r of raws) {
+    // 0. 1X2 (subtype "1x2"): caminho próprio — linha fixa 0, exige os TRÊS lados
+    // (casa=odd_over, fora=odd_under, empate=odd_draw). Sem os três, não há de-vig
+    // 3-way nem trava de arbitragem → fail-closed.
+    if (r.subtype?.toLowerCase() === "1x2") {
+      const mapping1x2 = table[normLabel(r.market_label)];
+      if (mapping1x2 == null) { rej(r, `rótulo não mapeado: ${r.market_label}`); continue; }
+      if ("reject" in mapping1x2) { rej(r, mapping1x2.reject); continue; }
+      if (!(r.odd_over > 1.01) || r.odd_under == null || !(r.odd_under > 1.01)) {
+        rej(r, "1x2 exige casa (odd_over) e fora (odd_under) com odd > 1.01"); continue;
+      }
+      if (r.odd_draw == null || !(r.odd_draw > 1.01)) {
+        rej(r, "1x2 exige o empate (odd_draw > 1.01)"); continue;
+      }
+      linhas.push({
+        market_type: mapping1x2.market_type, entidade: r.entidade, linha: 0,
+        odd_over: r.odd_over, odd_under: r.odd_under, odd_draw: r.odd_draw, book: r.book,
+        rotulo_cru: normLabel(r.market_label),
+      });
+      continue;
+    }
     // 1. Subtipo: só over/under cumulativo. Lê o campo ESTRUTURADO, nunca o número do rótulo.
     if (r.subtype != null && !SUBTIPOS_OK.has(r.subtype.toLowerCase())) {
       rej(r, `subtipo fora da whitelist (over/under): ${r.subtype}`); continue;

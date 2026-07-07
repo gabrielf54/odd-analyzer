@@ -79,7 +79,8 @@ export async function runCollection(
     const coletadoEm = opts.coletadoEm ?? new Date().toISOString();
     const rows = res.linhas_por_casa.map((l) => ({
       event_id: ev.id, entidade: l.entidade, market_type: l.market_type, linha: l.linha,
-      odd_over: l.odd_over, odd_under: l.odd_under, book: l.book, coletado_em: coletadoEm,
+      odd_over: l.odd_over, odd_under: l.odd_under, odd_draw: l.odd_draw ?? null,
+      book: l.book, coletado_em: coletadoEm,
     }));
     await repo.saveOdds(ev.id, rows);
     gravadas = rows.length;

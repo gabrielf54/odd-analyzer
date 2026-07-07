@@ -44,7 +44,7 @@ create table if not exists paper_ledger (
 );
 
 -- odds coletadas (fonte de verdade das odds; liga/jogo/jogador seguem vivos da BSD).
--- Última migração: create_odds_table (2026-06-10)
+-- Última migração: add_odd_draw_to_odds (2026-07-06)
 create table if not exists odds (
   event_id     text not null,
   entidade     text not null,        -- nome do jogador, ou "partida" p/ mercados de partida
@@ -52,6 +52,7 @@ create table if not exists odds (
   linha        numeric not null,
   odd_over     numeric not null,
   odd_under    numeric,
+  odd_draw     numeric,              -- só 1X2 (vitoria, linha 0): odd do EMPATE
   book         text not null default 'manual',
   coletado_em  timestamptz not null default now(),
   primary key (event_id, entidade, market_type, linha, book)
