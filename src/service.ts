@@ -16,6 +16,14 @@ import { makeRng } from "./backtest/validation.js";
 import type { Fetchers } from "./collect/houses.js";
 import type { ManualOddsInput } from "./manual/schema.js";
 import type { ReviewerFn } from "./ai/reviewer.js";
+import {
+  matchesOnDay, scanDayOdds, createDayJob, runDayJob,
+  type ArbDayJob, type ArbOpportunityComJogo,
+} from "./arb/dayRun.js";
+import type { ArbOddsRow } from "./arb/surebet.js";
+
+// Registro de jobs de arbitragem (memória) — o app consome via service (camada única).
+export { getDayJob as getArbDayJob, hasRunningJob as hasRunningArbJob } from "./arb/dayRun.js";
 
 export async function listLeagues(client: any, limit = 200): Promise<any[]> {
   const data = await client.leagues({ limit });
@@ -531,6 +539,74 @@ export async function paperBet(repo: any, eventId: string, candidate: any, inVal
     prob_modelo: candidate.prob_modelo, prob_devig: candidate.prob_devig,
     edge: candidate.edge, ev: candidate.ev,
   }]);
+}
+
+// ---- Arbitragem (surebet) — módulo "apostas imperdíveis" ----
+// Ver docs/features/arbitragem-surebet/design.md. O motor (findArbs) lê o `odds` CRU:
+// melhor preço de CADA lado pode estar em casas diferentes (o espelho unificado guarda
+// só a casa vencedora do over — não serve aqui).
+
+/** Jogos da liga no DIA (fuso BR), prontos p/ o job de arbitragem. */
+export async function listArbDayMatchesService(
+  client: any, leagueId: string, dia: string,
+): Promise<{ event_id: string; jogo: string }[]> {
+  const ms = await listMatches(client, leagueId, "notstarted");
+  return matchesOnDay(ms as { data?: string }[], dia)
+    .map((m: any) => ({ event_id: String(m.id), jogo: `${m.mandante} x ${m.visitante}` }));
+}
+
+/** OddsRow do banco → linha do motor (Supabase devolve numeric como string). */
+function toArbRows(rows: OddsRow[]): ArbOddsRow[] {
+  return rows.map((r) => ({
+    event_id: String(r.event_id), entidade: r.entidade, market_type: r.market_type,
+    linha: Number(r.linha), odd_over: Number(r.odd_over),
+    odd_under: r.odd_under == null ? null : Number(r.odd_under),
+    odd_draw: r.odd_draw == null ? null : Number(r.odd_draw),
+    book: r.book, coletado_em: r.coletado_em ?? null,
+  }));
+}
+
+/** Cria o job do dia e dispara coleta+scan em BACKGROUND (fire-and-forget; o front
+ * acompanha pelo GET /arbitragem/jobs/:id). `fetchers.close` é do job — fecha o headless
+ * quando o dia termina, mesmo com erro. */
+export function arbitragemAnalisarDiaService(
+  client: any, repo: any,
+  input: { league_id: string; dia: string; total: number; jogos: { event_id: string; jogo: string }[] },
+  fetchers: Fetchers & { close: () => Promise<void> },
+  log?: (m: string) => void,
+): ArbDayJob {
+  const job = createDayJob({
+    league_id: input.league_id, data: input.dia, total: input.total,
+    jogos: input.jogos, agora: new Date().toISOString(),
+  });
+  void (async () => {
+    try {
+      await runDayJob(job, {
+        collectEvent: (eventId) => coletarOddsService(client, repo, eventId, fetchers, { log }),
+        getOdds: async (eventId) => toArbRows(await repo.getOdds(eventId)),
+      });
+    } catch (e: any) {
+      job.estado = "erro";
+      job.erro = String(e?.message ?? e);
+    } finally {
+      await fetchers.close().catch(() => {});
+      log?.(`job ${job.id} ${job.estado}: ${job.oportunidades.length} oportunidades`);
+    }
+  })();
+  return job;
+}
+
+/** Re-scan instantâneo do dia SÓ com o que está no banco (não coleta). */
+export async function arbitragemDiaScanService(
+  client: any, repo: any, leagueId: string, dia: string, total: number,
+): Promise<{ jogos: { event_id: string; jogo: string; n_odds: number }[]; oportunidades: ArbOpportunityComJogo[] }> {
+  const jogos = await listArbDayMatchesService(client, leagueId, dia);
+  const games: { event_id: string; jogo: string; rows: ArbOddsRow[] }[] = [];
+  for (const g of jogos) games.push({ ...g, rows: toArbRows(await repo.getOdds(g.event_id)) });
+  return {
+    jogos: games.map((g) => ({ event_id: g.event_id, jogo: g.jogo, n_odds: g.rows.length })),
+    oportunidades: scanDayOdds(games, total),
+  };
 }
 
 export async function realPlayerResult(client: any, eventId: unknown, marketKey: string, linha: number): Promise<Record<string, any>> {

@@ -43,6 +43,16 @@ const oddsFilterQuery = z.object({
   linha: z.coerce.number().optional(),
   book: z.string().optional(),
 });
+const arbDiaBody = z.object({
+  league_id: z.union([z.string(), z.number()]).transform(String),
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "data deve ser YYYY-MM-DD"),
+  total: z.number().int().positive().max(1_000_000).default(200),
+});
+const arbDiaQuery = z.object({
+  league_id: z.string().min(1),
+  data: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  total: z.coerce.number().int().positive().max(1_000_000).default(200),
+});
 
 /** Monta a app Express. `deps` injeta client/repo (reais no server, fakes no teste). */
 export function createApp(deps: Deps): express.Express {
@@ -173,6 +183,45 @@ export function createApp(deps: Deps): express.Express {
     const runs = deps.repo.getRecentSchedulerRuns ? await deps.repo.getRecentSchedulerRuns(30) : [];
     const scheduled = deps.scheduler ? deps.scheduler.status().scheduled : [];
     res.json({ enabled: !!deps.scheduler, scheduled, runs });
+  }));
+
+  // ---- Arbitragem (surebet) — "apostas imperdíveis" ----
+  // POST cria o job do DIA (liga+data no fuso BR): coleta as odds de TODOS os jogos do
+  // dia (serial, headless compartilhado) e escaneia arbitragem após cada jogo. O front
+  // acompanha pelo GET /arbitragem/jobs/:id (polling). 409 se já há um dia rodando.
+  app.post("/arbitragem/analisar-dia", wrap(async (req, res) => {
+    const p = arbDiaBody.safeParse(req.body);
+    if (!p.success) throw new AppError(400, "body_invalido", p.error.issues.map((i) => i.message).join("; "));
+    if (service.hasRunningArbJob()) {
+      throw new AppError(409, "job_em_andamento", "já existe uma análise de dia rodando — aguarde ela terminar");
+    }
+    const jogos = await service.listArbDayMatchesService(deps.client, p.data.league_id, p.data.data);
+    if (jogos.length === 0) {
+      throw new AppError(404, "sem_jogos", `nenhum jogo pré-jogo dessa liga em ${p.data.data} (dia no fuso BR)`);
+    }
+    const { makeFetchers } = await import("../cli/fetchers.js");
+    const fetchers = await makeFetchers();
+    const log = (m: string) => console.log(`[arbitragem ${p.data.league_id} ${p.data.data}] ${m}`);
+    const job = service.arbitragemAnalisarDiaService(
+      deps.client, deps.repo,
+      { league_id: p.data.league_id, dia: p.data.data, total: p.data.total, jogos },
+      fetchers, log,
+    );
+    res.json({ job_id: job.id, total_jogos: job.jogos.length, jogos: job.jogos });
+  }));
+
+  app.get("/arbitragem/jobs/:id", wrap(async (req, res) => {
+    const job = service.getArbDayJob(String(req.params.id));
+    if (!job) throw new AppError(404, "job_nao_encontrado", "job não existe (o servidor pode ter reiniciado — rode o dia de novo ou use o re-scan)");
+    res.json(job);
+  }));
+
+  // Re-scan instantâneo do dia SÓ com o que está no banco (sem coletar) — reconferir
+  // as oportunidades sem pagar nova coleta.
+  app.get("/arbitragem/dia", wrap(async (req, res) => {
+    const q = arbDiaQuery.safeParse(req.query);
+    if (!q.success) throw new AppError(400, "query_invalida", "league_id e data (YYYY-MM-DD) são obrigatórios");
+    res.json(await service.arbitragemDiaScanService(deps.client, deps.repo, q.data.league_id, q.data.data, q.data.total));
   }));
 
   app.get("/jogos/:eventId/analise", wrap(async (req, res) => {
