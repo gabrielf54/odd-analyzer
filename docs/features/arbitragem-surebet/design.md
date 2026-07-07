@@ -147,6 +147,24 @@ Sem captura → mercado fica fail-closed (não adivinhamos por substring).
 - Rotas: Zod rejeita data/liga inválidas.
 - Suíte inteira + typecheck verdes; gate de paridade intocado.
 
+## Achados do recon ao vivo (2026-07-06, USA×Belgium, quartas — BSD 8380)
+
+Payloads CRUS das 5 casas capturados (scripts `recon-match-markets.mts`, `recon-stake-betano.mts`,
+`recon-betano-sniff.mts`, `recon-betano-html.mts`). Ids/rótulos EXATOS confirmados:
+
+| Casa | gols (totais) | escanteios (totais) | vitória (1X2) | forma |
+|---|---|---|---|---|
+| **KTO** | englishLabel `"Total Goals"` (OT_OVER/OT_UNDER) | `"Total Corners"` | `"Full Time"` (OT_ONE/OT_CROSS/OT_TWO) | betOffers agrupados; parser já pareia over/under |
+| **Betnacional** | `market_code="Total"` (outcome "Mais/Menos de X,5 gols") | `market_code="Total Corners X.5"` (linha no código) | `market_code="Win-Draw-Win"` (home/Empate/away) | flat, 1 row por outcome → parser pareia |
+| **Superbet** | marketId **200734** "Total de Gols" | **704** "Total de Escanteios" | **547** "Resultado Final" (name 1/X/2) | flat; linha em specifiers.total |
+| **Stake** | marketId **1001159926** "Total de gols" | **1001159897** "Total de escanteios" | **1001159858** "Resultado Final" (oddTypeName Home/null/Away) | flat; partida: name=Mais/Menos + addValue; props: oddTypeName=Mais/Menos |
+| **Betano** | — | — | — | mercados principais só existem RENDERIZADOS no DOM (SSR; `/api/odds?req=...` = só jogador; `markets-offers` = promo; `initial_state` = config de abas). **Fora do v1** (raspagem de DOM é frágil); props de jogador seguem participando da arbitragem |
+
+Exclusões deliberadas (fail-closed): 1º/2º tempo, PRORROGAÇÃO (mata-mata! `TOTAL_EXTRA_TIME` etc. —
+liquidação diferente de 90min), totais por TIME, Asian totals (.25/.75), "2UP"/promos, races/handicaps.
+Bônus descoberto: KTO oferta under em "Player Passes" e no SOT de PARTIDA; Stake tem pares
+Mais/Menos em alguns props (1001809659) — o pareamento genérico do parser captura, o de-para decide.
+
 ## Riscos assumidos
 - **Arb real é rara e efêmera** — por isso o tier "quase" e o aviso de defasagem: o
   produto mostra a verdade, não promete milagre (doutrina do produto).
