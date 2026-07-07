@@ -23,8 +23,14 @@ export const KTO_TABLE: HouseMarketTable = {
   // "Faltas ganhas pelo jogador" = faltas SOFRIDAS (fouls won/drawn) — mercado DIFERENTE,
   // não modelamos. Fail-closed explícito (não confundir com o de cometidas).
   "players fouls won": { reject: "faltas SOFRIDAS (fouls won) — modelamos só as COMETIDAS" },
-  // Mercados de PARTIDA (gols/escanteios): rótulos NÃO capturados nesta sessão (o foco era
-  // prop de jogador). Ficam FORA até confirmar numa captura — fail-closed.
+  // Mercados de PARTIDA — CONFIRMADOS no recon de 2026-07-06 (USA×Belgium, Kambi
+  // 1028225515; módulo de arbitragem). 90 minutos apenas: "Total Goals - 1st Half",
+  // "Total Goals by <time>", "Asian Total" e afins têm rótulos próprios → fail-closed.
+  "total goals": { market_type: "gols" },
+  "total corners": { market_type: "escanteios" },
+  // "Full Time" = 1X2 dos 90min (OT_ONE/OT_CROSS/OT_TWO). "Half Time"/"2nd Half"/"Most
+  // Corners" têm o mesmo shape 3-way mas rótulos próprios → fail-closed.
+  "full time": { market_type: "vitoria" },
 };
 
 // Betnacional (NSX/Bet6, provider "ramp"). CONFIRMADO na captura de 2026-06-14 (deslogado,
@@ -39,6 +45,13 @@ export const BETNACIONAL_TABLE: HouseMarketTable = {
   "fouls won": { reject: "faltas SOFRIDAS (recebidas) — modelamos só as COMETIDAS" },
   // Desarmes: NÃO ofertado neste evento (só KTO cobre desarme). Outros (gol/cartão/
   // assistência) caem como "não mapeado" — fail-closed.
+  // Mercados de PARTIDA — famílias canônicas que o parseBet6 emite após parear os lados
+  // (recon 2026-07-06, USA×Belgium ramp 916044119). Códigos 90min: "Total" (gols) e
+  // "Total Corners X.5"; prorrogação (TOTAL_EXTRA_TIME...) e "2 UP" têm códigos próprios
+  // que o parser nem pareia → fail-closed.
+  "match total goals": { market_type: "gols" },
+  "match total corners": { market_type: "escanteios" },
+  "match 1x2": { market_type: "vitoria" },       // "Win-Draw-Win" (90min)
 };
 
 // Superbet (Betler, odds via Fastly). CONFIRMADO na captura de 2026-06-15 (deslogado, BR;
@@ -55,6 +68,12 @@ export const SUPERBET_TABLE: HouseMarketTable = {
   "236222": { market_type: "desarmes" },     // "Jogador - Total de Desarmes" = realizados (won_tackle)
   "236216": { market_type: "faltas" },       // "Jogador - Faltas Cometidas"
   "238449": { reject: "faltas SOFRIDAS (Jogador - Faltas Sofridas) — modelamos só as COMETIDAS" },
+  // Mercados de PARTIDA — CONFIRMADOS no recon de 2026-07-06 (USA×Belgium 13865395).
+  // 90min apenas: 529 (asiático, linhas .25/.75), 200735 (1º tempo), 544/535/713/733
+  // (totais por TIME) etc. ficam de fora → fail-closed.
+  "200734": { market_type: "gols" },         // "Total de Gols" (Mais/Menos de X.5)
+  "704": { market_type: "escanteios" },      // "Total de Escanteios"
+  "547": { market_type: "vitoria" },         // "Resultado Final" (1/X/2)
 };
 
 // Stake (plataforma PRÓPRIA, sbweb.stake.bet.br). CONFIRMADO na captura de 2026-06-15 (deslogado,
@@ -69,6 +88,12 @@ export const STAKE_TABLE: HouseMarketTable = {
   "1001809658": { market_type: "desarmes" },     // "Desarmes completados pelo Jogador" = won_tackle
   "1007684754": { market_type: "faltas" },       // "Faltas concedidas pelo jogador" = cometidas
   "1007684761": { reject: "faltas SOFRIDAS (Faltas ganhas pelo jogador) — modelamos só as COMETIDAS" },
+  // Mercados de PARTIDA — CONFIRMADOS no recon de 2026-07-06 (USA×Belgium 1028225515;
+  // nomes do catálogo /markets). 90min apenas: 1001159532 (gols 1ºT), 1002244276
+  // (asiático), 1001159967/1001159633 (gols por TIME) etc. ficam de fora → fail-closed.
+  "1001159926": { market_type: "gols" },         // "Total de gols"
+  "1001159897": { market_type: "escanteios" },   // "Total de escanteios"
+  "1001159858": { market_type: "vitoria" },      // "Resultado Final" (Home/Empate/Away)
 };
 
 // Betano (plataforma PRÓPRIA, www.betano.bet.br). CONFIRMADO na captura de 2026-06-15 (deslogado,

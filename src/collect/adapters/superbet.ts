@@ -70,30 +70,66 @@ function playerName(o: SuperbetOutcome): string | null {
 }
 
 /** data[0].odds (array PLANO de seleções) → linhas cruas. market_label = marketId (string),
- * a chave estável do de-para. Linha = specifiers.total (número). Pula: não-jogador, status
- * != active, sem marketId, sem linha legível, sem odd. NÃO normaliza (de-para no
- * OddsNormalizer + SUPERBET_TABLE). */
+ * a chave estável do de-para. Linha = specifiers.total (número). Jogador: escada over-only
+ * (como sempre). PARTIDA (recon 2026-07-06, USA×Belgium 13865395): totais com name
+ * "Mais/Menos de X.5" + specifiers.total → PAREIA os dois lados por (marketId, total);
+ * 1X2 com name "1"/"X"/"2" → raw subtype "1x2". Qual marketId vale (200734 gols, 704
+ * escanteios, 547 1X2 — asiático/halves/time ficam fora) é decisão do de-para. */
 export function parseSuperbet(data: unknown, book: string): RawCollectedLine[] {
   const events = (data as SuperbetResponse)?.data;
   if (!Array.isArray(events)) return [];
   const out: RawCollectedLine[] = [];
+  const totals = new Map<string, { marketId: number; linha: number; over?: number; under?: number }>();
+  const wdw = new Map<number, { home?: number; draw?: number; away?: number }>();
   for (const ev of events) {
     if (!Array.isArray(ev?.odds)) continue;
     for (const o of ev.odds) {
       if (o.status != null && o.status !== "active") continue; // suspenso/fechado fora
-      const player = playerName(o);
-      if (!player) continue;                                   // mercado de time/partida → fora
       if (o.marketId == null) continue;
+      const odd = typeof o.price === "number" ? o.price : parseFloat(String(o.price ?? ""));
+      if (!Number.isFinite(odd)) continue;
+      const player = playerName(o);
+      if (!player) {
+        // PARTIDA: 1X2 (name exatamente 1/X/2) ou total Mais/Menos com specifiers.total.
+        const nm = String(o.name ?? "").trim();
+        if (nm === "1" || nm === "X" || nm === "2") {
+          const g = wdw.get(o.marketId) ?? {};
+          if (nm === "1") g.home = odd; else if (nm === "X") g.draw = odd; else g.away = odd;
+          wdw.set(o.marketId, g);
+          continue;
+        }
+        const side = /^mais de /i.test(nm) ? "over" : /^menos de /i.test(nm) ? "under" : null;
+        const total = o.specifiers?.total;
+        const linha = total != null ? parseFloat(String(total)) : NaN;
+        if (side == null || !Number.isFinite(linha)) continue;  // combos/faixas/etc → fora
+        const k = `${o.marketId}|${linha}`;
+        const g = totals.get(k) ?? { marketId: o.marketId, linha };
+        g[side] = odd;
+        totals.set(k, g);
+        continue;
+      }
       const total = o.specifiers?.total;
       const linha = total != null ? parseFloat(String(total)) : NaN;
       if (!Number.isFinite(linha)) continue;                   // sem linha numérica → fail-closed
-      const odd = typeof o.price === "number" ? o.price : parseFloat(String(o.price ?? ""));
-      if (!Number.isFinite(odd)) continue;
       out.push({
         book, market_label: String(o.marketId), entidade: player,
         linha_raw: linha, odd_over: odd, odd_under: null, subtype: "over",
       });
     }
+  }
+  for (const t of totals.values()) {
+    if (t.over == null) continue;
+    out.push({
+      book, market_label: String(t.marketId), entidade: "partida",
+      linha_raw: t.linha, odd_over: t.over, odd_under: t.under ?? null, subtype: "over_under",
+    });
+  }
+  for (const [marketId, g] of wdw) {
+    if (g.home == null || g.draw == null || g.away == null) continue;
+    out.push({
+      book, market_label: String(marketId), entidade: "partida",
+      linha_raw: 0, odd_over: g.home, odd_under: g.away, odd_draw: g.draw, subtype: "1x2",
+    });
   }
   return out;
 }

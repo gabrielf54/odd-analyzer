@@ -116,3 +116,60 @@ describe("KTO shape real → parser + de-para (captura 2026-06-14)", () => {
     expect(sofridas).toBeTruthy();
   });
 });
+
+// Mercados de PARTIDA + 1X2 — shape REAL capturado 2026-07-06 (USA×Belgium, Kambi
+// 1028225515; recon do módulo de arbitragem). "Full Time" = 1X2 90min (OT_ONE/OT_CROSS/
+// OT_TWO); "Half Time" tem o MESMO shape mas não é 90min → fica fora do de-para.
+const matchFixture = {
+  betOffers: [
+    { criterion: { englishLabel: "Total Goals" }, outcomes: [
+      { type: "OT_OVER", label: "Mais", line: 3500, odds: 2800 },
+      { type: "OT_UNDER", label: "Menos", line: 3500, odds: 1430 },
+    ] },
+    { criterion: { englishLabel: "Total Corners" }, outcomes: [
+      { type: "OT_UNDER", label: "Menos", line: 13500, odds: 1190 },
+      { type: "OT_OVER", label: "Mais", line: 13500, odds: 4200 },
+    ] },
+    { criterion: { englishLabel: "Full Time" }, outcomes: [
+      { type: "OT_ONE", label: "1", odds: 2650, participant: "EUA" },
+      { type: "OT_CROSS", label: "X", odds: 3200 },
+      { type: "OT_TWO", label: "2", odds: 2900, participant: "Bélgica" },
+    ] },
+    { criterion: { englishLabel: "Half Time" }, outcomes: [
+      { type: "OT_ONE", label: "1", odds: 3100 },
+      { type: "OT_CROSS", label: "X", odds: 2050 },
+      { type: "OT_TWO", label: "2", odds: 3500 },
+    ] },
+    // 2 vias sem empate (Draw No Bet): NÃO pode virar 1x2 nem over/under.
+    { criterion: { englishLabel: "Draw No Bet" }, outcomes: [
+      { type: "OT_ONE", label: "1", odds: 1800 },
+      { type: "OT_TWO", label: "2", odds: 1950 },
+    ] },
+  ],
+};
+
+describe("KTO mercados de partida + 1X2 (captura 2026-07-06)", () => {
+  it("betOffer 1X2 (ONE/CROSS/TWO) vira raw subtype 1x2 com os 3 lados", () => {
+    const raws = parseKambi(matchFixture, "kto");
+    const ft = raws.find((r) => r.market_label === "Full Time")!;
+    expect(ft.subtype).toBe("1x2");
+    expect(ft.entidade).toBe("partida");
+    expect(ft.odd_over).toBeCloseTo(2.65, 9);  // casa
+    expect(ft.odd_draw).toBeCloseTo(3.2, 9);   // empate
+    expect(ft.odd_under).toBeCloseTo(2.9, 9);  // fora
+  });
+
+  it("Draw No Bet (2 vias sem empate) não vira 1x2 nem over/under", () => {
+    const raws = parseKambi(matchFixture, "kto");
+    expect(raws.find((r) => r.market_label === "Draw No Bet")).toBeUndefined();
+  });
+
+  it("cadeia com KTO_TABLE: gols/escanteios/vitória entram; Half Time é rejeitado", () => {
+    const { linhas } = normalizeCollected(parseKambi(matchFixture, "kto"), KTO_TABLE);
+    const byMkt = Object.fromEntries(linhas.map((l) => [l.market_type, l]));
+    expect(byMkt["gols"]).toMatchObject({ entidade: "partida", linha: 3.5, odd_over: 2.8, odd_under: 1.43 });
+    expect(byMkt["escanteios"]).toMatchObject({ entidade: "partida", linha: 13.5, odd_over: 4.2, odd_under: 1.19 });
+    expect(byMkt["vitoria"]).toMatchObject({ entidade: "partida", linha: 0, odd_over: 2.65, odd_under: 2.9, odd_draw: 3.2 });
+    expect(linhas).toHaveLength(3); // Half Time e Draw No Bet fora
+  });
+});

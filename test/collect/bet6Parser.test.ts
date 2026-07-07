@@ -56,6 +56,52 @@ describe("parseBet6 (Betnacional) — classificação por market_code ancorado",
   });
 });
 
+// Mercados de PARTIDA — shape REAL capturado 2026-07-06 (USA×Belgium, ramp 916044119;
+// recon do módulo de arbitragem). O payload de odds traz `events[0].home/away` → o 1X2
+// mapeia casa/fora por NOME EXATO (não por ordem). "Total" = gols 90min; prorrogação
+// tem códigos próprios (TOTAL_EXTRA_TIME) que ficam FORA. Escanteios têm a linha no
+// próprio market_code ("Total Corners 9.5").
+const matchReal = {
+  events: [{ event_id: 916044119, home: "Estados Unidos", away: "Bélgica" }],
+  odds: [
+    od("Total", "Mais de 1,5 gols", "1.222", "Total"),
+    od("Total", "Menos de 1,5 gols", "4.000", "Total"),
+    od("|TOTAL_EXTRA_TIME|", "Mais de 1,5 gols", "3.000", "Gols Prorrogação"),   // prorrogação → fora
+    od("|Total Corners 9.5|", "Mais de 9,5 Escanteios", "1.727", "Total de 9,5 Escanteios"),
+    od("|Total Corners 9.5|", "Menos de 9,5 Escanteios", "2.000", "Total de 9,5 Escanteios"),
+    od("|Win-Draw-Win|", "Estados Unidos", "2.600", "Resultado da partida"),
+    od("|Win-Draw-Win|", "Empate", "3.200", "Resultado da partida"),
+    od("|Win-Draw-Win|", "Bélgica", "2.900", "Resultado da partida"),
+    od("|Full Time Result - 2 UP|", "Estados Unidos", "2.500", "Resultado Final - Pag. antecipado 2+"), // promo → fora
+  ],
+};
+
+describe("parseBet6 — mercados de partida (captura 2026-07-06)", () => {
+  it("pareia Mais/Menos do Total (gols) numa raw over/under de entidade partida", () => {
+    const raws = parseBet6(matchReal, "betnacional");
+    const gols = raws.find((r) => r.market_label === "match total goals")!;
+    expect(gols).toMatchObject({ entidade: "partida", linha_raw: 1.5, odd_over: 1.222, odd_under: 4.0, subtype: "over_under" });
+  });
+
+  it("Win-Draw-Win vira 1x2 com casa/fora mapeados pelo NOME do events[0]", () => {
+    const raws = parseBet6(matchReal, "betnacional");
+    const x = raws.find((r) => r.subtype === "1x2")!;
+    expect(x.market_label).toBe("match 1x2");
+    expect(x.odd_over).toBe(2.6);   // Estados Unidos = home
+    expect(x.odd_draw).toBe(3.2);
+    expect(x.odd_under).toBe(2.9);  // Bélgica = away
+  });
+
+  it("cadeia com BETNACIONAL_TABLE: gols/escanteios/vitória entram; prorrogação e 2UP ficam fora", () => {
+    const { linhas } = normalizeCollected(parseBet6(matchReal, "betnacional"), BETNACIONAL_TABLE);
+    const byMkt = Object.fromEntries(linhas.map((l) => [l.market_type, l]));
+    expect(byMkt["gols"]).toMatchObject({ linha: 1.5, odd_over: 1.222, odd_under: 4.0 });
+    expect(byMkt["escanteios"]).toMatchObject({ linha: 9.5, odd_over: 1.727, odd_under: 2.0 });
+    expect(byMkt["vitoria"]).toMatchObject({ linha: 0, odd_over: 2.6, odd_draw: 3.2, odd_under: 2.9 });
+    expect(linhas).toHaveLength(3);
+  });
+});
+
 describe("parseBet6EventList (crosswalk)", () => {
   it("dedup por event_id: 1 linha por jogo, com home/away (PT)", () => {
     const data = { odds: [

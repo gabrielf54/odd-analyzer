@@ -65,25 +65,84 @@ function classify(code: string, name: string): { family: string; linha_raw: stri
   return null;
 }
 
+/** Mercados de PARTIDA suportados (recon 2026-07-06, USA×Belgium 916044119): o payload é
+ * FLAT (1 row por outcome) → o parser PAREIA Mais/Menos por linha e monta o 1X2 pelos
+ * NOMES dos times (events[0].home/away vem no próprio payload de odds — não depende de
+ * ordem). Códigos 90min apenas: prorrogação (TOTAL_EXTRA_TIME...) e promos (2 UP) têm
+ * códigos próprios que não batem aqui → fora de graça. Famílias canônicas emitidas:
+ * "match total goals" / "match total corners" / "match 1x2" (o de-para decide o resto). */
+function matchTotalSide(code: string, outcome: string): { family: string; linha: number; side: "over" | "under" } | null {
+  const nm = outcome.trim().toLowerCase();
+  if (code === "Total") {
+    const m = nm.match(/^(mais|menos) de (\d+(?:[.,]\d+)?) gols$/);
+    if (!m) return null;
+    return { family: "match total goals", linha: parseFloat(m[2]!.replace(",", ".")), side: m[1] === "mais" ? "over" : "under" };
+  }
+  const mc = code.match(/^Total Corners (\d+(?:\.\d+)?)$/);
+  if (mc) {
+    const m = nm.match(/^(mais|menos) de /);
+    if (!m) return null;
+    return { family: "match total corners", linha: parseFloat(mc[1]!), side: m[1] === "mais" ? "over" : "under" };
+  }
+  return null;
+}
+
 /** odds[] do GET da Betnacional → linhas cruas. Jogador = outcome_name (player_name é
- * null). Pula bet builder (SGM). NÃO normaliza (de-para fica no OddsNormalizer). */
+ * null). Pula bet builder (SGM). Mercados de PARTIDA (Total/Total Corners/Win-Draw-Win)
+ * são pareados aqui. NÃO normaliza (de-para fica no OddsNormalizer). */
 export function parseBet6(data: unknown, book: string): RawCollectedLine[] {
-  const odds = (data as { odds?: Bet6Odd[] })?.odds;
+  const root = data as { odds?: Bet6Odd[]; events?: { home?: string; away?: string }[] };
+  const odds = root?.odds;
   if (!Array.isArray(odds)) return [];
+  const home = root.events?.[0]?.home ?? null;
+  const away = root.events?.[0]?.away ?? null;
   const out: RawCollectedLine[] = [];
+  const totals = new Map<string, { family: string; linha: number; over?: number; under?: number }>();
+  const wdw: { home?: number; draw?: number; away?: number } = {};
   for (const o of odds) {
     if (o.is_bet_builder === 1) continue; // bet builder / SGM fora
     const player = o.outcome_name ?? o.player_name ?? "";
     if (!player) continue;
     const odd = typeof o.odd === "number" ? o.odd : parseFloat(String(o.odd ?? "").replace(",", "."));
     if (!Number.isFinite(odd)) continue;
-    const cls = classify(String(o.market_code ?? ""), String(o.market_name ?? ""));
+    const code = String(o.market_code ?? "").replace(/\|/g, "").trim();
+    // PARTIDA: totais (gols/escanteios) — acumula os dois lados por linha.
+    const tot = matchTotalSide(code, String(o.outcome_name ?? ""));
+    if (tot) {
+      const k = `${tot.family}|${tot.linha}`;
+      const g = totals.get(k) ?? { family: tot.family, linha: tot.linha };
+      g[tot.side === "over" ? "over" : "under"] = odd;
+      totals.set(k, g);
+      continue;
+    }
+    // PARTIDA: 1X2 — lado pelo NOME exato do time (payload traz home/away).
+    if (code === "Win-Draw-Win") {
+      const nome = String(o.outcome_name ?? "").trim();
+      if (nome === "Empate") wdw.draw = odd;
+      else if (home != null && nome === home) wdw.home = odd;
+      else if (away != null && nome === away) wdw.away = odd;
+      continue;
+    }
+    const cls = classify(code, String(o.market_name ?? ""));
     out.push({
       book,
       market_label: cls?.family ?? String(o.market_name ?? "desconhecido"),
       entidade: player,
       linha_raw: cls?.linha_raw ?? String(o.market_name ?? ""),
       odd_over: odd, odd_under: null, subtype: "over",
+    });
+  }
+  for (const t of totals.values()) {
+    if (t.over == null) continue; // sem over não há aposta no nosso modelo
+    out.push({
+      book, market_label: t.family, entidade: "partida",
+      linha_raw: t.linha, odd_over: t.over, odd_under: t.under ?? null, subtype: "over_under",
+    });
+  }
+  if (wdw.home != null && wdw.draw != null && wdw.away != null) {
+    out.push({
+      book, market_label: "match 1x2", entidade: "partida",
+      linha_raw: 0, odd_over: wdw.home, odd_under: wdw.away, odd_draw: wdw.draw, subtype: "1x2",
     });
   }
   return out;

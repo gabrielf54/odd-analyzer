@@ -78,6 +78,77 @@ describe("parseStake (Stake) — de-para por marketId base, linha em addValue, o
   });
 });
 
+// Mercados de PARTIDA — shape REAL capturado 2026-07-06 (USA×Belgium, eventId 1028225515;
+// recon do módulo de arbitragem). Totais de partida: name="Mais"/"Menos", addValue=linha,
+// oddTypeName=null. 1X2: oddTypeName "Home"/"Away" + empate com name "Empate" (oddTypeName
+// null). Props de jogador com par Mais/Menos (oddTypeName) agora PAREIAM em over/under.
+const matchOd = (marketId: string, name: string, addValue: string | null, oddValue: number, oddTypeName: string | null = null, frozen = false) => ({
+  id: `m-${marketId}-${name}-${addValue}`, eventId: "1028225515",
+  addValue, oddValue, rowId: 0, columnId: 0, canCashOut: true, name, marketId,
+  oddValues: { decimal: String(oddValue) }, frozen, oddTypeName, betBuilderEnabled: true,
+});
+const matchReal = {
+  odds: [
+    matchOd("1001159926", "Mais", "2.5", 1.66),
+    matchOd("1001159926", "Menos", "2.5", 1.98),
+    matchOd("1001159897", "Mais", "9.5", 1.46),
+    matchOd("1001159897", "Menos", "9.5", 2.04),
+    matchOd("1001159858", "EUA", null, 2.6, "Home"),
+    matchOd("1001159858", "Empate", null, 3.15),
+    matchOd("1001159858", "Bélgica", null, 2.85, "Away"),
+    // 3-way que NÃO queremos (resultado do 1º tempo, mesmo shape) → rejeitado no de-para
+    matchOd("1002035664", "EUA", null, 3.0, "Home"),
+    matchOd("1002035664", "Empate", null, 2.1),
+    matchOd("1002035664", "Bélgica", null, 3.2, "Away"),
+    // DNB (Home/Away sem empate) → não vira 1x2
+    matchOd("1001159884", "EUA", null, 1.8, "Home"),
+    matchOd("1001159884", "Bélgica", null, 1.95, "Away"),
+    // prop de jogador com PAR Mais/Menos vivo → over/under pareado
+    matchOd("1001809658", "Leandro Trossard", "0.5", 1.44, "Mais"),
+    matchOd("1001809658", "Leandro Trossard", "0.5", 2.6, "Menos"),
+    // par com o Menos frozen → só over
+    matchOd("1001809658", "Kevin De Bruyne", "1.5", 3.0, "Mais"),
+    matchOd("1001809658", "Kevin De Bruyne", "1.5", 0, "Menos", true),
+  ],
+  prePacks: [],
+};
+
+describe("parseStake — mercados de partida + pares de props (captura 2026-07-06)", () => {
+  it("pareia Mais/Menos de partida por (marketId, addValue) com entidade partida", () => {
+    const raws = parseStake(matchReal, "stake");
+    const gols = raws.find((r) => r.market_label === "1001159926")!;
+    expect(gols).toMatchObject({ entidade: "partida", linha_raw: 2.5, odd_over: 1.66, odd_under: 1.98, subtype: "over_under" });
+  });
+
+  it("Resultado Final (Home/Empate/Away) vira raw 1x2; DNB e outros 3-way não entram como vitoria", () => {
+    const raws = parseStake(matchReal, "stake");
+    const x2 = raws.filter((r) => r.subtype === "1x2");
+    const rf = x2.find((r) => r.market_label === "1001159858")!;
+    expect(rf).toMatchObject({ odd_over: 2.6, odd_draw: 3.15, odd_under: 2.85 });
+    // DNB (sem empate) não emite 1x2
+    expect(x2.some((r) => r.market_label === "1001159884")).toBe(false);
+  });
+
+  it("prop com par Mais/Menos vivo pareia; Menos frozen deixa só o over", () => {
+    const raws = parseStake(matchReal, "stake");
+    const trossard = raws.find((r) => r.entidade === "Leandro Trossard")!;
+    expect(trossard.odd_over).toBe(1.44);
+    expect(trossard.odd_under).toBe(2.6);
+    const kdb = raws.find((r) => r.entidade === "Kevin De Bruyne")!;
+    expect(kdb.odd_over).toBe(3.0);
+    expect(kdb.odd_under ?? null).toBeNull();
+  });
+
+  it("cadeia com STAKE_TABLE: gols/escanteios/vitória entram; 1º tempo rejeitado", () => {
+    const { linhas } = normalizeCollected(parseStake(matchReal, "stake"), STAKE_TABLE);
+    const byMkt = Object.fromEntries(linhas.filter((l) => l.entidade === "partida").map((l) => [l.market_type, l]));
+    expect(byMkt["gols"]).toMatchObject({ linha: 2.5, odd_over: 1.66, odd_under: 1.98 });
+    expect(byMkt["escanteios"]).toMatchObject({ linha: 9.5, odd_over: 1.46, odd_under: 2.04 });
+    expect(byMkt["vitoria"]).toMatchObject({ linha: 0, odd_over: 2.6, odd_draw: 3.15, odd_under: 2.85 });
+    expect(linhas.filter((l) => l.entidade === "partida")).toHaveLength(3);
+  });
+});
+
 describe("parseStakeEventList (crosswalk) — events[].teams.home/away em PT", () => {
   it("→ {id, home, away} por jogo", () => {
     const realList = {

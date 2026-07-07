@@ -74,6 +74,56 @@ describe("parseSuperbet (Superbet) — de-para por marketId, linha em specifiers
   });
 });
 
+// Mercados de PARTIDA — shape REAL capturado 2026-07-06 (USA×Belgium, eventId 13865395;
+// recon do módulo de arbitragem). Totais: name "Mais/Menos de X.5" + specifiers.total;
+// 1X2: marketId 547 "Resultado Final" com name "1"/"X"/"2". Asiático (529, total inteiro/
+// .25) e halves ficam fora do de-para.
+const matchOd = (marketId: number, marketName: string, name: string, price: number, total?: string) => ({
+  marketId, marketName, price, status: "active", name,
+  specifiers: total != null ? { total } : null, extra: {},
+});
+const matchReal = {
+  data: [{
+    eventId: 13865395, matchName: "EUA·Bélgica",
+    odds: [
+      matchOd(200734, "Total de Gols", "Mais de 2.5", 1.8, "2.5"),
+      matchOd(200734, "Total de Gols", "Menos de 2.5", 2.02, "2.5"),
+      matchOd(704, "Total de Escanteios", "Mais de 9.5", 1.69, "9.5"),
+      matchOd(704, "Total de Escanteios", "Menos de 9.5", 2.1, "9.5"),
+      matchOd(547, "Resultado Final", "1", 2.57),
+      matchOd(547, "Resultado Final", "X", 3.25),
+      matchOd(547, "Resultado Final", "2", 2.9),
+      matchOd(529, "Total de Gols Asiático", "Mais de 1", 1.35, "1"),          // asiático → fora
+      matchOd(200735, "1º Tempo - Total de Gols", "Mais de 0.5", 1.4, "0.5"),  // 1º tempo → não mapeado
+      matchOd(562, "1º Tempo - Resultado (1X2)", "EUA", 3.4),                   // 3-way de tempo, names não são 1/X/2
+    ],
+  }],
+};
+
+describe("parseSuperbet — mercados de partida (captura 2026-07-06)", () => {
+  it("pareia Mais/Menos por (marketId, total) numa raw over/under de entidade partida", () => {
+    const raws = parseSuperbet(matchReal, "superbet");
+    const gols = raws.find((r) => r.market_label === "200734")!;
+    expect(gols).toMatchObject({ entidade: "partida", linha_raw: 2.5, odd_over: 1.8, odd_under: 2.02, subtype: "over_under" });
+  });
+
+  it("Resultado Final (1/X/2) vira raw 1x2", () => {
+    const raws = parseSuperbet(matchReal, "superbet");
+    const x = raws.find((r) => r.subtype === "1x2")!;
+    expect(x.market_label).toBe("547");
+    expect(x).toMatchObject({ odd_over: 2.57, odd_draw: 3.25, odd_under: 2.9 });
+  });
+
+  it("cadeia com SUPERBET_TABLE: gols/escanteios/vitória; asiático e 1º tempo ficam fora", () => {
+    const { linhas } = normalizeCollected(parseSuperbet(matchReal, "superbet"), SUPERBET_TABLE);
+    const byMkt = Object.fromEntries(linhas.map((l) => [l.market_type, l]));
+    expect(byMkt["gols"]).toMatchObject({ linha: 2.5, odd_over: 1.8, odd_under: 2.02 });
+    expect(byMkt["escanteios"]).toMatchObject({ linha: 9.5, odd_over: 1.69, odd_under: 2.1 });
+    expect(byMkt["vitoria"]).toMatchObject({ linha: 0, odd_over: 2.57, odd_draw: 3.25, odd_under: 2.9 });
+    expect(linhas).toHaveLength(3);
+  });
+});
+
 describe("parseSuperbetEventList (crosswalk) — matchName 'A·B' em PT", () => {
   it("split no '·' → {id, home, away} por jogo", () => {
     const data = { data: [

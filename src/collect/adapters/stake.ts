@@ -45,27 +45,80 @@ interface StakeEvent { id?: string | number; teams?: { home?: string; away?: str
 interface StakeListResponse { events?: StakeEvent[] }
 
 /** data.odds (array PLANO de seleções) → linhas cruas. market_label = marketId BASE (string), a
- * chave estável do de-para (sem o sufixo _NN de linha do /markets). Pula: frozen (sem preço),
- * oddTypeName != "Mais" (over-only; "Menos" é o lado Under), sem name/marketId/linha/odd. NÃO
- * normaliza (de-para fica no OddsNormalizer + STAKE_TABLE). */
+ * chave estável do de-para (sem o sufixo _NN de linha do /markets). Três formas no payload
+ * (recon 2026-07-06, USA×Belgium 1028225515):
+ * - PROP de jogador: oddTypeName "Mais"/"Menos", name=jogador, addValue=linha → PAREIA os
+ *   dois lados por (marketBase, jogador, linha); "Menos" sem par vivo cai fora.
+ * - TOTAL de partida: name="Mais"/"Menos" (oddTypeName null), addValue=linha → pareia por
+ *   (marketBase, linha), entidade "partida".
+ * - 1X2: oddTypeName "Home"/"Away" + empate com name "Empate" → raw subtype "1x2"; exige os
+ *   TRÊS (DNB/handicap não fecham). Qual marketId vale é decisão do de-para.
+ * Pula: frozen (sem preço), sem name/marketId/linha/odd. NÃO normaliza. */
 export function parseStake(data: unknown, book: string): RawCollectedLine[] {
   const odds = (data as StakeOddsResponse)?.odds;
   if (!Array.isArray(odds)) return [];
   const out: RawCollectedLine[] = [];
+  const props = new Map<string, { marketBase: string; player: string; linha: number; over?: number; under?: number }>();
+  const totals = new Map<string, { marketBase: string; linha: number; over?: number; under?: number }>();
+  const wdw = new Map<string, { home?: number; draw?: number; away?: number }>();
   for (const o of odds) {
     if (o?.frozen === true) continue;                          // sem preço (suspenso) → fora
-    if (o?.oddTypeName !== "Mais") continue;                   // só Over (escada) → "Menos" fora
-    const player = typeof o.name === "string" ? o.name.trim() : "";
-    if (!player) continue;
-    if (o.marketId == null) continue;
+    if (o?.marketId == null) continue;
     const marketBase = String(o.marketId).split("_")[0]!;      // /markets traz _NN; /odds traz base
-    const linha = o.addValue != null ? parseFloat(String(o.addValue)) : NaN;
-    if (!Number.isFinite(linha)) continue;                     // sem linha numérica → fail-closed
     const odd = typeof o.oddValue === "number" ? o.oddValue : parseFloat(String(o.oddValue ?? ""));
-    if (!Number.isFinite(odd)) continue;
+    if (!Number.isFinite(odd) || !(odd > 0)) continue;
+    const nm = typeof o.name === "string" ? o.name.trim() : "";
+    // PROP de jogador (oddTypeName Mais/Menos, name = jogador)
+    if (o.oddTypeName === "Mais" || o.oddTypeName === "Menos") {
+      if (!nm) continue;
+      const linha = o.addValue != null ? parseFloat(String(o.addValue)) : NaN;
+      if (!Number.isFinite(linha)) continue;                   // sem linha numérica → fail-closed
+      const k = `${marketBase}|${nm}|${linha}`;
+      const g = props.get(k) ?? { marketBase, player: nm, linha };
+      g[o.oddTypeName === "Mais" ? "over" : "under"] = odd;
+      props.set(k, g);
+      continue;
+    }
+    // TOTAL de partida (name Mais/Menos, oddTypeName null)
+    if (nm === "Mais" || nm === "Menos") {
+      const linha = o.addValue != null ? parseFloat(String(o.addValue)) : NaN;
+      if (!Number.isFinite(linha)) continue;
+      const k = `${marketBase}|${linha}`;
+      const g = totals.get(k) ?? { marketBase, linha };
+      g[nm === "Mais" ? "over" : "under"] = odd;
+      totals.set(k, g);
+      continue;
+    }
+    // 1X2 (Home/Away tipados; empate = name "Empate" sem tipo)
+    if (o.oddTypeName === "Home" || o.oddTypeName === "Away" || nm === "Empate") {
+      const g = wdw.get(marketBase) ?? {};
+      if (o.oddTypeName === "Home") g.home = odd;
+      else if (o.oddTypeName === "Away") g.away = odd;
+      else g.draw = odd;
+      wdw.set(marketBase, g);
+      continue;
+    }
+  }
+  for (const p of props.values()) {
+    if (p.over == null) continue;                              // sem over não há aposta
     out.push({
-      book, market_label: marketBase, entidade: player,
-      linha_raw: linha, odd_over: odd, odd_under: null, subtype: "over",
+      book, market_label: p.marketBase, entidade: p.player,
+      linha_raw: p.linha, odd_over: p.over, odd_under: p.under ?? null,
+      subtype: p.under != null ? "over_under" : "over",
+    });
+  }
+  for (const t of totals.values()) {
+    if (t.over == null) continue;
+    out.push({
+      book, market_label: t.marketBase, entidade: "partida",
+      linha_raw: t.linha, odd_over: t.over, odd_under: t.under ?? null, subtype: "over_under",
+    });
+  }
+  for (const [marketBase, g] of wdw) {
+    if (g.home == null || g.draw == null || g.away == null) continue;
+    out.push({
+      book, market_label: marketBase, entidade: "partida",
+      linha_raw: 0, odd_over: g.home, odd_under: g.away, odd_draw: g.draw, subtype: "1x2",
     });
   }
   return out;

@@ -52,6 +52,23 @@ export function parseKambi(data: unknown, book: string): RawCollectedLine[] {
     const raw = bo.criterion?.englishLabel ?? bo.criterion?.label;
     if (!raw || !Array.isArray(bo.outcomes)) continue;
     const label = cleanKambiLabel(raw);
+    // 1X2 (OT_ONE/OT_CROSS/OT_TWO) → uma raw subtype "1x2" com os 3 lados. Exige os TRÊS:
+    // Draw No Bet/handicap 2-way (ONE/TWO sem CROSS) não é 1X2 e cai fora aqui mesmo.
+    // Qual 1X2 vale (só "Full Time" = 90min; "Half Time" etc. não) é decisão do de-para.
+    const one = bo.outcomes.find((o) => o.type === "OT_ONE");
+    const cross = bo.outcomes.find((o) => o.type === "OT_CROSS");
+    const two = bo.outcomes.find((o) => o.type === "OT_TWO");
+    if (one && two) {
+      if (!cross) continue; // 2 vias sem empate (DNB/handicap) → não é over/under nem 1X2
+      const h = decode(one.odds), d = decode(cross.odds), a = decode(two.odds);
+      if (h != null && d != null && a != null) {
+        out.push({
+          book, market_label: label, entidade: "partida",
+          linha_raw: 0, odd_over: h, odd_under: a, odd_draw: d, subtype: "1x2",
+        });
+      }
+      continue;
+    }
     // Agrupa por (participant, line) → casa over com under.
     const groups = new Map<string, { over?: KambiOutcome; under?: KambiOutcome; participant?: string; line?: number }>();
     for (const o of bo.outcomes) {
